@@ -333,14 +333,14 @@ jockcloud/
 
 ### 认证与授权
 
-**用户认证**（[auth.js](file://c:\Users\emucoo\Desktop\jockcloud\src\middlewares\auth.js)、[auth-runtime.js](file://c:\Users\emucoo\Desktop\jockcloud\src\services\auth-runtime.js)）：
+**登录认证**（auth.js、auth-runtime.js）：
 - 密码加密存储（bcrypt）
 - 登录会话管理（基于 Cookie，`cloud_sid`）
 - 会话过期自动清理（数据库查询时验证 `expires_at`）
 - 支持短信验证码登录（可选，需配置阿里云短信服务）
-- RSA-OAEP 加密传输登录密码
+- RSA 加密传输登录密码（JSEncrypt，支持 PKCS#1 v1.5 和 OAEP 填充）
 
-**权限控制**（[permission-helpers.js](file://c:\Users\emucoo\Desktop\jockcloud\src\utils\permission-helpers.js)）：
+**权限控制**（permission-helpers.js）：
 - 角色权限：管理员（`admin`）/ 普通用户（`user`）
 - 文件权限：`upload`（上传）、`download`（下载）、`rename`（重命名）、`delete`（删除）、`move`（移动）、`copy`（复制）、`extract`（解压）、`viewArchive`（查看压缩包）
 - 菜单权限：基于用户/用户组配置可访问的菜单项
@@ -388,11 +388,6 @@ jockcloud/
 - `app.log` - 应用运行日志（INFO 级别）
 - `error.log` - 错误日志（ERROR 级别）
 
-**日志特性**：
-- 自动按日期分割
-- 支持日志级别控制
-- 敏感信息自动脱敏
-- 异步写入，不影响性能
 
 **查看日志**：
 
@@ -487,13 +482,6 @@ tail -f logs/error.log
 - Chart.js (图表库)
 - Monaco Editor (代码编辑器)
 
-### 代码规范
-
-- 使用 ESLint 进行代码检查（运行 `npm run lint`）
-- 遵循 Node.js 最佳实践
-- 保持代码注释清晰
-- 使用有意义的变量和函数名
-- 错误处理使用 try-catch 或 Promise.catch
 
 ### 添加新功能
 
