@@ -4,6 +4,8 @@
 
 JockCloud 是一个基于 Node.js + Express + MySQL 构建的私有云盘系统，支持文件上传、下载、分享、同步、用户权限管理等功能。
 
+![JockCloud 云盘系统](cloud.jpg)
+
 ### 主要功能
 
 -  **文件管理**：上传、下载、删除、重命名、移动、复制、解压缩（zip/rar/7z 等）
