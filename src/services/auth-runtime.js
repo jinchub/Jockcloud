@@ -182,8 +182,19 @@ const createAuthRuntime = ({
         Buffer.from(encryptedBase64, "base64")
       );
       return decrypted.toString("utf8");
-    } catch (_error) {
-      throw new Error("密码解密失败");
+    } catch (_oaepError) {
+      try {
+        const decrypted = crypto.privateDecrypt(
+          {
+            key: LOGIN_PASSWORD_KEY_PAIR.privateKey,
+            padding: crypto.constants.RSA_PKCS1_PADDING
+          },
+          Buffer.from(encryptedBase64, "base64")
+        );
+        return decrypted.toString("utf8");
+      } catch (_pkcsError) {
+        throw new Error("密码解密失败");
+      }
     }
   };
 

@@ -39,7 +39,7 @@ const runtime = {
   captchaId: "",
   activeMode: "account",
   loginEncryptKeyId: "",
-  loginEncryptCryptoKey: null
+  loginEncryptKey: null
 };
 
 const LOGIN_CAPTCHA_LENGTH = 4;
@@ -89,61 +89,26 @@ const persistLoginSession = (data = {}) => {
   localStorage.setItem("jc_login_session_minutes", String(sessionMinutes));
 };
 
-const pemToArrayBuffer = (pem) => {
-  const normalizedPem = String(pem || "")
-    .replace(/-----BEGIN PUBLIC KEY-----/g, "")
-    .replace(/-----END PUBLIC KEY-----/g, "")
-    .replace(/\s+/g, "");
-  const binary = window.atob(normalizedPem);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes.buffer;
-};
-
-const uint8ToBase64 = (buffer) => {
-  const bytes = new Uint8Array(buffer);
-  let binary = "";
-  for (let i = 0; i < bytes.length; i += 1) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return window.btoa(binary);
-};
-
 const applyLoginEncryptKey = async (keyInfo = {}) => {
   const keyId = String(keyInfo.keyId || "").trim();
   const publicKey = String(keyInfo.publicKey || "").trim();
   if (!keyId || !publicKey) {
     throw new Error("登录加密配置无效");
   }
-  if (runtime.loginEncryptCryptoKey && runtime.loginEncryptKeyId === keyId) {
+  if (runtime.loginEncryptKey && runtime.loginEncryptKeyId === keyId) {
     return;
   }
-  if (!window.crypto || !window.crypto.subtle) {
-    throw new Error("当前浏览器不支持密码加密");
-  }
-  const cryptoKey = await window.crypto.subtle.importKey(
-    "spki",
-    pemToArrayBuffer(publicKey),
-    { name: "RSA-OAEP", hash: "SHA-256" },
-    false,
-    ["encrypt"]
-  );
+  const encrypt = new JSEncrypt();
+  encrypt.setPublicKey(publicKey);
   runtime.loginEncryptKeyId = keyId;
-  runtime.loginEncryptCryptoKey = cryptoKey;
+  runtime.loginEncryptKey = encrypt;
 };
 
 const encryptLoginPassword = async (password) => {
-  if (!runtime.loginEncryptCryptoKey || !runtime.loginEncryptKeyId) {
+  if (!runtime.loginEncryptKey || !runtime.loginEncryptKeyId) {
     throw new Error("缺少登录加密密钥");
   }
-  const encryptedBuffer = await window.crypto.subtle.encrypt(
-    { name: "RSA-OAEP" },
-    runtime.loginEncryptCryptoKey,
-    new TextEncoder().encode(String(password || ""))
-  );
-  return uint8ToBase64(encryptedBuffer);
+  return runtime.loginEncryptKey.encrypt(String(password || ""));
 };
 
 const updateCodeButton = (button, remain, label = "获取短信验证码") => {
@@ -490,7 +455,7 @@ loginForm.addEventListener("submit", async (event) => {
       return { response, data };
     };
     let loginPayload = makeBasePayload();
-    if (runtime.loginEncryptCryptoKey && runtime.loginEncryptKeyId) {
+    if (runtime.loginEncryptKey && runtime.loginEncryptKeyId) {
       loginPayload = {
         ...loginPayload,
         encryptedPassword: await encryptLoginPassword(password),
