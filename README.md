@@ -1,4 +1,4 @@
-# JockCloud 云盘系统 - 安装与使用指南
+# JockCloud 云盘系统
 
 ## 项目简介
 
@@ -332,38 +332,53 @@ jockcloud/
 
 ### 认证与授权
 
-**用户认证**：
+**用户认证**（[auth.js](file://c:\Users\emucoo\Desktop\jockcloud\src\middlewares\auth.js)、[auth-runtime.js](file://c:\Users\emucoo\Desktop\jockcloud\src\services\auth-runtime.js)）：
 - 密码加密存储（bcrypt）
-- 登录会话管理（基于 Cookie）
-- 会话过期自动清理
-- 支持短信验证码登录（可选）
+- 登录会话管理（基于 Cookie，`cloud_sid`）
+- 会话过期自动清理（数据库查询时验证 `expires_at`）
+- 支持短信验证码登录（可选，需配置阿里云短信服务）
+- RSA-OAEP 加密传输登录密码
 
-**权限控制**：
-- 角色权限：管理员 / 普通用户
-- 文件权限：read（读取）、write（写入）、delete（删除）、share（分享）、manage（管理）
-- 菜单权限：基于用户/用户组配置可访问的菜单
-- 用户组权限：批量管理用户权限
+**权限控制**（[permission-helpers.js](file://c:\Users\emucoo\Desktop\jockcloud\src\utils\permission-helpers.js)）：
+- 角色权限：管理员（`admin`）/ 普通用户（`user`）
+- 文件权限：`upload`（上传）、`download`（下载）、`rename`（重命名）、`delete`（删除）、`move`（移动）、`copy`（复制）、`extract`（解压）、`viewArchive`（查看压缩包）
+- 菜单权限：基于用户/用户组配置可访问的菜单项
+- 用户组权限：批量管理用户权限（支持多用户组）
+- 权限继承：用户组权限 > 默认权限
 
 ### 文件安全
 
-- 文件软删除机制（回收站）
-- 存储空间配额限制
-- 上传文件类型和大小限制
-- 文件所有权验证
-- 隐藏空间支持（私密文件存储）
+- 文件软删除机制（回收站，`deleted_at` 字段标记）
+- 存储空间配额限制（用户级 + 用户组级）
+- 上传文件类型和大小限制（基于文件分类规则）
+- 文件所有权验证（检查 `user_id`）
+- 隐藏空间支持（私密文件存储，`space_type='hidden'`）
+- 文件夹路径验证（防止路径穿越）
 
 ### 接口安全
 
-- 请求速率限制（默认 100 次/分钟）
-- CSRF 防护
-- 错误信息脱敏
-- 敏感操作日志记录
+**速率限制**（[rate-limit.js](file://c:\Users\emucoo\Desktop\jockcloud\src\middlewares\rate-limit.js)）：
+- 基于 IP 的请求速率限制
+- 可配置时间窗口和最大请求数
+- 默认：60 秒内最多 100 次请求
+- 支持系统设置界面动态配置
+
+**短信频率限制**（[auth-runtime.js](file://c:\Users\emucoo\Desktop\jockcloud\src\services\auth-runtime.js)）：
+- 短信发送间隔限制（默认 60 秒）
+- IP 频率限制（默认 10 分钟最多 10 次）
+- 验证码过期时间（5 分钟）
+
+**其他防护**：
+- 错误信息脱敏（数据库错误统一处理）
+- 敏感操作日志记录（文件操作日志）
+- 请求参数验证（配额、密码长度等）
 
 ### 数据安全
 
 - MySQL 数据库持久化存储
 - 支持云存储加密传输（HTTPS）
 - 定期备份建议
+- 会话 Token 随机生成（`crypto.randomBytes`）
 
 ## 日志管理
 
