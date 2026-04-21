@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>我的网盘</title>
+  <style>
+    html.menu-permission-init #mainNav .primary-nav-item {
+      display: none !important;
+    }
+    @media screen and (max-width: 768px) {
+      html.mobile-secondary-init #secondarySidebar {
+        margin-left: calc(-1 * min(84vw, 212px)) !important;
+        border-right: none !important;
+      }
+      html.mobile-secondary-init #secondarySidebar .secondary-menu,
+      html.mobile-secondary-init #secondarySidebar .sidebar-footer {
+        display: none !important;
+      }
+      html.mobile-secondary-init #secondarySidebar .secondary-header-toggle {
+        justify-content: center;
+        position: absolute;
+        display: flex;
+        align-items: center;
+        left: calc(100% + 8px);
+        top: 12px;
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        border-radius: 999px;
+        background: #fff;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+        z-index: 3;
+      }
+      html.mobile-secondary-init #secondarySidebar .header-title {
+        display: none !important;
+      }
+    }
+  </style>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/style-mobile.css" media="screen and (max-width: 768px)" />
+  <link rel="stylesheet" href="/fontawesome/css/all.min.css">
+  <script>
+    (function() {
+      var THEME_KEY = "jockcloud_theme";
+      var savedTheme = localStorage.getItem(THEME_KEY) || "auto";
+      var actualTheme;
+      if (savedTheme === "auto") {
+        actualTheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      } else {
+        actualTheme = savedTheme;
+      }
+      if (actualTheme === "dark") {
+        document.documentElement.setAttribute("data-theme", "dark");
+      }
+    })();
+  </script>
+  <script src="/js/theme.js"></script>
+  <script>
+    document.documentElement.classList.add("menu-permission-init");
+    (function applyMenuInitFromCache() {
+      const ALL_MENU_KEYS = ["files", "transfer", "users", "permissions", "quota", "mounts", "sync", "monitor", "settings"];
+      let allowedMenus = ["files", "transfer"];
+      let mobileVisibleMenus = ALL_MENU_KEYS.slice();
+      try {
+        const allowedRaw = JSON.parse(localStorage.getItem("drive_allowed_menus_cache_v1") || "[]");
+        const mobileRaw = JSON.parse(localStorage.getItem("drive_mobile_visible_menus_cache_v1") || "[]");
+        if (Array.isArray(allowedRaw) && allowedRaw.length > 0) {
+          allowedMenus = allowedRaw.filter((key) => ALL_MENU_KEYS.includes(String(key)));
+        }
+        if (Array.isArray(mobileRaw) && mobileRaw.length > 0) {
+          mobileVisibleMenus = mobileRaw.filter((key) => ALL_MENU_KEYS.includes(String(key)));
+        }
+      } catch (_error) {}
+      const isMobile = window.matchMedia && window.matchMedia("(max-width: 768px)").matches;
+      const renderable = isMobile
+        ? allowedMenus.filter((key) => mobileVisibleMenus.includes(key))
+        : allowedMenus.slice();
+      if (!renderable.includes("files")) {
+        renderable.unshift("files");
+      }
+      if (!renderable.includes("transfer")) {
+        renderable.splice(Math.min(1, renderable.length), 0, "transfer");
+      }
+      const selectors = renderable.map((key) => {
+        if (key === "transfer") return '#mainNav #uploadTasksNavBtn';
+        return `#mainNav .primary-nav-item[data-view="${key}"]`;
+      });
+      const styleEl = document.createElement("style");
+      styleEl.id = "menuPermissionInitStyle";
+      styleEl.textContent = `html.menu-permission-init #mainNav .primary-nav-item{display:none!important;}${selectors.join(",")}{display:flex!important;}`;
+      document.head.appendChild(styleEl);
+    })();
+    if (window.matchMedia && window.matchMedia("(max-width: 768px)").matches) {
+      document.documentElement.classList.add("mobile-secondary-init");
+    }
+  </script>
+</head>
+<body>
+  <div class="app-container">
+    <aside class="sidebar-primary">
+      <div class="logo-box">
+      </div>
+      <nav class="primary-nav" id="mainNav">
+        <a href="#" class="primary-nav-item active" data-view="files" title="文件"><i class="fa-solid fa-folder-open"></i><span>文件</span></a>
+        <a href="#" class="primary-nav-item" id="uploadTasksNavBtn" title="传输"><i class="fa-solid fa-right-left"></i><span>传输</span><span class="task-count-badge" id="uploadTasksCompletedBadge" style="display: none;"></span></a>
+        <a href="#" class="primary-nav-item" data-view="users" title="用户"><i class="fa-solid fa-user-group"></i><span>用户</span></a>
+        <a href="#" class="primary-nav-item" data-view="permissions" title="权限"><i class="fa-solid fa-shield-halved"></i><span>权限</span></a>
+        <a href="#" class="primary-nav-item" data-view="quota" title="空间"><i class="fa-solid fa-chart-pie"></i><span>空间</span></a>
+        <a href="#" class="primary-nav-item" data-view="mounts" title="挂载"><i class="fa-solid fa-network-wired"></i><span>挂载</span></a>
+        <a href="#" class="primary-nav-item" data-view="sync" id="syncNavBtn" title="同步"><i class="fa-solid fa-rotate"></i><span>同步</span></a>
+        <a href="#" class="primary-nav-item" data-view="monitor" id="monitorNavBtn" title="监控"><i class="fa-solid fa-chart-simple"></i><span>监控</span></a>
+        <a href="#" class="primary-nav-item" data-view="settings" id="settingsNavBtn" title="设置"><i class="fa-solid fa-gear"></i><span>设置</span></a>
+      </nav>
+      <div class="primary-footer">
+        <div class="mobile-upload-entry" id="mobileUploadEntry">
+          <button type="button" class="mobile-upload-trigger" id="mobileUploadMenuBtn" title="上传">
+            <i class="fa-solid fa-plus"></i>
+          </button>
+          <span class="mobile-upload-label">上传</span>
+          <div class="mobile-upload-popover" id="mobileUploadPopover">
+            <button type="button" class="mobile-upload-action" id="mobileUploadFileBtn">
+              <i class="fa-solid fa-plus"></i> 文件
+            </button>
+            <button type="button" class="mobile-upload-action" id="mobileUploadDirBtn">
+              <i class="fa-solid fa-plus"></i> 目录
+            </button>
+          </div>
+        </div>
+        <a href="#" class="primary-nav-item" id="logoutBtn" title="退出登录">
+          <i class="fa-solid fa-power-off"></i>
+          <span style="color: #f53f3f;">退出</span>
+        </a>
+      </div>
+    </aside>
+
+    <aside class="sidebar-secondary" id="secondarySidebar">
+      <div class="secondary-header-toggle" id="toggleSecondaryBtn">
+        <i class="fa-solid fa-angles-left"></i>
+        <div class="header-title">
+          <button class="btn-upload" id="uploadFileBtn">
+            <i class="fa-solid fa-plus"></i> 文件
+          </button>
+          <button class="btn-upload" id="uploadDirBtn">
+            <i class="fa-solid fa-plus"></i> 目录
+          </button>
+        </div>
+      </div>
+      <div class="secondary-menu">
+        <div class="menu-group expanded">
+          <div class="menu-group-header active" id="myFilesHeader">
+            <div class="header-left">
+              <i class="fa-regular fa-folder icon-leading"></i>
+              <span class="group-title">我的文件</span>
+            </div>
+            <button type="button" class="group-more-btn" id="myFilesMoreBtn" aria-label="显示列表名称">
+              <i class="fa-solid fa-ellipsis-vertical"></i>
+            </button>
+            <div class="group-name-panel" id="myFilesNamePanel">
+              <label class="group-name-item"><input type="checkbox" class="group-name-checkbox" data-category-visibility="image" />图片</label>
+              <label class="group-name-item"><input type="checkbox" class="group-name-checkbox" data-category-visibility="doc" />文档</label>
+              <label class="group-name-item"><input type="checkbox" class="group-name-checkbox" data-category-visibility="video" />视频</label>
+              <label class="group-name-item"><input type="checkbox" class="group-name-checkbox" data-category-visibility="text" />文本</label>
+              <label class="group-name-item"><input type="checkbox" class="group-name-checkbox" data-category-visibility="audio" />音频</label>
+              <label class="group-name-item"><input type="checkbox" class="group-name-checkbox" data-category-visibility="archive" />压缩</label>
+              <label class="group-name-item"><input type="checkbox" class="group-name-checkbox" data-category-visibility="program" />程序</label>
+              <label class="group-name-item"><input type="checkbox" class="group-name-checkbox" data-category-visibility="other" />其它</label>
+            </div>
+          </div>
+          <div class="sub-items">
+            <a href="#" class="sub-nav-item mobile-category-all active" data-category="all"><i class="fa-regular fa-file"></i>全部</a>
+            <a href="#" class="sub-nav-item" data-category="image" style="display:none;"><i class="fa-regular fa-image"></i>图片</a>
+            <a href="#" class="sub-nav-item" data-category="doc" style="display:none;"><i class="fa-regular fa-file-lines"></i>文档</a>
+            <a href="#" class="sub-nav-item" data-category="video" style="display:none;"><i class="fa-regular fa-circle-play"></i>视频</a>
+            <a href="#" class="sub-nav-item" data-category="text" style="display:none;"><i class="fa-regular fa-file-lines"></i>文本</a>
+            <a href="#" class="sub-nav-item" data-category="audio" style="display:none;"><i class="fa-solid fa-headphones"></i>音频</a>
+            <a href="#" class="sub-nav-item" data-category="archive" style="display:none;"><i class="fa-regular fa-file-zipper"></i>压缩</a>
+            <a href="#" class="sub-nav-item" data-category="program" style="display:none;"><i class="fa-solid fa-download"></i>程序</a>
+            <a href="#" class="sub-nav-item" data-category="other" style="display:none;"><i class="fa-solid fa-ellipsis"></i>其它</a>
+          </div>
+        </div>
+
+        <div class="menu-divider"></div>
+
+        <a href="#" class="secondary-nav-item" id="hiddenSpaceNavBtn"><i class="fa-solid fa-user-secret"></i><span class="item-text">隐藏空间</span><span class="dot-red" id="hiddenSpaceDot" style="display:none;"></span></a>
+        
+        <div class="menu-divider"></div>
+
+        <a href="#" class="secondary-nav-item"><i class="fa-regular fa-trash-can"></i><span class="item-text">回收站</span></a>
+        
+        <div class="menu-divider"></div>
+
+        <a href="#" class="secondary-nav-item" id="mySharesNavBtn"><i class="fa-solid fa-share-nodes"></i><span class="item-text">我的分享</span></a>
+        
+        <div class="menu-divider"></div>
+
+        <div class="menu-group expanded">
+          <div class="menu-group-header" id="quickAccessHeader">
+            <div class="header-left">
+              <i class="fa-regular fa-star icon-leading"></i>
+              <span class="group-title">收藏</span>
+            </div>
+          </div>
+          <div class="sub-items" id="quickAccessList">
+             <div class="drag-placeholder">暂无收藏</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="capacity-box" id="capacityBox">
+          <div class="capacity-desc">
+            <span class="capacity-defa">空间使用详情</span>
+            <button type="button" class="capacity-refresh-btn" id="refreshCapacityBtn"><i class="fa-solid fa-rotate-right" style="font-size: 10px;"></i></button>
+          </div>
+          <div class="capacity-bar capacity-defa"><div class="capacity-inner" style="width: 2%;"></div></div>
+          <div class="capacity-text capacity-defa" id="stats"></div>
+
+        </div>
+      </div>
+    </aside>
+
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <main class="main-content">
+  <!-- INCLUDE: view-files.html -->
+
+  <!-- INCLUDE: view-users.html -->
+
+  <!-- INCLUDE: view-permissions.html -->
+
+  <!-- INCLUDE: view-quota.html -->
+
+  <!-- INCLUDE: view-mounts.html -->
+
+  <!-- INCLUDE: view-sync.html -->
+
+  <!-- INCLUDE: view-monitor.html -->
+
+  <!-- INCLUDE: view-settings.html -->
+    </main>
+  </div>
+
+  <div id="contextMenu" class="context-menu" style="display: none;">
+    <div class="menu-item" id="menuOpen"></div>
+    <div class="menu-item" id="menuDetail"></div>
+    <div class="menu-item" id="menuCopy"></div>
+    <div class="menu-item" id="menuDownload"></div>
+    <div class="menu-item" id="menuZipView"></div>
+    <div class="menu-item" id="menuZipExtractCurrent"></div>
+    <div class="menu-item" id="menuZipExtractTarget"></div>
+    <div class="menu-item" id="menuLocateFolder"></div>
+    <div class="menu-item" id="menuShare"></div>
+    <div class="menu-item" id="menuRename"></div>
+    <div class="menu-item" id="menuMove"></div>
+    <div class="menu-item danger" id="menuDelete"></div>
+  </div>
+
+  <!-- INCLUDE: shareModal.html -->
+
+  <!-- INCLUDE: previewModal.html -->
+  <div id="previewMiniWindow" class="preview-mini-window">
+    <div class="preview-mini-header">
+      <div class="preview-mini-title" id="previewMiniTitle">文件预览</div>
+      <div class="preview-mini-actions">
+        <button type="button" id="maximizePreviewBtn" class="preview-mini-btn"><i class="fa-regular fa-window-maximize"></i></button>
+        <button type="button" id="closeMiniPreviewBtn" class="preview-mini-btn"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+    </div>
+    <div class="preview-mini-body" id="previewMiniBody"></div>
+  </div>
+
+  <!-- INCLUDE: deleteConfirmModal.html -->
+
+  <!-- INCLUDE: newFolderModal.html -->
+
+  <!-- INCLUDE: renameModal.html -->
+
+  <!-- INCLUDE: batchTargetModal.html -->
+
+  <!-- INCLUDE: userModal.html -->
+
+  <!-- INCLUDE: userGroupModal.html -->
+
+  <!-- INCLUDE: mountModal.html -->
+
+  <!-- INCLUDE: syncTaskModal.html -->
+
+  <!-- INCLUDE: profileCenterModal.html -->
+
+  <!-- INCLUDE: avatarUpdateModal.html -->
+
+  <!-- INCLUDE: profileEditModal.html -->
+
+  <!-- INCLUDE: planComparisonModal.html -->
+
+  <script src="/js/mounts.js"></script>
+  <script src="/js/settings.js"></script>
+  <script src="/js/dark-mode-handler.js"></script>
+  <script src="/chart.js/chart.umd.js"></script>
+  <script src="/monaco-editor@0.52.2/min/vs/loader.js"></script>
+  <script src="/js/drive-preview.js"></script>
+  <script src="/js/hidden-space.js"></script>
+  <script src="/js/drive-dom.js"></script>
+  <script src="/js/drive-state.js"></script>
+  <script src="/js/drive-utils.js"></script>
+  <script src="/js/sync.js"></script>
+  <script src="/js/drive-api.js"></script>
+  <script src="/js/drive-renderers.js"></script>
+  <script src="/js/drive-actions.js"></script>
+  <script src="/js/drive-events.js"></script>
+  <script src="/js/drive-nav-handlers.js"></script>
+  <script src="/js/drive-sort-handlers.js"></script>
+  <script src="/js/drive-new-features.js"></script>
+  <script src="/js/drive-user-management.js"></script>
+  <script src="/js/drive-quota.js"></script>
+  <script src="/js/drive-init.js"></script>
+  <script src="/js/drive-monitor.js"></script>
+</body>
+</html>

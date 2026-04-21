@@ -1,0 +1,604 @@
+        <div id="view-monitor" class="view-section" style="display: none;">
+        <div class="mounts-layout">
+          <aside class="sidebar-secondary mounts-sidebar" id="monitorSidebar">
+            <div class="secondary-header-toggle mounts-sidebar-header">
+              <div class="mounts-sidebar-left">
+                <button type="button" class="mounts-toggle-btn" id="toggleMonitorSidebarBtn" title="收起侧边栏">
+                  <i class="fa-solid fa-angles-left"></i>
+                </button>
+                <span class="mounts-sidebar-title">监控菜单</span>
+              </div>
+            </div>
+            <div class="secondary-menu" id="monitorAsideList">
+              <button type="button" class="settings-menu-item active" data-monitor-menu="system">
+                <i class="fa-solid fa-server"></i>
+                <span>系统监控</span>
+              </button>
+              <button type="button" class="settings-menu-item" data-monitor-menu="resource">
+                <i class="fa-solid fa-microchip"></i>
+                <span>资源监控</span>
+              </button>
+              <button type="button" class="settings-menu-item" data-monitor-menu="api">
+                <i class="fa-solid fa-plug"></i>
+                <span>接口监控</span>
+              </button>
+              <button type="button" class="settings-menu-item" data-monitor-menu="access">
+                <i class="fa-solid fa-users-gear"></i>
+                <span>访问监控</span>
+              </button>
+              <button type="button" class="settings-menu-item" data-monitor-menu="file">
+                <i class="fa-solid fa-file-circle-exclamation"></i>
+                <span>文件监控</span>
+              </button>
+            </div>
+          </aside>
+          <div class="mounts-main">
+            <div class="mounts-main-header">
+              <div class="mounts-main-title-row">
+                <div class="mounts-title-group">
+                  <h2 id="monitorPanelTitle">系统监控</h2>
+                </div>
+              </div>
+              <div class="mounts-meta-row">
+                <div class="mounts-meta" id="monitorPanelMeta">实时监控系统运行状态</div>
+              </div>
+            </div>
+            <div class="monitor-panel" id="monitorPanel">
+              <div id="monitor-system" class="monitor-sub-panel">
+                <div class="admin-view-head-row monitor-head-row">
+                  <h2>系统监控</h2>
+                  <div class="monitor-head-actions">
+                    <button class="btn-upload" id="refreshSystemMonitorBtn"><i class="fa-solid fa-rotate-right"></i> 刷新</button>
+                  </div>
+                </div>
+                <div class="monitor-sub-panel-content">
+                  <div class="quota-cards monitor-quota-cards">
+                    <div class="card monitor-card">
+                      <h3 class="monitor-card-title">服务器状态</h3>
+                      <p class="monitor-card-value green" id="monitorServerStatus">运行中</p>
+                      <p class="monitor-card-desc" id="monitorServerLastCheck">最后检查：--</p>
+                    </div>
+                    <div class="card monitor-card">
+                      <h3 class="monitor-card-title">系统版本</h3>
+                      <p class="monitor-card-value" id="monitorSystemVersion">1.0.0</p>
+                      <p class="monitor-card-desc">JockCloud</p>
+                    </div>
+                    <div class="card monitor-card">
+                      <h3 class="monitor-card-title">运行时间</h3>
+                      <p class="monitor-card-value" id="monitorUptime">--</p>
+                      <p class="monitor-card-desc" id="monitorUptimeDesc">自上次启动</p>
+                    </div>
+                    <div class="card monitor-card">
+                      <div class="monitor-user-split">
+                        <div class="monitor-user-column">
+                          <h3 class="monitor-card-title">在线用户</h3>
+                          <p class="monitor-card-value blue" id="monitorOnlineUsers">--</p>
+                          <p class="monitor-card-desc">当前活跃</p>
+                        </div>
+                        <div class="monitor-user-column">
+                          <h3 class="monitor-card-title">总用户</h3>
+                          <p class="monitor-card-value purple" id="monitorTotalUsers">--</p>
+                          <p class="monitor-card-desc">系统总用户</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="monitor-info-section">
+                    <h3 class="monitor-info-title">系统信息</h3>
+                    <div class="admin-table-panel">
+                      <div class="admin-table-scroll">
+                        <table class="data-table" id="systemInfoTable">
+                          <thead>
+                            <tr>
+                              <th class="monitor-table-th">属性</th>
+                              <th>值</th>
+                            </tr>
+                          </thead>
+                          <tbody id="systemInfoTableBody">
+                            <tr>
+                              <td>Node.js 版本</td>
+                              <td id="nodeVersion">--</td>
+                            </tr>
+                            <tr>
+                              <td>平台</td>
+                              <td id="platformInfo">--</td>
+                            </tr>
+                            <tr>
+                              <td>架构</td>
+                              <td id="archInfo">--</td>
+                            </tr>
+                            <tr>
+                              <td>启动时间</td>
+                              <td id="startTime">--</td>
+                            </tr>
+                            <tr>
+                              <td>服务端口</td>
+                              <td id="serverPort">--</td>
+                            </tr>
+                            <tr>
+                              <td>程序目录</td>
+                              <td id="programDir">--</td>
+                            </tr>
+                            <tr>
+                              <td>前端 JS 更新</td>
+                              <td id="jsBuildTime">--</td>
+                            </tr>
+                            <tr>
+                              <td>内存使用</td>
+                              <td id="memoryUsage">--</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div id="monitor-resource" class="monitor-sub-panel" style="display: none;">
+                <div class="admin-view-head-row monitor-head-row">
+                  <h2>资源监控</h2>
+                  <div class="monitor-head-actions">
+                    <select class="monitor-time-filter" id="resourceTimeFilterPreset">
+                      <option value="5m" selected>最近 5 分钟</option>
+                      <option value="30m">最近 30 分钟</option>
+                      <option value="1h">最近 1 小时</option>
+                      <option value="6h">最近 6 小时</option>
+                      <option value="24h">最近 24 小时</option>
+                      <option value="custom">自定义时间</option>
+                    </select>
+                    <div class="monitor-time-range-custom" id="resourceTimeRangeCustom" style="display: none;">
+                      <input type="datetime-local" class="monitor-time-input" id="resourceStartTime" />
+                      <span style="margin: 0 8px; color: #666;">至</span>
+                      <input type="datetime-local" class="monitor-time-input" id="resourceEndTime" />
+                    </div>
+                    <button class="btn-upload" id="refreshResourceMonitorBtn"><i class="fa-solid fa-rotate-right"></i> 刷新</button>
+                  </div>
+                </div>
+                <div class="monitor-sub-panel-content">
+                  <div class="quota-cards monitor-resource-cards">
+                    <div class="card monitor-resource-card">
+                      <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px;">
+                        <h3 class="monitor-resource-title" style="margin: 0;">系统状态</h3>
+                        <p class="monitor-resource-value" style="font-size: 18px; margin: 0;" id="systemStatusValue">正常</p>
+                      </div>
+                      <p class="monitor-resource-desc" id="lastUpdateTime">最后更新: --</p>
+                    </div>
+                    <div class="card monitor-resource-card">
+                      <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px;">
+                        <h3 class="monitor-resource-title" style="margin: 0;">CPU 使用率</h3>
+                        <p class="monitor-resource-value" id="cpuUsageValue" style="margin: 0;">--%</p>
+                      </div>
+                      <div class="progress-bar">
+                        <div class="progress-bar-inner" id="cpuProgressBar" style="width: 0%;"></div>
+                      </div>
+                      <p class="monitor-resource-desc" id="cpuDetails">核心数: --</p>
+                    </div>
+                    <div class="card monitor-resource-card">
+                      <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px;">
+                        <h3 class="monitor-resource-title" style="margin: 0;">内存使用率</h3>
+                        <p class="monitor-resource-value" id="memoryUsageValue" style="margin: 0;">--%</p>
+                      </div>
+                      <div class="progress-bar">
+                        <div class="progress-bar-inner" id="memoryProgressBar" style="width: 0%;"></div>
+                      </div>
+                      <p class="monitor-resource-desc" id="memoryDetails">已用: -- / 总计: --</p>
+                    </div>
+                    <div class="card monitor-resource-card">
+                      <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px;">
+                        <h3 class="monitor-resource-title" style="margin: 0;">磁盘使用率</h3>
+                        <p class="monitor-resource-value" id="diskUsageValue" style="margin: 0;">--%</p>
+                      </div>
+                      <div class="progress-bar">
+                        <div class="progress-bar-inner" id="diskProgressBar" style="width: 0%;"></div>
+                      </div>
+                      <p class="monitor-resource-desc" id="diskDetails">已用: -- / 总计: --</p>
+                    </div>
+                  </div>
+                  <div class="monitor-info-section" style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+                    <div>
+                      <h3 class="monitor-info-title">CPU 使用率 (%)</h3>
+                      <div class="card monitor-chart-card">
+                        <canvas id="cpuChart"></canvas>
+                      </div>
+                    </div>
+                    <div>
+                      <h3 class="monitor-info-title">内存使用率 (%)</h3>
+                      <div class="card monitor-chart-card">
+                        <canvas id="memoryChart"></canvas>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="monitor-info-section" style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+                    <div>
+                      <h3 class="monitor-info-title">磁盘使用率 (%)</h3>
+                      <div class="card monitor-chart-card">
+                        <canvas id="diskChart"></canvas>
+                      </div>
+                    </div>
+                    <div>
+                      <h3 class="monitor-info-title">网络吞吐量</h3>
+                      <div class="card monitor-chart-card">
+                        <canvas id="networkChart"></canvas>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="monitor-info-section">
+                    <h3 class="monitor-info-title">详细信息</h3>
+                    <div class="admin-table-panel">
+                      <div class="admin-table-scroll">
+                        <table class="data-table" id="resourceDetailTable">
+                          <thead>
+                            <tr>
+                              <th class="monitor-table-th">资源类型</th>
+                              <th>详情</th>
+                            </tr>
+                          </thead>
+                          <tbody id="resourceDetailTableBody">
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div id="monitor-api" class="monitor-sub-panel" style="display: none;">
+                <div class="admin-view-head-row monitor-head-row">
+                  <h2>接口监控</h2>
+                  <div class="monitor-head-actions">
+                    <select class="monitor-time-filter" id="apiTimeFilterPreset">
+                      <option value="realtime">实时</option>
+                      <option value="1h" selected>最近 1 小时</option>
+                      <option value="6h">最近 6 小时</option>
+                      <option value="12h">最近 12 小时</option>
+                      <option value="24h">最近 24 小时</option>
+                      <option value="custom">自定义时间</option>
+                    </select>
+                    <div class="monitor-time-range-custom" id="apiTimeRangeCustom" style="display: none;">
+                      <input type="datetime-local" class="monitor-time-input" id="apiStartTime" />
+                      <span style="margin: 0 8px; color: #666;">至</span>
+                      <input type="datetime-local" class="monitor-time-input" id="apiEndTime" />
+                    </div>
+                    <button class="btn-upload" id="refreshApiMonitorBtn"><i class="fa-solid fa-rotate-right"></i> 刷新</button>
+                  </div>
+                </div>
+                <div class="monitor-sub-panel-content">
+                  <div class="quota-cards monitor-resource-cards">
+                    <div class="card monitor-resource-card">
+                      <h3 class="monitor-resource-title">总请求数</h3>
+                      <p class="monitor-resource-value" id="apiTotalRequests">--</p>
+                    </div>
+                    <div class="card monitor-resource-card">
+                      <h3 class="monitor-resource-title">成功率</h3>
+                      <p class="monitor-resource-value" id="apiSuccessRate">--%</p>
+                    </div>
+                    <div class="card monitor-resource-card">
+                      <h3 class="monitor-resource-title">平均响应时间</h3>
+                      <p class="monitor-resource-value" id="apiAvgResponseTime">-- ms</p>
+                    </div>
+                    <div class="card monitor-resource-card">
+                      <h3 class="monitor-resource-title">错误数</h3>
+                      <p class="monitor-resource-value" id="apiErrorRequests">--</p>
+                    </div>
+                  </div>
+                  <div class="monitor-info-section">
+                    <h3 class="monitor-info-title">热门接口 TOP 10</h3>
+                    <div class="admin-table-panel">
+                      <div class="admin-table-scroll">
+                        <table class="data-table" id="apiTopEndpointsTable">
+                          <thead>
+                            <tr>
+                              <th class="monitor-table-th">接口</th>
+                              <th>请求数</th>
+                              <th>平均响应时间</th>
+                              <th>成功率</th>
+                            </tr>
+                          </thead>
+                          <tbody id="apiTopEndpointsTableBody">
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="monitor-info-section file-table">
+                    <h3 class="monitor-info-title">最近请求记录</h3>
+                    <div class="admin-table-panel" style="flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0;">
+                      <div class="admin-table-scroll" style="flex: 1; overflow-y: auto;">
+                        <table class="data-table" id="apiRecentRequestsTable">
+                          <thead>
+                            <tr>
+                              <th class="monitor-table-th sortable" data-sort="timestamp">时间 <span class="sort-icon"></span></th>
+                              <th class="sortable" data-sort="method">方法 <span class="sort-icon"></span></th>
+                              <th class="sortable" data-sort="url">接口 <span class="sort-icon"></span></th>
+                              <th class="sortable" data-sort="statusCode">状态码 <span class="sort-icon"></span></th>
+                              <th class="sortable" data-sort="durationMs">耗时 <span class="sort-icon"></span></th>
+                            </tr>
+                          </thead>
+                          <tbody id="apiRecentRequestsTableBody">
+                          </tbody>
+                        </table>
+                      </div>
+                      <div class="pagination-bar" id="apiRecentRequestsPagination">
+                        <span class="pagination-summary" id="apiRecentPaginationSummary">共 0 条</span>
+                        <div class="pagination-controls">
+                          <button type="button" id="apiRecentPrevBtn" disabled>上一页</button>
+                          <span id="apiRecentPageInfo">1 / 1</span>
+                          <button type="button" id="apiRecentNextBtn" disabled>下一页</button>
+                          <select id="apiRecentPageSizeSelect">
+                            <option value="10" selected>10 / 页</option>
+                            <option value="20">20 / 页</option>
+                            <option value="50">50 / 页</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div id="monitor-access" class="monitor-sub-panel" style="display: none;">
+                <div class="admin-view-head-row monitor-head-row">
+                  <h2>访问监控</h2>
+                  <div class="monitor-head-actions">
+                    <select class="monitor-time-filter" id="accessTimeFilterPreset">
+                      <option value="realtime">实时</option>
+                      <option value="1h" selected>最近 1 小时</option>
+                      <option value="6h">最近 6 小时</option>
+                      <option value="12h">最近 12 小时</option>
+                      <option value="24h">最近 24 小时</option>
+                      <option value="custom">自定义时间</option>
+                    </select>
+                    <div class="monitor-time-range-custom" id="accessTimeRangeCustom" style="display: none;">
+                      <input type="datetime-local" class="monitor-time-input" id="accessStartTime" />
+                      <span style="margin: 0 8px; color: #666;">至</span>
+                      <input type="datetime-local" class="monitor-time-input" id="accessEndTime" />
+                    </div>
+                    <button class="btn-upload" id="refreshAccessMonitorBtn"><i class="fa-solid fa-rotate-right"></i> 刷新</button>
+                  </div>
+                </div>
+                <div class="monitor-sub-panel-content">
+                  <div class="quota-cards monitor-resource-cards">
+                    <div class="card monitor-resource-card">
+                      <h3 class="monitor-resource-title">总访问次数</h3>
+                      <p class="monitor-resource-value" id="accessTotalRequests">--</p>
+                      <p class="monitor-resource-desc">最近 1 小时</p>
+                    </div>
+                    <div class="card monitor-resource-card">
+                      <h3 class="monitor-resource-title">独立用户数</h3>
+                      <p class="monitor-resource-value" id="accessUniqueUsers">--</p>
+                      <p class="monitor-resource-desc">活跃用户</p>
+                    </div>
+                    <div class="card monitor-resource-card">
+                      <h3 class="monitor-resource-title">独立 IP 数</h3>
+                      <p class="monitor-resource-value" id="accessUniqueIps">--</p>
+                      <p class="monitor-resource-desc">访问来源</p>
+                    </div>
+                    <div class="card monitor-resource-card">
+                      <h3 class="monitor-resource-title">人均访问</h3>
+                      <p class="monitor-resource-value" id="accessAvgPerUser">--</p>
+                      <p class="monitor-resource-desc">次/用户</p>
+                    </div>
+                  </div>
+                  <div class="monitor-info-section">
+                    <h3 class="monitor-info-title">活跃用户 TOP 10</h3>
+                    <div class="admin-table-panel">
+                      <div class="admin-table-scroll">
+                        <table class="data-table" id="accessTopUsersTable">
+                          <thead>
+                            <tr>
+                              <th class="monitor-table-th">用户 ID</th>
+                              <th>访问次数</th>
+                            </tr>
+                          </thead>
+                          <tbody id="accessTopUsersTableBody">
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="monitor-info-section">
+                    <h3 class="monitor-info-title">热门 IP TOP 10</h3>
+                    <div class="admin-table-panel">
+                      <div class="admin-table-scroll">
+                        <table class="data-table" id="accessTopIpsTable">
+                          <thead>
+                            <tr>
+                              <th class="monitor-table-th">IP 地址</th>
+                              <th>访问次数</th>
+                            </tr>
+                          </thead>
+                          <tbody id="accessTopIpsTableBody">
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="monitor-info-section">
+                    <h3 class="monitor-info-title">热门接口 TOP 10</h3>
+                    <div class="admin-table-panel">
+                      <div class="admin-table-scroll">
+                        <table class="data-table" id="accessTopPathsTable">
+                          <thead>
+                            <tr>
+                              <th class="monitor-table-th">接口路径</th>
+                              <th>接口说明</th>
+                              <th>访问次数</th>
+                            </tr>
+                          </thead>
+                          <tbody id="accessTopPathsTableBody">
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div id="monitor-file" class="monitor-sub-panel" style="display: none;">
+                <div class="admin-view-head-row monitor-head-row">
+                  <h2>文件监控</h2>
+                  <div class="monitor-head-actions">
+                    <select class="monitor-time-filter" id="fileTimeFilterPreset">
+                      <option value="realtime">实时</option>
+                      <option value="1h">最近 1 小时</option>
+                      <option value="6h">最近 6 小时</option>
+                      <option value="12h">最近 12 小时</option>
+                      <option value="24h" selected>最近 24 小时</option>
+                      <option value="custom">自定义时间</option>
+                    </select>
+                    <div class="monitor-time-range-custom" id="fileTimeRangeCustom" style="display: none;">
+                      <input type="datetime-local" class="monitor-time-input" id="fileStartTime" />
+                      <span style="margin: 0 8px; color: #666;">至</span>
+                      <input type="datetime-local" class="monitor-time-input" id="fileEndTime" />
+                    </div>
+                    <button class="btn-upload" id="refreshFileMonitorBtn"><i class="fa-solid fa-rotate-right"></i> 刷新</button>
+                  </div>
+                </div>
+                <div class="monitor-sub-panel-content">
+                  <!-- 第一类：操作统计 -->
+                  <div class="file-monitor-section">
+                    <h4 class="file-monitor-section-title">操作统计</h4>
+                    <div class="file-monitor-cards">
+                      <div class="card monitor-resource-card">
+                        <h3 class="monitor-resource-title">文件上传数</h3>
+                        <p class="monitor-resource-value" id="fileUploadCount">--</p>
+                      </div>
+                      <div class="card monitor-resource-card">
+                        <h3 class="monitor-resource-title">文件下载数</h3>
+                        <p class="monitor-resource-value" id="fileDownloadCount">--</p>
+                      </div>
+                      <div class="card monitor-resource-card">
+                        <h3 class="monitor-resource-title">文件删除数</h3>
+                        <p class="monitor-resource-value" id="fileDeleteCount">--</p>
+                      </div>
+                      <div class="card monitor-resource-card">
+                        <h3 class="monitor-resource-title">分享访问数</h3>
+                        <p class="monitor-resource-value" id="fileShareVisitCount">--</p>
+                      </div>
+                      <div class="card monitor-resource-card">
+                        <h3 class="monitor-resource-title">分享下载数</h3>
+                        <p class="monitor-resource-value" id="fileShareDownloadCount">--</p>
+                      </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 24px;">
+                      <div class="card monitor-chart-card">
+                        <canvas id="fileOpsChart"></canvas>
+                      </div>
+                      <div class="card monitor-chart-card">
+                        <canvas id="shareOpsChart"></canvas>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <!-- 第二类：文件概览 -->
+                  <div class="file-monitor-section">
+                    <h4 class="file-monitor-section-title">文件概览</h4>
+                    <div class="file-monitor-cards">
+                      <div class="card monitor-resource-card">
+                        <h3 class="monitor-resource-title">总文件数</h3>
+                        <p class="monitor-resource-value" id="fileTotalFileCount">--</p>
+                      </div>
+                      <div class="card monitor-resource-card">
+                        <h3 class="monitor-resource-title">总目录数</h3>
+                        <p class="monitor-resource-value" id="fileTotalFolderCount">--</p>
+                      </div>
+                      <div class="card monitor-resource-card">
+                        <h3 class="monitor-resource-title">今日新增</h3>
+                        <p class="monitor-resource-value" id="fileTodayNewCount">--</p>
+                      </div>
+                      <div class="card monitor-resource-card">
+                        <h3 class="monitor-resource-title">昨日新增</h3>
+                        <p class="monitor-resource-value" id="fileYesterdayNewCount">--</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <!-- 第三类：文件分类 -->
+                  <div class="file-monitor-section">
+                    <h4 class="file-monitor-section-title">文件分类</h4>
+                    <div class="file-monitor-cards">
+                      <div class="card monitor-resource-card">
+                        <h3 class="monitor-resource-title">文本文件</h3>
+                        <p class="monitor-resource-value" id="fileTextCount">--</p>
+                      </div>
+                      <div class="card monitor-resource-card">
+                        <h3 class="monitor-resource-title">图像文件</h3>
+                        <p class="monitor-resource-value" id="fileImageCount">--</p>
+                      </div>
+                      <div class="card monitor-resource-card">
+                        <h3 class="monitor-resource-title">音频文件</h3>
+                        <p class="monitor-resource-value" id="fileAudioCount">--</p>
+                      </div>
+                      <div class="card monitor-resource-card">
+                        <h3 class="monitor-resource-title">视频文件</h3>
+                        <p class="monitor-resource-value" id="fileVideoCount">--</p>
+                      </div>
+                      <div class="card monitor-resource-card">
+                        <h3 class="monitor-resource-title">压缩文件</h3>
+                        <p class="monitor-resource-value" id="fileArchiveCount">--</p>
+                      </div>
+                      <div class="card monitor-resource-card">
+                        <h3 class="monitor-resource-title">程序文件</h3>
+                        <p class="monitor-resource-value" id="fileProgramCount">--</p>
+                      </div>
+                      <div class="card monitor-resource-card">
+                        <h3 class="monitor-resource-title">其他文件</h3>
+                        <p class="monitor-resource-value" id="fileOtherCount">--</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="monitor-info-section">
+                    <h3 class="monitor-info-title">热门文件 TOP 10</h3>
+                    <div class="admin-table-panel">
+                      <div class="admin-table-scroll">
+                        <table class="data-table" id="fileTopFilesTable">
+                          <thead>
+                            <tr>
+                              <th class="monitor-table-th">文件名</th>
+                              <th>文件类型</th>
+                              <th>访问次数</th>
+                              <th>文件大小</th>
+                            </tr>
+                          </thead>
+                          <tbody id="fileTopFilesTableBody">
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="monitor-info-section file-table">
+                    <h3 class="monitor-info-title">最近文件操作记录</h3>
+                    <div class="admin-table-panel" style="flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0;">
+                      <div class="admin-table-scroll" style="flex: 1; overflow-y: auto;">
+                        <table class="data-table" id="fileRecentOperationsTable">
+                          <thead>
+                            <tr>
+                              <th class="monitor-table-th">时间</th>
+                              <th>操作类型</th>
+                              <th>文件名</th>
+                              <th>操作用户</th>
+                              <th>文件大小</th>
+                            </tr>
+                          </thead>
+                          <tbody id="fileRecentOperationsTableBody">
+                          </tbody>
+                        </table>
+                      </div>
+                      <div class="pagination-bar" id="fileRecentOperationsPagination">
+                        <span class="pagination-summary" id="fileRecentPaginationSummary">共 0 条</span>
+                        <div class="pagination-controls">
+                          <button type="button" id="fileRecentPrevBtn" disabled>上一页</button>
+                          <span id="fileRecentPageInfo">1 / 1</span>
+                          <button type="button" id="fileRecentNextBtn" disabled>下一页</button>
+                          <select id="fileRecentPageSizeSelect">
+                            <option value="10" selected>10 / 页</option>
+                            <option value="20">20 / 页</option>
+                            <option value="50">50 / 页</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>

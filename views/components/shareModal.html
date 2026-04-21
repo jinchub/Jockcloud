@@ -1,0 +1,36 @@
+    <div id="shareModal" class="modal-overlay">
+    <div class="modal share-modal">
+      <h3>创建分享</h3>
+      <form id="shareForm">
+        <div class="form-group">
+          <label>有效期</label>
+          <div class="share-expire-option-list" id="shareExpireOptionList">
+            <button type="button" class="share-expire-option" data-expire-type="1d">1天</button>
+            <button type="button" class="share-expire-option" data-expire-type="3d">3天</button>
+            <button type="button" class="share-expire-option active" data-expire-type="7d">7天</button>
+            <button type="button" class="share-expire-option" data-expire-type="1m">1月</button>
+            <button type="button" class="share-expire-option" data-expire-type="1y">1年</button>
+            <button type="button" class="share-expire-option" data-expire-type="forever">永久</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>提取码</label>
+          <div class="share-code-mode-list">
+            <label class="share-code-mode-item"><input type="radio" name="shareCodeMode" value="none" checked /><span>无</span></label>
+            <label class="share-code-mode-item"><input type="radio" name="shareCodeMode" value="random" /><span>随机生成</span></label>
+            <label class="share-code-mode-item"><input type="radio" name="shareCodeMode" value="custom" /><span>自定义</span></label>
+          </div>
+          <input type="text" id="shareCustomCodeInput" placeholder="4-12位字母数字" maxlength="12" style="display:none; margin-top:8px;" />
+        </div>
+        <div id="shareResultBox" class="share-result-box" style="display:none;">
+          <div class="share-result-item"><span>链接：</span><a href="#" id="shareLinkText" target="_blank" rel="noopener noreferrer"></a></div>
+          <div class="share-result-item"><span>提取码：</span><span id="shareCodeText">无</span></div>
+          <div class="share-result-item"><span>有效期：</span><span id="shareExpireText"></span></div>
+        </div>
+        <div class="modal-actions share-modal-actions">
+          <button type="submit" class="btn-sm" id="generateShareBtn" style="background:#165dff; color:#fff; border:none;">生成分享链接</button>
+          <button type="button" class="btn-sm" id="cancelShareBtn">关闭</button>
+        </div>
+      </form>
+    </div>
+  </div>

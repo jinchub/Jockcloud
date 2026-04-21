@@ -1,0 +1,48 @@
+    <div id="avatarUpdateModal" class="modal-overlay">
+    <div class="modal avatar-update-modal">
+      <h3>更换头像</h3>
+      <form id="avatarUpdateForm">
+        <div class="avatar-update-layout">
+          <div class="avatar-update-left">
+            <div class="form-group">
+              <label id="profileAvatarUploadLabel">本地上传 (最大4MB)</label>
+              <input type="file" id="profileAvatarFileInput" accept="image/*" />
+              <div class="profile-avatar-tip" id="profileAvatarUploadTip"></div>
+            </div>
+            <div class="form-group">
+              <label>剪裁预览</label>
+              <div class="profile-avatar-crop-wrap">
+                <canvas id="profileAvatarCropCanvas" class="profile-avatar-crop-canvas" width="260" height="260"></canvas>
+              </div>
+              <input class="profile-avatar-zoom" type="range" id="profileAvatarZoomRange" min="100" max="400" value="100" />
+            </div>
+          </div>
+          <div class="avatar-update-right">
+            <div class="form-group">
+              <label>头像 URL</label>
+              <input type="text" id="profileAvatarUrlInput" placeholder="输入以 / 开头的路径，不要带网址" />
+            </div>
+            <div class="form-group">
+              <img id="profileAvatarPreview" class="profile-avatar-preview" src="https://ui-avatars.com/api/?name=User&background=random" />
+              <div class="profile-avatar-presets">
+                <img src="/avatar/1.svg" data-avatar-preset />
+                <img src="/avatar/2.svg" data-avatar-preset />
+                <img src="/avatar/3.svg" data-avatar-preset />
+                <img src="/avatar/4.svg" data-avatar-preset />
+                <img src="/avatar/5.svg" data-avatar-preset />
+                <img src="/avatar/6.svg" data-avatar-preset />
+                <img src="/avatar/7.svg" data-avatar-preset />
+                <img src="/avatar/8.svg" data-avatar-preset />
+                <img src="/avatar/9.svg" data-avatar-preset />
+                <img src="/avatar/10.svg" data-avatar-preset />
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-sm" id="cancelAvatarUpdateBtn">取消</button>
+          <button type="submit" class="btn-sm" style="background:#165dff; color:#fff; border:none;">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>

@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>分享内容 - JockCloud</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/fontawesome/css/all.min.css">
+  <style>
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background: #ffffff; color: #333; min-height: 100vh; }
+    .share-container { width: 100%; max-width: 100vw; margin: 0 auto;margin-top: 64px;border-top: 1px solid #f9f9f9; }
+    .panel { background: #fff; padding: 20px 40px; }
+    .login-header {background: #fff;}
+    .header { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+    .header-right { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+    .share-user { display: flex; align-items: baseline; gap: 0px; font-size: 12px; color: #1d1d1d; }
+    .user-icon { width: 20px; text-align: center; color: #165dff; }
+    .title { font-size: 18px; font-weight: bold; margin: 0; word-break: break-all; color: #333; }
+    .expire { font-size: 12px; color: #bbbbbb; }
+    .tip { margin-top: 16px; padding: 14px 16px; border-radius: 10px; font-size: 14px; background: #f9f9f9; color: #666; }
+    .tip.error { background: #fff2f0; color: #f53f3f; }
+    .verify-box { margin-top: 24px; max-width: 400px; }
+    .verify-box input { width: 100%; height: 48px; border: 0; background: #f9f9f9; border-radius: 10px; padding: 0 16px; font-size: 14px; outline: none; transition: all 0.3s; }
+    .verify-box input:focus { background: #f0f7ff; }
+    .btn { height: 28px; border: 0; width: max-content;word-break: keep-all;border-radius: 10px; cursor: pointer; padding: 6px 10px; font-size: 12px; font-weight: 600; transition: all 0.3s;}
+    .btn.primary { background: #165dff; color: #fff; }
+    .btn.primary:hover { background: #4080ff; }
+    .btn.ghost { background: unset;color: rgb(0 78 255 / 80%); border: 0; }
+    .btn.ghost:hover { color: #004cff;}
+    .verify-actions { margin-top: 16px; }
+    .breadcrumb { margin-top: 20px; font-size: 14px; color: #666; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .breadcrumb a { color: #165dff; text-decoration: none; transition: color 0.3s; }
+    .breadcrumb a:hover { color: #4080ff; }
+    .entry-list { margin-top: 16px; border-radius: 12px; overflow: hidden; background: #fff; }
+    .entry-header, .entry-row { display: grid; grid-template-columns: 1fr 140px 160px 140px; align-items: center; gap: 12px; padding: 10px 10px; }
+    .entry-header { background: #f9f9f9; color: #111111; font-size: 14px; font-weight: 600; }
+    .entry-row { border-top: 1px solid #f7f8fa; font-size: 13px; transition: background 0.2s; }
+    .entry-row:first-child { border-top: 0; }
+    .entry-row:hover { background-color: #eef7ff; }
+    .entry-name { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .entry-link { color: #333; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: color 0.2s; }
+    .entry-link:hover { color: #165dff; }
+    .entry-link.folder { color: #165dff; }
+    .entry-size, .entry-time { color: #666; font-size: 12px; }
+    .entry-actions {display: flex;gap: 10px;justify-content: flex-end;align-items: center;}
+    .entry-meta-mobile { display: none; }
+    .desktop-only { display: block; }
+    .file-icon { width: 20px; text-align: center; color: #8a8f99; font-size: 16px; }
+    .empty { padding: 40px; color: #8a8f99; font-size: 14px; text-align: center; }
+    .footer-right { margin-top: 24px; text-align: right; color: #999; font-size: 12px; }
+    @media (max-width: 760px) {
+      .login-header {padding: 0 15px;}
+      .panel { padding: 20px 15px; }
+      .entry-header { display: none; }
+      .entry-row { 
+        display: flex; 
+        align-items: center; 
+        gap: 8px; 
+        padding: 10px 10px;
+        flex-wrap: nowrap;
+      }
+      .entry-name { 
+        flex: 1; 
+        min-width: 0; 
+      }
+      .entry-meta-mobile { 
+        display: flex; 
+        align-items: center; 
+        gap: 4px; 
+        color: #666; 
+        font-size: 11px; 
+        flex-shrink: 0;
+      }
+      .entry-divider { color: #ddd; }
+      .desktop-only { display: none; }
+      .entry-actions { 
+        justify-content: flex-end; 
+        flex-shrink: 0;
+        margin-top: 0;
+        width: 40px;
+      }
+      .header-right { gap: 12px; }
+    }
+    @media (min-width: 761px) {
+      .entry-meta-mobile { display: none; }
+      .desktop-only { display: block; }
+    }
+  </style>
+</head>
+<body>
+  <!-- 顶部导航 -->
+  <header class="login-header">
+    <div class="logo-area">
+      <i class="fa-solid fa-cloud logo-icon"></i>
+      <span class="logo-text">JockCloud</span>
+    </div>
+    <div class="header-links">
+      <a href="/" target="_blank">登录网盘</a>
+    </div>
+  </header>
+
+  <!-- 主体区域 -->
+  <div class="share-container">
+    <div class="panel">
+      <div class="header">
+        <h1 class="title" id="shareTitle">分享内容</h1>
+        <div class="header-right">
+          <div class="share-user" id="shareUser" style="display:none;">
+            <i class="fa-solid fa-user user-icon"></i>
+            <span id="shareUserName"></span>
+          </div>
+          <div class="expire" id="shareExpire">有效期：-</div>
+        </div>
+      </div>
+      <div id="statusTip" class="tip" style="display:none;"></div>
+      <div id="verifyBox" class="verify-box" style="display:none;">
+        <input id="verifyInput" type="text" maxlength="12" placeholder="请输入提取码" />
+        <div class="verify-actions">
+          <button class="btn primary" id="verifyBtn">验证提取码</button>
+        </div>
+      </div>
+      <div id="contentBox" style="display:none;">
+        <div class="breadcrumb" id="breadcrumb"></div>
+        <div class="entry-list">
+          <div class="entry-header">
+            <div>名称</div>
+            <div>大小</div>
+            <div>日期</div>
+            <div style="text-align:right;padding-right: 10px;">操作</div>
+          </div>
+          <div id="entryList"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const state = {
+      shareCode: "",
+      token: "",
+      needPassword: false,
+      root: null,
+      currentFolderId: null,
+      rootFolderId: null,
+      pathStack: [],
+      shareUser: null
+    };
+
+    const shareTitle = document.getElementById("shareTitle");
+    const shareExpire = document.getElementById("shareExpire");
+    const shareUser = document.getElementById("shareUser");
+    const shareUserName = document.getElementById("shareUserName");
+    const statusTip = document.getElementById("statusTip");
+    const verifyBox = document.getElementById("verifyBox");
+    const verifyInput = document.getElementById("verifyInput");
+    const verifyBtn = document.getElementById("verifyBtn");
+    const contentBox = document.getElementById("contentBox");
+    const breadcrumb = document.getElementById("breadcrumb");
+    const entryList = document.getElementById("entryList");
+
+    const showTip = (message, isError = false) => {
+      statusTip.textContent = message || "";
+      statusTip.className = isError ? "tip error" : "tip";
+      statusTip.style.display = message ? "block" : "none";
+    };
+
+    const formatSize = (size) => {
+      const value = Number(size || 0);
+      if (!value) return "-";
+      if (value < 1024) return `${value} B`;
+      if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+      if (value < 1024 * 1024 * 1024) return `${(value / 1024 / 1024).toFixed(1)} MB`;
+      return `${(value / 1024 / 1024 / 1024).toFixed(1)} GB`;
+    };
+
+    const formatDate = (value) => {
+      if (!value) return "-";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "-";
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, "0");
+      const d = String(date.getDate()).padStart(2, "0");
+      const h = String(date.getHours()).padStart(2, "0");
+      const mi = String(date.getMinutes()).padStart(2, "0");
+      return `${y}-${m}-${d} ${h}:${mi}`;
+    };
+
+    const getTokenKey = () => `jc_share_token_${state.shareCode}`;
+
+    const requestJson = async (url, options = {}) => {
+      const headers = { ...(options.headers || {}) };
+      if (state.token) {
+        headers["x-share-token"] = state.token;
+      }
+      const response = await fetch(url, { ...options, headers });
+      const data = await response.json().catch(() => ({}));
+      return { response, data };
+    };
+
+    const renderBreadcrumb = () => {
+      if (!state.root) {
+        breadcrumb.innerHTML = "";
+        return;
+      }
+      breadcrumb.innerHTML = "";
+      
+      const goBack = async () => {
+        if (state.pathStack.length <= 1) {
+          state.currentFolderId = null;
+          state.pathStack = [];
+          renderBreadcrumb();
+          renderEntries([{
+            id: state.rootFolderId,
+            type: "folder",
+            name: state.root && state.root.name ? state.root.name : "目录",
+            updatedAt: state.root && state.root.updatedAt ? state.root.updatedAt : null,
+            createdAt: state.root && state.root.createdAt ? state.root.createdAt : null
+          }]);
+        } else {
+          state.pathStack = state.pathStack.slice(0, -1);
+          const parentItem = state.pathStack[state.pathStack.length - 1];
+          await loadFolderEntries(parentItem.id);
+        }
+      };
+      
+      if (state.pathStack.length > 0) {
+        const backLink = document.createElement("a");
+        backLink.href = "#";
+        backLink.textContent = "← 返回";
+        backLink.onclick = async (event) => {
+          event.preventDefault();
+          await goBack();
+        };
+        breadcrumb.appendChild(backLink);
+        
+        const sep = document.createElement("span");
+        sep.textContent = " / ";
+        breadcrumb.appendChild(sep);
+      }
+      
+      if (Array.isArray(state.pathStack) && state.pathStack.length > 0) {
+        state.pathStack.forEach((item, index) => {
+          if (index > 0) {
+            const sep = document.createElement("span");
+            sep.textContent = "/";
+            breadcrumb.appendChild(sep);
+          }
+          if (index === state.pathStack.length - 1) {
+            const text = document.createElement("span");
+            text.textContent = item.name;
+            breadcrumb.appendChild(text);
+            return;
+          }
+          const link = document.createElement("a");
+          link.href = "#";
+          link.textContent = item.name;
+          link.onclick = async (event) => {
+            event.preventDefault();
+            state.pathStack = state.pathStack.slice(0, index + 1);
+            await loadFolderEntries(item.id);
+          };
+          breadcrumb.appendChild(link);
+        });
+      }
+    };
+
+    const buildDownloadUrl = (type, id) => {
+      const base = type === "folder"
+        ? `/api/share/${state.shareCode}/download/folder/${id}`
+        : `/api/share/${state.shareCode}/download/file/${id}`;
+      if (!state.token) return base;
+      return `${base}?token=${encodeURIComponent(state.token)}`;
+    };
+
+    const renderEntries = (entries) => {
+      entryList.innerHTML = "";
+      if (!Array.isArray(entries) || entries.length === 0) {
+        entryList.innerHTML = `<div class="empty">暂无内容</div>`;
+        return;
+      }
+      entries
+        .slice()
+        .sort((a, b) => {
+          if (a.type !== b.type) return a.type === "folder" ? -1 : 1;
+          return String(a.name || "").localeCompare(String(b.name || ""));
+        })
+        .forEach((item) => {
+          const row = document.createElement("div");
+          row.className = "entry-row";
+          const isFolder = item.type === "folder";
+          const icon = isFolder ? "📁" : "📄";
+          const timeText = formatDate(item.updatedAt || item.createdAt);
+          row.innerHTML = `
+            <div class="entry-name">
+              <span class="file-icon">${icon}</span>
+              <a href="#" class="entry-link${isFolder ? " folder" : ""}">${item.name || ""}</a>
+            </div>
+            <div class="entry-size desktop-only">${isFolder ? "-" : formatSize(item.size)}</div>
+            <div class="entry-time desktop-only">${timeText}</div>
+            <div class="entry-meta-mobile">
+              <span class="entry-size">${isFolder ? "-" : formatSize(item.size)}</span>
+              <span class="entry-divider">·</span>
+              <span class="entry-time">${timeText}</span>
+            </div>
+            <div class="entry-actions">
+              <button class="btn ghost" data-download="1">${isFolder ? "下载" : "下载"}</button>
+            </div>
+          `;
+          const link = row.querySelector(".entry-link");
+          if (isFolder) {
+            link.onclick = async (event) => {
+              event.preventDefault();
+              if (state.currentFolderId === null) {
+                state.pathStack = [{ id: Number(item.id), name: item.name || "目录" }];
+              } else {
+                state.pathStack.push({ id: Number(item.id), name: item.name || "目录" });
+              }
+              await loadFolderEntries(item.id);
+            };
+          } else {
+            link.onclick = (event) => {
+              event.preventDefault();
+              window.open(buildDownloadUrl("file", item.id));
+            };
+          }
+          const downloadBtn = row.querySelector("[data-download='1']");
+          downloadBtn.onclick = () => {
+            window.open(buildDownloadUrl(isFolder ? "folder" : "file", item.id));
+          };
+          entryList.appendChild(row);
+        });
+    };
+
+    const loadFolderEntries = async (folderId) => {
+      const target = Number(folderId) || state.rootFolderId;
+      const { response, data } = await requestJson(`/api/share/${state.shareCode}/entries?folderId=${encodeURIComponent(target)}`);
+      if (!response.ok) {
+        showTip(data.message || "加载目录失败", true);
+        return;
+      }
+      state.currentFolderId = data.currentFolderId;
+      state.rootFolderId = Number(data.rootFolderId || state.rootFolderId);
+      renderBreadcrumb();
+      renderEntries(data.entries || []);
+    };
+
+    const loadShare = async () => {
+      const { response, data } = await requestJson(`/api/share/${state.shareCode}`);
+      if (!response.ok) {
+        showTip(data.message || "分享不存在", true);
+        verifyBox.style.display = "none";
+        contentBox.style.display = "none";
+        return;
+      }
+      state.needPassword = !!data.needPassword;
+      state.root = data.root || null;
+      state.shareUser = data.shareUser || null;
+      shareTitle.textContent = "分享文件内容:";
+      shareExpire.textContent = `有效期：${data.expireLabel || "-"}`;
+      if (state.shareUser) {
+        const displayName = state.shareUser.name || state.shareUser.username || "用户";
+        shareUserName.textContent = displayName;
+        shareUser.style.display = "flex";
+      } else {
+        shareUser.style.display = "none";
+      }
+      if (state.needPassword && !data.verified) {
+        verifyBox.style.display = "block";
+        contentBox.style.display = "none";
+        showTip("该分享已启用提取码，请先验证");
+        return;
+      }
+      verifyBox.style.display = "none";
+      contentBox.style.display = "block";
+      showTip("");
+      if (data.root && data.root.type === "file") {
+        state.pathStack = [{ id: Number(data.root.id), name: data.root.name || "文件" }];
+        renderBreadcrumb();
+        renderEntries(data.entries || []);
+        return;
+      }
+      state.rootFolderId = Number(data.root && data.root.id ? data.root.id : data.currentFolderId);
+      state.currentFolderId = null;
+      state.pathStack = [];
+      renderBreadcrumb();
+      renderEntries([{
+        id: state.rootFolderId,
+        type: "folder",
+        name: data.root && data.root.name ? data.root.name : "目录",
+        updatedAt: data.root && data.root.updatedAt ? data.root.updatedAt : null,
+        createdAt: data.root && data.root.createdAt ? data.root.createdAt : null
+      }]);
+    };
+
+    verifyBtn.onclick = async () => {
+      const accessCode = String(verifyInput.value || "").trim();
+      if (!/^[A-Za-z0-9]{4,12}$/.test(accessCode)) {
+        showTip("提取码格式不合法", true);
+        return;
+      }
+      const { response, data } = await requestJson(`/api/share/${state.shareCode}/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accessCode })
+      });
+      if (!response.ok) {
+        showTip(data.message || "验证失败", true);
+        return;
+      }
+      state.token = data.token || "";
+      if (state.token) {
+        localStorage.setItem(getTokenKey(), state.token);
+      }
+      showTip("验证成功");
+      await loadShare();
+    };
+
+    const init = async () => {
+      const pathParts = window.location.pathname.split("/").filter(Boolean);
+      state.shareCode = pathParts.length > 1 ? pathParts[pathParts.length - 1] : "";
+      if (!state.shareCode) {
+        showTip("分享链接不合法", true);
+        return;
+      }
+      state.token = localStorage.getItem(getTokenKey()) || "";
+      await loadShare();
+    };
+
+    init();
+  </script>
+</body>
+</html>

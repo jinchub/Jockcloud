@@ -1,0 +1,50 @@
+        <div id="view-quota" class="view-section admin-view-page" style="display: none;">
+        <h2>空间管理</h2>
+        <div class="quota-cards" style="display: flex; gap: 20px; margin: 20px 0; flex-shrink: 0;">
+           <div class="card quota-card">
+              <h3 class="quota-card-title">总空间</h3>
+              <p id="totalSpaceDisplay" class="quota-card-value">-</p>
+           </div>
+           <div class="card quota-card">
+              <h3 class="quota-card-title">已用空间</h3>
+              <p id="usedSpaceDisplay" class="quota-card-value quota-card-value-primary">-</p>
+           </div>
+           <div class="card quota-card">
+              <h3 class="quota-card-title">用户数</h3>
+              <p id="userCountDisplay" class="quota-card-value">-</p>
+           </div>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-shrink: 0;">
+          <h3 style="font-size:16px; margin:0;">用户空间详情</h3>
+          <div style="display:flex; gap:10px; align-items:center;">
+            <input type="text" id="quotaSearchInput" placeholder="搜索用户名或姓名" style="padding:6px 12px; border:1px solid #dcdfe6; border-radius:4px; font-size:13px; width:200px;" />
+            <button type="button" id="quotaSearchBtn" class="btn-sm" style="background:#165dff; color:#fff; border:none;">搜索</button>
+            <button type="button" id="quotaClearSearchBtn" class="btn-sm" style="display:none;">清除</button>
+          </div>
+        </div>
+        <div class="admin-table-panel">
+          <div class="admin-table-scroll">
+            <table class="data-table" id="quotaTable">
+               <thead>
+                 <tr>
+                   <th id="quotaSortId" style="cursor:pointer;">ID</th><th id="quotaSortUsername" style="cursor:pointer;">用户名</th><th id="quotaSortUsed" style="cursor:pointer;">已用</th><th>配额</th><th id="quotaSortUsageRate" style="cursor:pointer;">使用率</th><th>文件数</th><th>操作</th>
+                 </tr>
+               </thead>
+               <tbody></tbody>
+            </table>
+          </div>
+          <div class="pagination-bar" id="quotaPaginationBar">
+            <span class="pagination-summary" id="quotaPaginationSummary">共 0 条</span>
+            <div class="pagination-controls">
+              <button type="button" id="quotaPrevPageBtn">上一页</button>
+              <span id="quotaPageInfo">1 / 1</span>
+              <button type="button" id="quotaNextPageBtn">下一页</button>
+              <select id="quotaPageSizeSelect">
+                <option value="20" selected>20 / 页</option>
+                <option value="50">50 / 页</option>
+                <option value="100">100 / 页</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>

@@ -1,0 +1,85 @@
+    <div id="syncTaskModal" class="modal-overlay">
+    <div class="modal sync-task-modal">
+      <h3 id="syncTaskModalTitle">新建同步任务</h3>
+      <form id="syncTaskForm">
+        <input type="hidden" id="syncTaskId" />
+        <div class="sync-task-form-grid">
+        <div class="form-group">
+          <label>同步名称</label>
+          <input type="text" id="syncTaskName" required placeholder="如: 文档备份同步" />
+        </div>
+        <div class="form-group">
+          <label>本地目录</label>
+          <select id="syncLocalDir" required></select>
+        </div>
+        <div class="form-group">
+          <label>远程挂载</label>
+          <select id="syncRemoteMount" required></select>
+        </div>
+        <div class="form-group">
+          <label>远程目录</label>
+          <input type="text" id="syncRemoteDir" required placeholder="如: /backup/project" />
+        </div>
+        <div class="form-group">
+          <label>同步类型</label>
+          <select id="syncDirection">
+            <option value="local_to_remote">本地同步远端</option>
+            <option value="remote_to_local">远端同步本地</option>
+            <option value="bidirectional">双向同步</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>任务类型</label>
+          <select id="syncTaskType">
+            <option value="once">单次</option>
+            <option value="schedule">定时</option>
+          </select>
+        </div>
+        <div class="form-group" id="syncScheduleGroup">
+          <label>同步间隔</label>
+          <div class="sync-schedule-row" id="syncScheduleIntervalRow">
+            <input type="number" id="syncScheduleValue" min="1" value="1" />
+            <select id="syncScheduleUnit">
+              <option value="minute">分钟</option>
+              <option value="hour">小时</option>
+              <option value="day">天</option>
+              <option value="week">周</option>
+              <option value="month">月</option>
+              <option value="time_point">指定时间</option>
+            </select>
+          </div>
+          <div class="sync-schedule-row" id="syncScheduleTimeRow" style="display:none;">
+            <input type="datetime-local" id="syncScheduleTime" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>空目录是否同步</label>
+          <select id="syncEmptyDir">
+            <option value="0">不同步空目录（目录没文件就不创建）</option>
+            <option value="1">同步空目录（保留空目录结构）</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>文件更新规则</label>
+          <select id="syncFileUpdateRule">
+            <option value="new_only">只同步新文件</option>
+            <option value="modified_only">只同步修改过的文件</option>
+            <option value="all">所有文件都同步</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>删除规则</label>
+          <select id="syncDeleteRule">
+            <option value="keep">不同步删除</option>
+            <option value="sync_delete">同步删除</option>
+            <option value="mirror">双向同步（目标与源保持一致）</option>
+          </select>
+        </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-sm" id="cancelSyncTaskModalBtn">取消</button>
+          <button type="submit" class="btn-sm" style="background:#165dff; color:#fff; border:none;">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>

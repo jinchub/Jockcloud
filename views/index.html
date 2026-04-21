@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JockCloud</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/style-mobile.css" media="screen and (max-width: 768px)" />
+  <link rel="stylesheet" href="/fontawesome/css/all.min.css">
+</head>
+<body>
+  <!-- 顶部导航 -->
+  <header class="login-header">
+    <div class="logo-area">
+      <i class="fa-solid fa-cloud logo-icon"></i>
+      <span class="logo-text">JockCloud</span>
+    </div>
+    <div class="header-links">
+      <a href="https://wojc.cn/" target="_blank">认识JockCloud</a>
+    </div>
+  </header>
+
+  <!-- 主体区域 -->
+  <main class="login-container">
+    <div class="login-wrapper">
+      <!-- 左侧宣传语 -->
+      <div class="intro-box">
+        <div class="intro-brand">
+          <h1 class="intro-title">JockCloud</h1>
+        </div>
+
+        <p class="intro-desc">私人云存储，一键到云端，高效安全快速</p>
+        <div class="download-btns">
+          <a href="https://jinc.lanzout.com/iEZa13neglha" class="dl-btn"><i class="fa-solid fa-desktop"></i>下载Windows客户端</a>
+          <!--<a href="#" class="dl-btn"><i class="fa-solid fa-mobile-screen"></i> 下载手机端</a>
+          <a href="#" class="dl-btn"><i class="fa-solid fa-tv"></i> 下载 TV 端</a>-->
+        </div>
+      </div>
+
+      <!-- 右侧登录框 -->
+      <div class="login-box">
+        <div class="login-tabs">
+          <div class="tab-item active" id="tabAccount">账号密码登录</div>
+          <div class="tab-item" id="tabSms">短信验证码登录</div>
+        </div>
+
+        <!-- 账号密码登录表单 -->
+        <form id="loginForm" class="login-form">
+          <p class="field-label">账号</p>
+          <div class="input-group">
+            <input id="username" type="text" placeholder="请输入用户名" autocomplete="username" required />
+          </div>
+          <p class="field-label">密码</p>
+          <div class="input-group">
+            <input id="password" type="password" placeholder="请输入密码" autocomplete="current-password" required />
+          </div>
+          <p class="field-label">验证码</p>
+          <div class="input-group verify-code" id="captchaGroup" style="display: none;">
+            <input id="captchaInput" type="text" placeholder="请输入验证码" maxlength="4" />
+            <span class="get-code" id="captchaCodeText" title="点击验证码刷新"></span>
+          </div>
+          <button type="submit" class="submit-btn">立即登录</button>
+          <div class="login-extra-action">
+            <a href="#" id="forgotPasswordBtn">忘记密码</a>
+          </div>
+        </form>
+
+        <!-- 短信登录表单 -->
+        <form id="smsForm" class="login-form" style="display: none;">
+          <p class="field-label">手机号</p>
+          <div class="input-group">
+            <input id="smsPhoneInput" type="text" placeholder="手机号" autocomplete="tel" />
+          </div>
+          <p class="field-label">账号</p>
+          <div class="input-group verify-code" id="smsCaptchaGroup" style="display: none;">
+            <input id="smsCaptchaInput" type="text" placeholder="请输入验证码" maxlength="4" />
+            <span class="get-code" id="smsCaptchaCodeText" title="点击验证码刷新"></span>
+          </div>
+          <p class="field-label">短信验证码</p>
+          <div class="input-group verify-code">
+            <input id="smsCodeInput" type="text" placeholder="短信验证码" />
+            <a href="#" class="get-code" id="smsSendCodeBtn">获取短信验证码</a>
+          </div>
+          <button type="submit" class="submit-btn">立即登录</button>
+        </form>
+
+        <form id="resetForm" class="login-form" style="display: none;">
+          <p class="field-label">手机号</p>
+          <div class="input-group">
+            <input id="resetPhoneInput" type="text" placeholder="手机号" autocomplete="tel" />
+          </div>
+          <p class="field-label">短信验证码</p>
+          <div class="input-group verify-code">
+            <input id="resetCodeInput" type="text" placeholder="短信验证码" />
+            <a href="#" class="get-code" id="resetSendCodeBtn">获取短信验证码</a>
+          </div>
+          <p class="field-label">新密码</p>
+          <div class="input-group">
+            <input id="resetPasswordInput" type="password" placeholder="请输入新密码" autocomplete="new-password" />
+          </div>
+          <button type="submit" class="submit-btn">重置密码</button>
+          <div class="login-extra-action">
+            <a href="#" id="backToLoginBtn">返回登录</a>
+          </div>
+        </form>
+
+        <div class="other-login">
+          <div class="divider"><span>其他登录方式</span></div>
+          <div class="login-methods">
+            <div class="method-item">
+              <i class="fa-solid fa-qrcode"></i>
+              <span>扫码登录</span>
+            </div>
+            <div class="method-item">
+              <i class="fa-brands fa-weixin"></i>
+              <span>微信登录</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="agreement">
+          登录表示您已阅读并同意 <a href="/legal.html?tab=service#service-agreement" target="_blank">服务协议</a> 和 <a href="/legal.html?tab=privacy#privacy-policy" target="_blank">隐私政策</a>
+        </div>
+        <p id="status" class="error-msg"></p>
+      </div>
+    </div>
+  </main>
+
+  <div class="dialog-mask" id="resetSuccessModal" style="display: none;">
+    <div class="dialog-card">
+      <p class="dialog-title">重置成功</p>
+      <p class="dialog-text" id="resetSuccessMessage">密码重置成功，请重新登录</p>
+      <button type="button" class="dialog-btn" id="resetSuccessGoLoginBtn">去登录</button>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,86 @@
+    <div id="userModal" class="modal-overlay">
+    <div class="modal">
+      <h3 id="userModalTitle">新建用户</h3>
+      <form id="userForm">
+        <div class="modal-scroll-body">
+          <input type="hidden" id="userId" />
+          <div class="form-group" id="usernameGroup">
+            <label>用户名 (登录账号)*</label>
+            <input type="text" id="username" required placeholder="如: admin" />
+          </div>
+          <div class="form-group" id="quotaGroup" style="display:none;">
+            <label>空间配额</label>
+            <div style="display:flex; gap:8px;">
+              <input type="number" id="quotaGb" min="0" step="0.1" placeholder="如：10" style="flex:1;" />
+              <select id="quotaUnit" style="width:90px;" data-prev-unit="GB">
+                <option value="KB">KB</option>
+                <option value="MB">MB</option>
+                <option value="GB" selected>GB</option>
+                <option value="TB">TB</option>
+              </select>
+            </div>
+            <label style="display:flex; align-items:center; gap:6px; margin-top:8px; cursor:pointer;">
+              <input type="checkbox" id="quotaUnlimited" />
+              <span id="quotaUnlimitedLabel">使用默认限制</span>
+            </label>
+          </div>
+          <div class="form-group" id="fullnameGroup">
+            <label>姓名</label>
+            <input type="text" id="fullname" placeholder="如: 张三" />
+          </div>
+          <div class="form-group" id="phoneGroup">
+            <label>手机号</label>
+            <input type="text" id="phone" placeholder="11位手机号" />
+          </div>
+          <div class="form-group" id="passwordGroup">
+            <label>密码</label>
+            <input type="password" id="password" placeholder="留空则不修改" />
+          </div>
+          <div class="form-group" id="roleGroup">
+            <label>角色</label>
+            <select id="role">
+              <option value="user">普通用户</option>
+              <option value="admin">管理员</option>
+            </select>
+          </div>
+          <div class="form-group" id="userGroupsGroup">
+            <label>所属用户组</label>
+            <select id="userGroupSingleSelect"></select>
+          </div>
+          <div class="form-group" id="avatarGroup">
+            <label>头像</label>
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:8px;">
+              <img id="avatarPreview" src="https://ui-avatars.com/api/?name=User&background=random" style="width:48px; height:48px; border-radius:50%; object-fit:cover; border:1px solid #ebedf0;">
+              <input type="text" id="avatarUrl" placeholder="输入头像URL" style="flex:1" oninput="document.getElementById('avatarPreview').src = this.value || 'https://ui-avatars.com/api/?name=User&background=random'" />
+            </div>
+            <div class="avatar-presets" style="display:flex; gap:8px;flex-wrap: wrap;">
+              <img src="/avatar/1.svg" onclick="setAvatar(this.src)" class="avatar-preview">
+              <img src="/avatar/2.svg" onclick="setAvatar(this.src)" class="avatar-preview">
+              <img src="/avatar/3.svg" onclick="setAvatar(this.src)" class="avatar-preview">
+              <img src="/avatar/4.svg" onclick="setAvatar(this.src)" class="avatar-preview">
+              <img src="/avatar/5.svg" onclick="setAvatar(this.src)" class="avatar-preview">
+              <img src="/avatar/6.svg" onclick="setAvatar(this.src)" class="avatar-preview">
+              <img src="/avatar/7.svg" onclick="setAvatar(this.src)" class="avatar-preview">
+              <img src="/avatar/8.svg" onclick="setAvatar(this.src)" class="avatar-preview">
+              <img src="/avatar/9.svg" onclick="setAvatar(this.src)" class="avatar-preview">
+              <img src="/avatar/10.svg" onclick="setAvatar(this.src)" class="avatar-preview">
+            </div>
+            <script>
+              function setAvatar(url) {
+                document.getElementById('avatarUrl').value = url;
+                document.getElementById('avatarPreview').src = url;
+              }
+            </script>
+          </div>
+          <div class="form-group" id="permissionsGroup" style="display:none;">
+            <label>权限配置</label>
+            <div id="permissionsInputs" style="display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:10px 16px;"></div>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-sm" onclick="document.getElementById('userModal').style.display='none'">取消</button>
+          <button type="submit" class="btn-sm" style="background:#165dff; color:#fff; border:none;">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>

@@ -1,0 +1,54 @@
+    <div id="userGroupModal" class="modal-overlay">
+    <div class="modal">
+      <h3 id="userGroupModalTitle">新建用户组</h3>
+      <form id="userGroupForm">
+        <div class="modal-scroll-body">
+          <input type="hidden" id="userGroupId" />
+          <div class="form-group">
+            <label>用户组名称</label>
+            <input type="text" id="userGroupName" required placeholder="如: 运维组" />
+          </div>
+          <div class="form-group">
+            <label>权限配置</label>
+            <div id="userGroupPermissionsInputs" style="display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px 16px;"></div>
+          </div>
+          <div class="form-group">
+            <label>空间配额</label>
+            <div style="display:flex; gap:8px;">
+              <input type="number" id="userGroupQuotaGb" min="0" step="0.1" placeholder="如：10" style="flex:1;" />
+              <select id="userGroupQuotaUnit" style="width:90px;">
+                <option value="KB">KB</option>
+                <option value="MB">MB</option>
+                <option value="GB" selected>GB</option>
+                <option value="TB">TB</option>
+              </select>
+            </div>
+            <label style="display:flex; align-items:center; gap:6px; margin-top:8px; cursor:pointer;">
+              <input type="checkbox" id="userGroupQuotaUnlimited" style="width:16px; height:16px;" />
+              <span>不限制</span>
+            </label>
+          </div>
+          <div class="form-group">
+            <label>上传大小限制 (GB)</label>
+            <input type="number" id="userGroupMaxUploadSize" min="1" max="100" placeholder="留空表示不限制" />
+            <label style="display:flex; align-items:center; gap:6px; margin-top:8px; cursor:pointer;">
+              <input type="checkbox" id="userGroupMaxUploadUnlimited" style="width:16px; height:16px;" />
+              <span>不限制（按分类/默认规则）</span>
+            </label>
+          </div>
+          <div class="form-group">
+            <label>上传数量限制 (个)</label>
+            <input type="number" id="userGroupMaxUploadFileCount" min="1" max="1000" placeholder="留空表示不限制" />
+            <label style="display:flex; align-items:center; gap:6px; margin-top:8px; cursor:pointer;">
+              <input type="checkbox" id="userGroupMaxUploadFileCountUnlimited" />
+              <span>不限制（优先于默认配置）</span>
+            </label>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-sm" onclick="document.getElementById('userGroupModal').style.display='none'">取消</button>
+          <button type="submit" class="btn-sm" style="background:#165dff; color:#fff; border:none;">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>

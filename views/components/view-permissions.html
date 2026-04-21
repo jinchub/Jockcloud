@@ -1,0 +1,40 @@
+        <div id="view-permissions" class="view-section admin-view-page" style="display: none;">
+        <h2>权限查看</h2>
+        <p style="color: #666; margin-bottom: 20px;font-size: 13px;margin-top: 4px;font-weight: 500;">
+          <div class="settings-form-tip">
+            权限由用户组控制
+          </div>
+        </p>
+        <div class="admin-table-panel">
+          <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 12px;">
+            <input type="text" id="permsSearchInput" placeholder="搜索用户名或姓名" style="padding: 6px 12px; border: 1px solid #dcdfe6; border-radius: 4px; font-size: 13px; width: 200px;">
+            <button type="button" id="permsSearchBtn" class="btn-sm" style="background: #165dff; color: #fff; border: none;">搜索</button>
+            <button type="button" id="permsClearSearchBtn" class="btn-sm" style="display: none;">清除</button>
+          </div>
+          <div class="admin-table-scroll">
+            <table class="data-table" id="permsTable">
+               <thead>
+                 <tr>
+                   <th id="permsSortId" style="cursor:pointer;">ID</th>
+                   <th id="permsSortUsername" style="cursor:pointer;">用户名</th>
+                   <th>上传</th><th>下载</th><th>重命名</th><th>删除</th><th>移动</th><th>复制</th><th>解压</th><th>查看压缩包</th>
+                 </tr>
+               </thead>
+               <tbody></tbody>
+            </table>
+          </div>
+          <div class="pagination-bar" id="permsPaginationBar">
+            <span class="pagination-summary" id="permsPaginationSummary">共 0 条</span>
+            <div class="pagination-controls">
+              <button type="button" id="permsPrevPageBtn">上一页</button>
+              <span id="permsPageInfo">1 / 1</span>
+              <button type="button" id="permsNextPageBtn">下一页</button>
+              <select id="permsPageSizeSelect">
+                <option value="20" selected>20 / 页</option>
+                <option value="50">50 / 页</option>
+                <option value="100">100 / 页</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>

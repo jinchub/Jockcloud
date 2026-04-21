@@ -1,0 +1,238 @@
+        <div id="view-settings" class="view-section" style="display: none;">
+        <div class="mounts-layout">
+          <aside class="sidebar-secondary mounts-sidebar" id="settingsSidebar">
+            <div class="secondary-header-toggle mounts-sidebar-header">
+              <div class="mounts-sidebar-left">
+                <button type="button" class="mounts-toggle-btn" id="toggleSettingsSidebarBtn" title="收起侧边栏">
+                  <i class="fa-solid fa-angles-left"></i>
+                </button>
+                <span class="mounts-sidebar-title">设置菜单</span>
+              </div>
+            </div>
+            <div class="secondary-menu" id="settingsAsideList"></div>
+          </aside>
+          <div class="mounts-main">
+            <div class="mounts-main-header">
+              <div class="mounts-main-title-row">
+                <div class="mounts-title-group">
+                  <h2 id="settingsPanelTitle">系统配置</h2>
+                </div>
+                <div class="mounts-main-actions">
+                  <button type="button" class="btn-upload mounts-upload-btn" id="saveSettingsBtn"><i class="fa-solid fa-floppy-disk"></i> 保存配置</button>
+                </div>
+              </div>
+              <div class="mounts-meta-row">
+                <div class="mounts-meta" id="settingsPanelMeta">管理系统与登录相关配置项</div>
+              </div>
+            </div>
+            <div class="settings-panel" id="settingsPanel">
+              <form id="systemSettingsForm" class="settings-form">
+                <div class="settings-form-row">
+                  <label for="settingsSiteTitle">网站标题</label>
+                  <input type="text" id="settingsSiteTitle" maxlength="120" required />
+                </div>
+                <div class="settings-form-row">
+                  <label for="settingsLoginTitle">登录页标题</label>
+                  <input type="text" id="settingsLoginTitle" maxlength="120" required />
+                </div>
+                <div class="settings-form-row">
+                  <label for="settingsSiteDescription">网站描述</label>
+                  <textarea id="settingsSiteDescription" maxlength="500" rows="4"></textarea>
+                </div>
+                <div class="settings-form-row checkbox">
+                  <label for="settingsRateLimitEnabled">请求速率限制</label>
+                  <input type="checkbox" id="settingsRateLimitEnabled" />
+                </div>
+                <div class="settings-form-row theme-mode-row">
+                  <label>主题模式</label>
+                  <div class="theme-mode-buttons">
+                    <button type="button" class="theme-mode-btn" data-theme="auto">
+                      <i class="fa-solid fa-circle-half-stroke"></i>
+                      <span>自动</span>
+                    </button>
+                    <button type="button" class="theme-mode-btn" data-theme="dark">
+                      <i class="fa-solid fa-moon"></i>
+                      <span>暗色</span>
+                    </button>
+                    <button type="button" class="theme-mode-btn" data-theme="light">
+                      <i class="fa-solid fa-sun"></i>
+                      <span>正常</span>
+                    </button>
+                  </div>
+                </div>
+                <div class="settings-form-row">
+                  <label for="settingsRateLimitWindowMs">时间窗口(秒)</label>
+                  <input type="number" id="settingsRateLimitWindowMs" min="1" max="3600" required />
+                </div>
+                <div class="settings-form-row">
+                  <label for="settingsRateLimitMaxRequests">最大请求数</label>
+                  <input type="number" id="settingsRateLimitMaxRequests" min="1" max="10000" required />
+                </div>
+                <div class="settings-form-tip">
+                  请求速率限制可以防止恶意请求和 DoS 攻击，建议根据服务器性能和预期流量进行配置
+                </div>
+              </form>
+              <form id="previewSettingsForm" class="settings-form" style="display:none;">
+                <div class="settings-form-row">
+                  <label for="settingsPreviewImageExts">图片预览格式</label>
+                  <input type="text" id="settingsPreviewImageExts" placeholder="" />
+                </div>
+                <div class="settings-form-row">
+                  <label for="settingsPreviewVideoExts">视频预览格式</label>
+                  <input type="text" id="settingsPreviewVideoExts" placeholder="" />
+                </div>
+                <div class="settings-form-row">
+                  <label for="settingsPreviewAudioExts">音频预览格式</label>
+                  <input type="text" id="settingsPreviewAudioExts" placeholder="" />
+                </div>
+                <div class="settings-form-row">
+                  <label for="settingsPreviewTextExts">文本预览格式</label>
+                  <input type="text" id="settingsPreviewTextExts" placeholder="" />
+                </div>
+                <div class="settings-form-row">
+                  <label for="settingsPreviewDocExts">文档预览格式</label>
+                  <input type="text" id="settingsPreviewDocExts" placeholder="" />
+                </div>
+                <div class="settings-form-tip">
+                  配置文件预览支持的文件扩展名，使用逗号或空格分隔，不支持的格式将需要下载后查看
+                </div>
+              </form>
+              <form id="uploadSettingsForm" class="settings-form" style="display:none;">
+                <div class="settings-form-row">
+                  <label for="settingsMaxUploadSize">文件上传大小限制(MB)</label>
+                  <input type="number" id="settingsMaxUploadSize" min="1" max="102400" required />
+                </div>
+                <div class="settings-form-row">
+                  <label for="settingsMaxUploadFileCount">单次上传文件数量限制</label>
+                  <input type="number" id="settingsMaxUploadFileCount" min="1" max="1000" required />
+                </div>
+                <div class="settings-form-row">
+                  <label for="settingsMaxConcurrentUploadCount">同时上传文件数量</label>
+                  <input type="number" id="settingsMaxConcurrentUploadCount" min="1" max="20" required />
+                </div>
+                <div class="settings-form-row">
+                  <label for="settingsChunkUploadThresholdMb">切片上传阈值(MB)</label>
+                  <input type="number" id="settingsChunkUploadThresholdMb" min="1" max="102400" required />
+                </div>
+                <div class="settings-form-row checkbox">
+                  <label for="settingsMaxUploadUnlimited">默认上传大小</label>
+                  <label class="permission-checkbox" style="display:flex;align-items:center;gap:6px;">
+                    <input type="checkbox" id="settingsMaxUploadUnlimited" />
+                    <span>不限制</span>
+                  </label>
+                </div>
+                <div class="settings-form-tip">
+                  生效顺序：优先按用户组上传大小配置（设为不限制则不限制）；用户未加入用户组时按默认文件上传大小限制
+                </div>
+                <div class="settings-form-row">
+                  <label for="settingsUploadFormatsImage">图片分类格式</label>
+                  <input type="text" id="settingsUploadFormatsImage" placeholder="jpg,jpeg,png,webp,bmp,gif" />
+                </div>
+                <div class="settings-form-row">
+                  <label for="settingsUploadFormatsVideo">视频分类格式</label>
+                  <input type="text" id="settingsUploadFormatsVideo" placeholder="mp4,mov,avi,mkv,wmv,flv,webm,m4v" />
+                </div>
+                <div class="settings-form-row">
+                  <label for="settingsUploadFormatsAudio">音频分类格式</label>
+                  <input type="text" id="settingsUploadFormatsAudio" placeholder="mp3,wav,flac,aac,ogg,m4a,amr" />
+                </div>
+                <div class="settings-form-row">
+                  <label for="settingsUploadFormatsDoc">文档分类格式</label>
+                  <input type="text" id="settingsUploadFormatsDoc" placeholder="doc,docx,xls,xlsx,ppt,pptx,pdf,wps" />
+                </div>
+                <div class="settings-form-row">
+                  <label for="settingsUploadFormatsText">文本分类格式</label>
+                  <input type="text" id="settingsUploadFormatsText" placeholder="txt,md,log,json,yaml,csv,xml" />
+                </div>
+                <div class="settings-form-row">
+                  <label for="settingsUploadFormatsArchive">压缩包分类格式</label>
+                  <input type="text" id="settingsUploadFormatsArchive" placeholder="zip,rar,7z,tar,gz,bz2,xz" />
+                </div>
+                <div class="settings-form-row">
+                  <label for="settingsUploadFormatsProgram">程序包分类格式</label>
+                  <input type="text" id="settingsUploadFormatsProgram" placeholder="exe,msi,apk,dmg,pkg,deb,rpm" />
+                </div>
+                <div class="settings-form-row">
+                  <label for="settingsUploadFormatsOther">其他分类格式</label>
+                  <input type="text" id="settingsUploadFormatsOther" placeholder="" />
+                </div>
+                <div class="settings-form-row">
+                  <label for="settingsAvatarUploadFormats">头像上传支持格式</label>
+                  <input type="text" id="settingsAvatarUploadFormats" placeholder="jpg,png,webp,bmp" />
+                </div>
+                <div class="settings-form-row">
+                  <label for="settingsAvatarUploadSize">头像上传大小限制(MB)</label>
+                  <input type="number" id="settingsAvatarUploadSize" min="1" max="100" required />
+                </div>
+              </form>
+              <form id="loginSettingsForm" class="settings-form" style="display:none;">
+                <div class="settings-form-row checkbox">
+                  <label for="settingsLoginCaptchaEnabled">登录验证码</label>
+                  <input type="checkbox" id="settingsLoginCaptchaEnabled" />
+                </div>
+                <div class="settings-form-row checkbox">
+                  <label for="settingsSmsLoginEnabled">短信登录配置</label>
+                  <input type="checkbox" id="settingsSmsLoginEnabled" />
+                </div>
+                <div class="settings-form-tip" id="smsEnvConfigTip" style="display:none;">
+                  已启用短信登录，请先在 .env 中配置短信环境变量
+                </div>
+                <div class="settings-form-row" id="smsSendIntervalRow" style="display:none;">
+                  <label for="settingsSmsSendIntervalSeconds">验证码发送间隔(秒)</label>
+                  <input type="number" id="settingsSmsSendIntervalSeconds" min="1" max="3600" required />
+                </div>
+                <div class="settings-form-row" id="smsIpLimitWindowRow" style="display:none;">
+                  <label for="settingsSmsIpLimitWindowMinutes">IP限制时间段(分钟)</label>
+                  <input type="number" id="settingsSmsIpLimitWindowMinutes" min="1" max="1440" required />
+                </div>
+                <div class="settings-form-row" id="smsIpLimitCountRow" style="display:none;">
+                  <label for="settingsSmsIpLimitMaxCount">时间段内IP发送次数限制</label>
+                  <input type="number" id="settingsSmsIpLimitMaxCount" min="1" max="10000" required />
+                </div>
+                <div class="settings-form-row">
+                  <label for="settingsLoginSessionMinutes">登录有效期(分钟)</label>
+                  <input type="number" id="settingsLoginSessionMinutes" min="1" max="43200" required />
+                </div>
+              </form>
+              <form id="menuSettingsForm" class="settings-form" style="display:none;">
+                <div class="settings-form-tip">
+                  点击加号弹窗添加用户或用户组授权；文件菜单默认全员可用；管理员始终全权限
+                </div>
+                <div class="settings-form-tip" id="settingsMenuUserEmptyTip" style="display:none;">
+                  暂无可配置用户或用户组
+                </div>
+                <div class="settings-menu-permission-list" id="settingsMenuPermissionsList"></div>
+              </form>
+              <form id="downloadSettingsForm" class="settings-form" style="display:none;">
+                <div class="settings-form-row">
+                  <label for="settingsDownloadGlobalSpeedLimit">全局下载速度限制</label>
+                  <div style="display: flex; gap: 8px; align-items: center;">
+                    <input type="number" id="settingsDownloadGlobalSpeedLimit" min="1" max="10485760" required style="flex: 1;" />
+                    <select id="settingsDownloadGlobalSpeedUnit" style="width: 80px; margin-left: 4px;">
+                      <option value="KB/s">KB/s</option>
+                      <option value="MB/s" selected>MB/s</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="settings-form-row">
+                  <label for="settingsDownloadShareSpeedLimit">分享下载速度限制</label>
+                  <div style="display: flex; gap: 8px; align-items: center;">
+                    <input type="number" id="settingsDownloadShareSpeedLimit" min="1" max="10485760" required style="flex: 1;" />
+                    <select id="settingsDownloadShareSpeedUnit" style="width: 80px; margin-left: 4px;">
+                      <option value="KB/s">KB/s</option>
+                      <option value="MB/s" selected>MB/s</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="settings-form-tip">
+                  配置用户下载速度限制，可以为不同用户组设置不同的速度限制。未设置用户组的用户将使用全局速度限制。分享下载将单独使用分享下载速度限制。
+                </div>
+                <div class="settings-form-row" style="margin-top: 16px;">
+                  <label>用户组速度限制</label>
+                </div>
+                <div id="downloadGroupSpeedLimitsList" class="settings-group-speed-limits-list"></div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>

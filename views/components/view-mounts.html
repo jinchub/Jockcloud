@@ -1,0 +1,70 @@
+        <div id="view-mounts" class="view-section" style="display: none;">
+        <div class="mounts-layout">
+          <aside class="sidebar-secondary mounts-sidebar">
+            <div class="secondary-header-toggle mounts-sidebar-header">
+              <div class="mounts-sidebar-left">
+                <button type="button" class="mounts-toggle-btn" id="toggleMountSidebarBtn" title="收起侧边栏">
+                  <i class="fa-solid fa-angles-left"></i>
+                </button>
+                <span class="mounts-sidebar-title">挂载列表</span>
+              </div>
+              <button class="btn-upload mounts-add-btn" id="addMountBtn"><i class="fa-solid fa-plus"></i> 添加</button>
+            </div>
+            <div class="secondary-menu">
+              <div id="mountsAsideList"></div>
+            </div>
+          </aside>
+          <div class="mounts-main">
+            <div class="mounts-main-header">
+              <div class="mounts-main-title-row">
+                <div class="mounts-title-group">
+                  <h2 id="mountStorageTitle">文件存储列表</h2>
+                  <button type="button" class="mounts-close-connection-btn" id="closeMountConnectionBtn" title="关闭连接">
+                    <i class="fa-solid fa-link-slash"></i>
+                  </button>
+                </div>
+                <div class="mounts-main-actions">
+                  <button class="btn-upload mounts-upload-btn" id="createMountFolderBtn"><i class="fa-solid fa-folder-plus"></i> 目录</button>
+                  <button class="btn-upload mounts-upload-btn" id="uploadMountObjectBtn"><i class="fa-solid fa-file-arrow-up"></i> 文件</button>
+                  <input type="file" id="mountObjectUploadInput" style="display:none;" />
+                </div>
+              </div>
+              <div class="mounts-meta-row">
+                <div class="mounts-meta" id="mountStorageMeta">请选择左侧挂载</div>
+                <div class="mounts-meta-actions">
+                  <button type="button" class="btn-sm mounts-search-btn" id="searchMountObjectBtn"><i class="fa-solid fa-magnifying-glass"></i> 搜索</button>
+                  <button type="button" class="btn-sm mounts-reset-btn" id="resetMountSearchBtn" style="display:none;"><i class="fa-solid fa-rotate-left"></i> 重置</button>
+                  <button type="button" class="btn-sm mounts-refresh-btn" id="refreshMountObjectBtn"><i class="fa-solid fa-rotate-right"></i> 刷新</button>
+                </div>
+              </div>
+              <div class="mount-breadcrumb" id="mountBreadcrumb"></div>
+            </div>
+            <div class="mounts-storage-scroll">
+              <table class="data-table mounts-storage-table" id="mountStorageTable">
+                <thead>
+                  <tr>
+                    <th id="mountSortName" class="mount-sortable">文件名</th><th id="mountSortPath" class="mount-sortable">存储路径</th><th>存储桶</th><th>接入点</th><th id="mountSortUpdatedAt" class="mount-sortable">更新时间</th><th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="mountStorageTableBody"></tbody>
+              </table>
+              <div class="mount-empty-panel" id="mountEmptyPanel" style="display:none;">
+                <div class="mount-empty-content" id="mountEmptyText"></div>
+              </div>
+            </div>
+            <div class="pagination-bar" id="mountPaginationBar">
+              <span class="pagination-summary" id="mountPaginationSummary">共 0 条</span>
+              <div class="pagination-controls">
+                <button type="button" id="mountPrevPageBtn">上一页</button>
+                <span id="mountPageInfo">1 / 1</span>
+                <button type="button" id="mountNextPageBtn">下一页</button>
+                <select id="mountPageSizeSelect">
+                  <option value="50" selected>50 / 页</option>
+                  <option value="100">100 / 页</option>
+                  <option value="150">150 / 页</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>

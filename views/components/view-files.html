@@ -1,0 +1,199 @@
+        <div id="view-files" class="view-section">
+        <header class="main-header">
+        <div class="header-left">
+          <input type="file" id="fileInput" style="display: none;" multiple />
+          <input type="file" id="dirInput" style="display: none;" webkitdirectory directory multiple />
+          <button class="btn-action newdir" id="newFolderBtn"><i class="fa-regular fa-square-plus"></i> 新建文件夹</button>
+          <button class="btn-action" id="refreshDirBtn"><i class="fa-solid fa-rotate-right"></i> 刷新</button>
+        </div>
+        <div class="header-right">
+          <div class="search-wrapper">
+            <input type="text" id="searchInput" placeholder="搜索我的文件" />
+            <div class="search-btn-text" id="searchBtn">搜索</div>
+          </div>
+          <button type="button" class="theme-toggle-btn" id="themeToggleBtn" title="切换主题">
+            <i class="fa-solid fa-moon theme-icon-light"></i>
+            <i class="fa-solid fa-sun theme-icon-dark"></i>
+            <i class="fa-solid fa-circle-half-stroke theme-icon-auto"></i>
+          </button>
+          <button type="button" class="theme-toggle-btn" id="refreshPageBtn" title="刷新页面">
+            <i class="fa-solid fa-arrows-rotate"></i>
+          </button>
+        </div>
+      </header>
+
+      <div class="content-container" id="filesContentContainer">
+        <div class="list-view">
+          <div class="list-toolbar">
+            <div class="list-toolbar-actions">
+              <button class="btn-action" id="batchDownloadBtn" disabled><i class="fa-solid fa-download"></i> 下载</button>
+              <button class="btn-action" id="batchArchiveBtn" disabled><i class="fa-solid fa-file-zipper"></i> 压缩</button>
+              <button class="btn-action" id="batchCopyBtn" disabled><i class="fa-regular fa-copy"></i> 复制</button>
+              <button class="btn-action" id="batchMoveBtn" disabled><i class="fa-solid fa-right-left"></i> 移动</button>
+              <button class="btn-action" id="batchDeleteBtn" disabled><i class="fa-regular fa-trash-can"></i> 删除</button>
+              <button class="btn-action" id="batchRestoreBtn" disabled style="display:none;"><i class="fa-solid fa-rotate-left"></i> 恢复</button>
+              <button class="btn-action" id="clearSelectionBtn" disabled><i class="fa-solid fa-check-double"></i> 取消</button>
+              <button class="btn-action" id="batchPasteBtn" disabled style="display:none;"><i class="fa-regular fa-clipboard"></i> 粘贴</button>
+              <button class="btn-action" id="batchCancelBtn" disabled style="display:none;"><i class="fa-solid fa-xmark"></i> 取消</button>
+              <button class="btn-action" id="resetHiddenSpacePwdBtn" disabled style="display:none;"><i class="fa-solid fa-key"></i> 重置密码</button>
+              <button class="btn-action" id="closeHiddenSpaceBtn" disabled style="display:none;"><i class="fa-solid fa-lock"></i> 退出</button>
+            </div>
+            <div class="current-path-wrapper">
+              <span class="current-path">全部文件</span>
+              <div class="view-switch">
+                <i class="fa-solid fa-circle-info" id="toggleDetailsBtn" style="cursor: pointer; margin-left: 10px;" title="显示/隐藏详情"></i>
+                <div style="width: 6px; display: inline-block;"></div>
+                <i class="fa-solid fa-table-cells-large" id="viewModeBtn" title="切换视图"></i>
+                <button type="button" class="timeline-mode-toggle-btn" id="timelineModeToggleBtn" style="display:none;">时光轴</button>
+                <div class="grid-size-selector" id="gridSizeSelector">
+                  <button type="button" class="grid-size-option" data-size="small">小</button>
+                  <button type="button" class="grid-size-option" data-size="medium">中</button>
+                  <button type="button" class="grid-size-option" data-size="large">大</button>
+                </div>
+                <button type="button" class="grid-select-all-btn" id="gridSelectAllBtn">全选</button>
+              </div>
+            </div>
+          </div>
+          <div class="mobile-category-fixed" id="mobileCategoryBar">
+            <a href="#" class="sub-nav-item mobile-category-link mobile-category-all" data-mobile-category-all="1"><i class="fa-regular fa-file"></i>全部</a>
+            <a href="#" class="sub-nav-item mobile-category-link" data-category="image"><i class="fa-regular fa-image"></i>图片</a>
+            <a href="#" class="sub-nav-item mobile-category-link" data-category="doc"><i class="fa-regular fa-file-lines"></i>文档</a>
+            <a href="#" class="sub-nav-item mobile-category-link" data-category="video"><i class="fa-regular fa-circle-play"></i>视频</a>
+            <a href="#" class="sub-nav-item mobile-category-link" data-category="text"><i class="fa-regular fa-file-lines"></i>文本</a>
+            <a href="#" class="sub-nav-item mobile-category-link" data-category="audio"><i class="fa-solid fa-headphones"></i>音频</a>
+            <a href="#" class="sub-nav-item mobile-category-link" data-category="archive"><i class="fa-regular fa-file-zipper"></i>压缩</a>
+            <a href="#" class="sub-nav-item mobile-category-link" data-category="program"><i class="fa-solid fa-download"></i>程序</a>
+            <a href="#" class="sub-nav-item mobile-category-link" data-category="other"><i class="fa-solid fa-ellipsis"></i>其它</a>
+          </div>
+          
+          <div class="file-table">
+            <div class="table-header">
+              <div class="cell-check"><input type="checkbox" id="selectAllCheckbox"></div>
+              <div class="cell-name">文件名</div>
+              <div class="cell-size">大小</div>
+              <div class="cell-type">类型</div>
+              <div class="cell-time">修改时间</div>
+              <div class="cell-quick">收藏</div>
+              <div class="cell-origin"></div>
+              <div class="cell-expire"></div>
+            </div>
+            <div class="table-body" id="fileList">
+            </div>
+          </div>
+          <div class="pagination-bar" id="filePaginationBar">
+            <span class="pagination-summary" id="filePaginationSummary">共 0 条</span>
+            <div class="pagination-controls">
+              <button type="button" id="filePrevPageBtn">上一页</button>
+              <span id="filePageInfo">1 / 1</span>
+              <button type="button" id="fileNextPageBtn">下一页</button>
+              <select id="filePageSizeSelect">
+                <option value="50" selected>50 / 页</option>
+                <option value="100">100 / 页</option>
+                <option value="150">150 / 页</option>
+                <option value="200">200 / 页</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <aside class="info-sidebar hidden" id="detailsSidebar">
+          <div class="info-header">
+            <span>文件详情</span>
+            <i class="fa-solid fa-xmark" id="closeDetailsBtn"></i>
+          </div>
+          <div class="info-body" id="detailsContent">
+            <div class="empty-info">
+              <i class="fa-regular fa-file" style="font-size: 64px; color: #e5e6eb;"></i>
+              <p>选中文件/文件夹，查看详情</p>
+            </div>
+          </div>
+        </aside>
+        <div class="info-sidebar-overlay" id="detailsSidebarOverlay"></div>
+      </div>
+      <div class="upload-tasks-main hidden" id="uploadTasksMainContainer">
+        <div class="upload-tasks-main-header">
+          <h3>传输列表</h3>
+          <button class="btn-sm" id="closeUploadTasksBtn">返回文件</button>
+        </div>
+        <div class="transfer-task-tabs">
+          <button type="button" class="transfer-task-tab active" id="transferUploadTabBtn">上传任务</button>
+          <button type="button" class="transfer-task-tab" id="transferDownloadTabBtn">下载任务</button>
+          <span class="transfer-task-refresh-tip" id="transferTaskRefreshTip">如果有文件正在上传中请勿刷新页面，避免任务中断</span>
+        </div>
+        <div class="upload-task-header">
+          <div class="upload-task-counts">
+            <span id="pendingCount" style="display:none;">待上传 0</span>
+            <span id="uploadingCount">上传中 0</span>
+            <span id="completedCount">已完成 0</span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button class="btn-sm danger" id="cancelSelectedTransferTasksBtn" style="display:none;">批量取消</button>
+            <button class="btn-sm danger" id="clearSelectedTransferTasksBtn" style="display:none;">批量清除</button>
+            <button class="btn-sm danger" id="clearCanceledTasksBtn" style="display:none;">清空已取消</button>
+            <button class="btn-sm danger" id="clearUploadTasksBtn">清空已完成</button>
+          </div>
+        </div>
+        <div class="transfer-task-panel" id="uploadTaskPanel">
+          <div class="upload-task-table">
+            <div class="upload-task-row upload-task-head">
+              <div><input type="checkbox" id="uploadTaskSelectAllCheckbox"></div>
+              <div>文件名</div>
+              <div>文件大小</div>
+              <div>上传时间</div>
+              <div>上传目录</div>
+              <div>源文件路径</div>
+              <div>状态</div>
+              <div>操作</div>
+            </div>
+            <div id="uploadTaskList"></div>
+          </div>
+        </div>
+        <div class="transfer-task-panel hidden" id="downloadTaskPanel">
+          <div class="upload-task-table">
+            <div class="upload-task-row upload-task-head">
+              <div><input type="checkbox" id="downloadTaskSelectAllCheckbox"></div>
+              <div>文件名</div>
+              <div>文件大小</div>
+              <div>下载时间</div>
+              <div>来源目录</div>
+              <div>状态</div>
+              <div>操作</div>
+            </div>
+            <div id="downloadTaskList"></div>
+          </div>
+        </div>
+      </div>
+      <div class="upload-tasks-main hidden" id="mySharesMainContainer">
+        <div class="upload-tasks-main-header">
+          <h3>我的分享</h3>
+          <div class="my-share-header-actions">
+            <button class="btn-sm danger" id="myShareBatchCancelBtn" style="display:none;"></button>
+            <button class="btn-sm" id="closeMySharesBtn">返回文件</button>
+          </div>
+        </div>
+        <div class="file-table my-share-file-table">
+          <div class="table-header my-share-table-header">
+            <div class="cell-check"><input type="checkbox" id="myShareSelectAllCheckbox"></div>
+            <div class="cell-name">文件名</div>
+            <div class="cell-share-visits">访问次数</div>
+            <div class="cell-share-downloads">下载次数</div>
+            <div class="cell-share-expire">分享状态</div>
+            <div class="cell-share-ops">操作</div>
+          </div>
+          <div class="table-body my-share-table-body" id="myShareList"></div>
+        </div>
+        <div class="pagination-bar" id="mySharePaginationBar">
+          <span class="pagination-summary" id="mySharePaginationSummary">共 0 条</span>
+          <div class="pagination-controls">
+            <button type="button" id="mySharePrevPageBtn">上一页</button>
+            <span id="mySharePageInfo">1 / 1</span>
+            <button type="button" id="myShareNextPageBtn">下一页</button>
+            <select id="mySharePageSizeSelect">
+              <option value="20" selected>20 / 页</option>
+              <option value="50">50 / 页</option>
+              <option value="100">100 / 页</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      </div>
