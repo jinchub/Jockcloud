@@ -125,6 +125,7 @@ const decryptLoginPassword = (encryptedPassword, loginPasswordKeyPair) => {
   if (!encryptedBase64) {
     throw new Error("密码加密数据不能为空");
   }
+  
   try {
     const decrypted = crypto.privateDecrypt(
       {
@@ -137,18 +138,32 @@ const decryptLoginPassword = (encryptedPassword, loginPasswordKeyPair) => {
     return decrypted.toString("utf8");
   } catch (_oaepError) {
     try {
-      const decrypted = crypto.privateDecrypt(
+      const decryptedBuffer = crypto.privateDecrypt(
         {
           key: loginPasswordKeyPair.privateKey,
-          padding: crypto.constants.RSA_PKCS1_PADDING
+          padding: crypto.constants.RSA_NO_PADDING
         },
         Buffer.from(encryptedBase64, "base64")
       );
+      
+      const decrypted = removePKCS1Padding(decryptedBuffer);
       return decrypted.toString("utf8");
-    } catch (_pkcsError) {
+    } catch (_noPaddingError) {
       throw new Error("密码解密失败");
     }
   }
+};
+
+const removePKCS1Padding = (buffer) => {
+  let i = 0;
+  if (buffer[0] === 0x00 || buffer[0] === 0x02) {
+    i = 1;
+  }
+  while (i < buffer.length && buffer[i] !== 0x00) {
+    i++;
+  }
+  i++;
+  return buffer.slice(i);
 };
 
 module.exports = {
