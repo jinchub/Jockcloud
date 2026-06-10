@@ -597,7 +597,7 @@ const renderQuotaTable = () => {
   state.quotaPage = quotaPagination.page;
   tbody.innerHTML = usersData.slice(quotaPagination.startIndex, quotaPagination.endIndex).map(u => {
     const used = u.used || 0;
-    const effectiveQuota = u.effectiveQuota !== undefined ? u.effectiveQuota : u.quota;
+    const effectiveQuota = u.effectiveQuota !== undefined ? u.effectiveQuota : -1;
     const total = effectiveQuota === -1 ? 0 : effectiveQuota;
     const percentValue = total > 0 ? (used / total) * 100 : 0;
     const percent = total > 0 ? ((used / total) * 100).toFixed(1) + "%" : "-";

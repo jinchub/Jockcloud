@@ -309,20 +309,15 @@ const createAuthRuntime = ({
     return hasUnlimited ? -1 : undefined;
   };
 
-  const resolveGroupQuota = (userQuota, groupQuotas) => {
+  const resolveGroupQuota = (_userQuota, groupQuotas) => {
     if (!Array.isArray(groupQuotas) || groupQuotas.length === 0) {
-      return userQuota !== undefined ? userQuota : -1;
+      return -1;
     }
-    
-    // 如果用户自己设置了配额（不是 -1），优先使用用户配额
-    if (userQuota !== undefined && userQuota !== -1) {
-      return userQuota;
-    }
-    
-    // 否则使用用户组的最小配额
+
+    // 仅按用户组方案生效，取最小正配额；全部不限则返回 -1
     let minQuota = null;
     let hasUnlimited = false;
-    
+
     groupQuotas.forEach((item) => {
       const currentQuota = Number(item && item.quotaBytes || -1);
       if (currentQuota === -1) {
@@ -334,9 +329,9 @@ const createAuthRuntime = ({
         minQuota = currentQuota;
       }
     });
-    
+
     if (minQuota !== null) return minQuota;
-    return hasUnlimited ? -1 : -1; // 默认返回 -1（无限制）
+    return hasUnlimited ? -1 : -1;
   };
 
   const insertUserGroupMembers = async (connection, userId, groupIds) => {

@@ -3,6 +3,8 @@ const Throttle = require('stream-throttle').Throttle;
 module.exports = (app, deps) => {
   const {
     authRequired,
+    loadUserGroupContextMap,
+    resolveGroupQuota,
     requireFilePermission,
     pool,
     sendDbError,
@@ -42,6 +44,12 @@ module.exports = (app, deps) => {
     hasFilePermission,
     logFileOperation
   } = deps;
+
+  const resolveEffectiveQuotaForUser = async (userId) => {
+    const groupContextMap = await loadUserGroupContextMap([userId]);
+    const groupContext = groupContextMap.get(Number(userId)) || { groupQuotas: [] };
+    return resolveGroupQuota(undefined, groupContext.groupQuotas);
+  };
 
   const escapeHtml = (value) => String(value || "").replace(/[&<>"']/g, (char) => (
     { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[char]
@@ -437,8 +445,7 @@ module.exports = (app, deps) => {
           res.json({ message: "压缩包内没有可解压文件", total: 0 });
           return;
         }
-        const [quotaRows] = await pool.query("SELECT quota_bytes AS quota FROM users WHERE id = ? LIMIT 1", [req.user.userId]);
-        const quota = quotaRows.length > 0 ? Number(quotaRows[0].quota) : -1;
+        const quota = await resolveEffectiveQuotaForUser(req.user.userId);
         const incomingSize = files.reduce((total, item) => total + item.size, 0);
         if (quota !== -1) {
           const [usageRows] = await pool.query(

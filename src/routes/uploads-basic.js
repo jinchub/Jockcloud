@@ -1,6 +1,8 @@
 module.exports = (app, deps) => {
   const {
     authRequired,
+    loadUserGroupContextMap,
+    resolveGroupQuota,
     requireFilePermission,
     chunkUploadSingle,
     uploadArray,
@@ -48,6 +50,12 @@ module.exports = (app, deps) => {
     resolveUniqueName,
     logFileOperation
   } = deps;
+
+  const resolveEffectiveQuotaForUser = async (userId) => {
+    const groupContextMap = await loadUserGroupContextMap([userId]);
+    const groupContext = groupContextMap.get(Number(userId)) || { groupQuotas: [] };
+    return resolveGroupQuota(undefined, groupContext.groupQuotas);
+  };
 
   app.post("/api/upload/chunk/init", authRequired, requireFilePermission("upload"), async (req, res) => {
     const spaceType = resolveStorageSpaceTypeByRequest(req);
@@ -129,8 +137,7 @@ module.exports = (app, deps) => {
         res.status(400).json({ message: formatError });
         return;
       }
-      const [quotaRows] = await pool.query("SELECT quota_bytes AS quota FROM users WHERE id = ? LIMIT 1", [req.user.userId]);
-      const quota = quotaRows.length > 0 ? Number(quotaRows[0].quota) : -1;
+      const quota = await resolveEffectiveQuotaForUser(req.user.userId);
       if (quota !== -1) {
         const [usageRows] = await pool.query(
           "SELECT IFNULL(SUM(size), 0) AS totalSize FROM files WHERE user_id = ? AND space_type = ? AND deleted_at IS NULL",
@@ -370,8 +377,7 @@ module.exports = (app, deps) => {
         res.status(400).json({ message: formatError });
         return;
       }
-      const [quotaRows] = await pool.query("SELECT quota_bytes AS quota FROM users WHERE id = ? LIMIT 1", [req.user.userId]);
-      const quota = quotaRows.length > 0 ? Number(quotaRows[0].quota) : -1;
+      const quota = await resolveEffectiveQuotaForUser(req.user.userId);
       if (quota !== -1) {
         const [usageRows] = await pool.query(
           "SELECT IFNULL(SUM(size), 0) AS totalSize FROM files WHERE user_id = ? AND space_type = ? AND deleted_at IS NULL",
@@ -544,8 +550,7 @@ module.exports = (app, deps) => {
         }
       }
       const incomingSize = files.reduce((total, file) => total + Math.max(0, Number(file.size || 0)), 0);
-      const [quotaRows] = await pool.query("SELECT quota_bytes AS quota FROM users WHERE id = ? LIMIT 1", [req.user.userId]);
-      const quota = quotaRows.length > 0 ? Number(quotaRows[0].quota) : -1;
+      const quota = await resolveEffectiveQuotaForUser(req.user.userId);
       if (quota !== -1) {
         const [usageRows] = await pool.query(
           "SELECT IFNULL(SUM(size), 0) AS totalSize FROM files WHERE user_id = ? AND space_type = ? AND deleted_at IS NULL",

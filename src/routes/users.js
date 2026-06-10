@@ -91,6 +91,7 @@ module.exports = (app, deps) => {
     normalizeUserGroupUploadMaxFileCount,
     convertUserGroupUploadSizeMbToGb,
     convertUserGroupUploadSizeGbToMb,
+    resolveGroupQuota,
     getStorageDiskConfig
   } = deps;
   const HIDDEN_SPACE_DISK_TOKEN = "__hidden__";
@@ -222,7 +223,7 @@ module.exports = (app, deps) => {
       }
       
       const [users] = await pool.query(`
-      SELECT u.id, u.username, u.name, u.phone, u.quota_bytes AS quota, u.permissions, u.role, u.avatar, u.created_at,
+      SELECT u.id, u.username, u.name, u.phone, u.permissions, u.role, u.avatar, u.created_at,
       (SELECT IFNULL(SUM(size), 0) FROM files f WHERE f.user_id = u.id AND f.deleted_at IS NULL) AS used,
       (SELECT COUNT(*) FROM files f WHERE f.user_id = u.id AND f.deleted_at IS NULL) AS fileCount
       FROM users u${whereClause}
@@ -332,28 +333,7 @@ module.exports = (app, deps) => {
         const groupContext = groupContextMap.get(Number(u.id)) || { groupIds: [], groupNames: [], groupPermissions: [], groupQuotas: [] };
         const effectivePermissionResult = getEffectivePermissions(u.permissions, groupContext.groupPermissions, groupContext.groupIds);
         
-        // 计算有效配额：用户配额优先，否则使用用户组配额
-        let effectiveQuota = Number(u.quota);
-        if (effectiveQuota === -1 && groupContext.groupQuotas && groupContext.groupQuotas.length > 0) {
-          // 用户未设置配额时，使用用户组的最小配额
-          let minQuota = null;
-          let hasUnlimited = false;
-          groupContext.groupQuotas.forEach((gq) => {
-            const quota = Number(gq.quotaBytes || -1);
-            if (quota === -1) {
-              hasUnlimited = true;
-              return;
-            }
-            if (quota > 0 && (minQuota === null || quota < minQuota)) {
-              minQuota = quota;
-            }
-          });
-          if (minQuota !== null) {
-            effectiveQuota = minQuota;
-          } else if (hasUnlimited) {
-            effectiveQuota = -1;
-          }
-        }
+        const effectiveQuota = resolveGroupQuota(undefined, groupContext.groupQuotas);
         
         return {
           ...u,
@@ -362,7 +342,6 @@ module.exports = (app, deps) => {
           permissionSource: effectivePermissionResult.source,
           groupIds: groupContext.groupIds,
           groupNames: groupContext.groupNames,
-          quota: Number(u.quota),
           effectiveQuota: effectiveQuota,
           used: Number(u.used),
           fileCount: Number(u.fileCount),
@@ -531,18 +510,13 @@ module.exports = (app, deps) => {
   });
 
   app.post("/api/users", authRequired, adminRequired, async (req, res) => {
-    const { username, password, name, phone, quota, permissions, role, avatar, groupIds } = req.body;
+    const { username, password, name, phone, permissions, role, avatar, groupIds } = req.body;
     if (!username || !password) {
       res.status(400).json({ message: "用户名和密码不能为空" });
       return;
     }
     if (String(password).length < 6) {
       res.status(400).json({ message: "密码至少 6 位" });
-      return;
-    }
-    // 验证配额值：-1 表示不限制，其他值必须大于 0
-    if (quota !== undefined && quota !== null && Number(quota) !== -1 && Number(quota) <= 0) {
-      res.status(400).json({ message: "空间配额必须大于 0 或设置为 -1（不限制）" });
       return;
     }
     const normalizedGroupIds = normalizeIdList(groupIds);
@@ -570,20 +544,13 @@ module.exports = (app, deps) => {
           return;
         }
       }
-      const quotaError = await validateQuotaLimit(connection, quota);
-      if (quotaError) {
-        await connection.rollback();
-        res.status(400).json({ message: quotaError });
-        return;
-      }
       const [insertResult] = await connection.query(
-        "INSERT INTO users (username, password_hash, name, phone, quota_bytes, permissions, role, avatar) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO users (username, password_hash, name, phone, permissions, role, avatar) VALUES (?, ?, ?, ?, ?, ?, ?)",
         [
           username,
           await hashPassword(password),
           name || null,
           phone || null,
-          quota || -1,
           normalizedPermissions,
           role || "user",
           avatar || null
@@ -611,7 +578,7 @@ module.exports = (app, deps) => {
 
   app.put("/api/users/:id", authRequired, adminRequired, async (req, res) => {
     const userId = Number(req.params.id);
-    const { password, name, phone, quota, permissions, role, avatar, groupIds } = req.body;
+    const { password, name, phone, permissions, role, avatar, groupIds } = req.body;
 
     if (!userId) return res.status(400).json({ message: "ID 不合法" });
 
@@ -621,10 +588,6 @@ module.exports = (app, deps) => {
     }
     if (password !== undefined && password !== "" && String(password).length < 6) {
       return res.status(400).json({ message: "密码至少 6 位" });
-    }
-    // 验证配额值：-1 表示不限制，其他值必须大于 0
-    if (quota !== undefined && quota !== null && Number(quota) !== -1 && Number(quota) <= 0) {
-      return res.status(400).json({ message: "空间配额必须大于 0 或设置为 -1（不限制）" });
     }
 
     const normalizedGroupIds = groupIds === undefined ? undefined : normalizeIdList(groupIds);
@@ -647,10 +610,6 @@ module.exports = (app, deps) => {
         updates.push("phone = ?");
         params.push(phone);
       }
-      if (quota !== undefined) {
-        updates.push("quota_bytes = ?");
-        params.push(quota);
-      }
       if (permissions !== undefined) {
         updates.push("permissions = ?");
         params.push(permissions === null ? null : JSON.stringify(parsePermissionList(permissions, { fallbackToAll: false })));
@@ -671,14 +630,6 @@ module.exports = (app, deps) => {
           return res.status(400).json({ message: "用户组不存在" });
         }
       }
-      if (quota !== undefined) {
-        const quotaError = await validateQuotaLimit(connection, quota, userId);
-        if (quotaError) {
-          await connection.rollback();
-          return res.status(400).json({ message: quotaError });
-        }
-      }
-
       if (updates.length > 0) {
         params.push(userId);
         await connection.query(`UPDATE users SET ${updates.join(", ")} WHERE id = ?`, params);

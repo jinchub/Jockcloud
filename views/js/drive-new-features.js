@@ -70,7 +70,7 @@ const getSortedUsersByTable = (tableKey) => {
     }
     if (sortState.key === "usageRate") {
       const getUsageRate = (user) => {
-        const total = Number(user.quota);
+        const total = Number(user.effectiveQuota);
         if (!Number.isFinite(total) || total <= 0) return -1;
         return Number(user.used || 0) / total;
       };

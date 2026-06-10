@@ -1,6 +1,8 @@
 module.exports = (app, deps) => {
   const {
     authRequired,
+    loadUserGroupContextMap,
+    resolveGroupQuota,
     requireFilePermission,
     pool,
     sendDbError,
@@ -14,6 +16,12 @@ module.exports = (app, deps) => {
     toInClause
   } = deps;
 
+  const resolveEffectiveQuotaForUser = async (userId) => {
+    const groupContextMap = await loadUserGroupContextMap([userId]);
+    const groupContext = groupContextMap.get(Number(userId)) || { groupQuotas: [] };
+    return resolveGroupQuota(undefined, groupContext.groupQuotas);
+  };
+
   app.get("/api/stats", authRequired, async (req, res) => {
     try {
       const [fileRows] = await pool.query(
@@ -22,36 +30,7 @@ module.exports = (app, deps) => {
       );
       const [folderRows] = await pool.query("SELECT COUNT(*) AS folderCount FROM folders WHERE user_id = ? AND deleted_at IS NULL", [req.user.userId]);
 
-      // 获取用户配额和用户组信息
-      const [userRows] = await pool.query(`
-        SELECT u.quota_bytes AS quota, 
-               (SELECT GROUP_CONCAT(g.id) 
-                FROM user_group_members m 
-                JOIN user_groups g ON g.id = m.group_id 
-                WHERE m.user_id = u.id) AS groupIds
-        FROM users u 
-        WHERE u.id = ?
-      `, [req.user.userId]);
-      
-      const userQuota = userRows.length > 0 ? Number(userRows[0].quota) : -1;
-      const groupIdsStr = userRows[0].groupIds;
-      
-      // 计算有效配额：用户配额优先，否则使用用户组配额
-      let quota = userQuota;
-      if (userQuota === -1 && groupIdsStr) {
-        // 用户未设置配额，查询用户组的最小配额
-        const groupIds = groupIdsStr.split(',').map(id => parseInt(id.trim()));
-        const placeholders = groupIds.map(() => '?').join(',');
-        const [groupRows] = await pool.query(`
-          SELECT MIN(quota_bytes) AS minQuota 
-          FROM user_groups 
-          WHERE id IN (${placeholders})
-        `, groupIds);
-        
-        if (groupRows.length > 0 && groupRows[0].minQuota !== null) {
-          quota = Number(groupRows[0].minQuota);
-        }
-      }
+      const quota = await resolveEffectiveQuotaForUser(req.user.userId);
 
       res.json({
         fileCount: fileRows[0].fileCount,

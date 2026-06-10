@@ -142,6 +142,7 @@ const registerAllRoutes = (app, deps) => {
     normalizeVisibleCategories,
     resolveGroupUploadMaxSizeMb,
     resolveGroupUploadMaxFileCount,
+    resolveGroupQuota,
     avatarUploadSingle,
     UPLOAD_DIR,
     getAvatarStorageDir,
@@ -176,6 +177,7 @@ const registerAllRoutes = (app, deps) => {
     normalizeUserGroupUploadMaxFileCount,
     convertUserGroupUploadSizeMbToGb,
     convertUserGroupUploadSizeGbToMb,
+    resolveGroupQuota,
     getStorageDiskConfig,
     resolveStorageNameFromPath
   };
@@ -234,6 +236,8 @@ const registerAllRoutes = (app, deps) => {
   const registerStorageMetaRoutes = require("./storage-meta");
   registerStorageMetaRoutes(app, {
     authRequired,
+    loadUserGroupContextMap,
+    resolveGroupQuota,
     requireFilePermission,
     pool,
     sendDbError,
@@ -250,6 +254,8 @@ const registerAllRoutes = (app, deps) => {
   const registerUploadBasicRoutes = require("./uploads-basic");
   registerUploadBasicRoutes(app, {
     authRequired,
+    loadUserGroupContextMap,
+    resolveGroupQuota,
     requireFilePermission,
     chunkUploadSingle,
     uploadArray,
@@ -301,6 +307,8 @@ const registerAllRoutes = (app, deps) => {
   const registerDownloadRoutes = require("./downloads");
   registerDownloadRoutes(app, {
     authRequired,
+    loadUserGroupContextMap,
+    resolveGroupQuota,
     requireFilePermission,
     pool,
     sendDbError,
@@ -479,6 +487,7 @@ const registerAllRoutes = (app, deps) => {
     normalizeVisibleCategories,
     normalizeUserGroupUploadMaxSizeMb,
     normalizeUserGroupUploadMaxFileCount,
+    resolveGroupQuota,
     normalizePhone,
     hashPassword,
     avatarUploadSingle,

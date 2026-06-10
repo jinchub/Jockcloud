@@ -17,6 +17,7 @@ module.exports = (app, deps) => {
     normalizeVisibleCategories,
     normalizeUserGroupUploadMaxSizeMb,
     normalizeUserGroupUploadMaxFileCount,
+    resolveGroupQuota,
     normalizePhone,
     hashPassword,
     avatarUploadSingle,
@@ -34,10 +35,11 @@ module.exports = (app, deps) => {
       if (rows.length > 0) {
         const row = rows[0];
         const groupContextMap = await loadUserGroupContextMap([req.user.userId]);
-        const groupContext = groupContextMap.get(Number(req.user.userId)) || { groupIds: [], groupNames: [], groupPermissions: [], groupUploadLimits: [], groupUploadCountLimits: [] };
+        const groupContext = groupContextMap.get(Number(req.user.userId)) || { groupIds: [], groupNames: [], groupPermissions: [], groupUploadLimits: [], groupUploadCountLimits: [], groupQuotas: [] };
         const effectivePermissions = getEffectivePermissions(row.permissions, groupContext.groupPermissions, groupContext.groupIds);
         const groupUploadMaxSizeMb = resolveGroupUploadMaxSizeMb(groupContext.groupUploadLimits);
         const groupUploadMaxFileCount = resolveGroupUploadMaxFileCount(groupContext.groupUploadCountLimits);
+        const effectiveQuota = resolveGroupQuota(undefined, groupContext.groupQuotas);
         req.user = {
           ...req.user,
           ...row,
@@ -47,7 +49,8 @@ module.exports = (app, deps) => {
           groupIds: groupContext.groupIds,
           groupNames: groupContext.groupNames,
           groupUploadMaxSizeMb,
-          groupUploadMaxFileCount
+          groupUploadMaxFileCount,
+          effectiveQuota
         };
       }
     } catch(e) {}
@@ -78,6 +81,7 @@ module.exports = (app, deps) => {
       groupNames: Array.isArray(req.user.groupNames) ? req.user.groupNames : [],
       groupUploadMaxSizeMb: normalizeUserGroupUploadMaxSizeMb(req.user.groupUploadMaxSizeMb),
       groupUploadMaxFileCount: normalizeUserGroupUploadMaxFileCount(req.user.groupUploadMaxFileCount),
+      effectiveQuota: req.user.effectiveQuota === undefined ? -1 : Number(req.user.effectiveQuota),
       allowedMenus,
       mobileVisibleMenus
     });

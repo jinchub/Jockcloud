@@ -489,6 +489,7 @@ const {
   loadUserGroupContextMap,
   resolveGroupUploadMaxSizeMb,
   resolveGroupUploadMaxFileCount,
+  resolveGroupQuota,
   insertUserGroupMembers
 } = createAuthRuntime({
   Dypnsapi,
@@ -1086,6 +1087,7 @@ registerAllRoutes(app, {
   normalizeVisibleCategories,
   resolveGroupUploadMaxSizeMb,
   resolveGroupUploadMaxFileCount,
+  resolveGroupQuota,
   avatarUploadSingle,
   UPLOAD_DIR,
   getAvatarStorageDir,
