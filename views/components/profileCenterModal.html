@@ -1,26 +1,46 @@
     <div id="profileCenterModal" class="modal-overlay">
     <div class="modal profile-modal">
-      <h3>个人信息</h3>
-      <div class="profile-info-row">
-        <div id="profileCenterAvatar" class="profile-info-avatar">U</div>
-        <div>
-          <div class="profile-info-name-row">
-            <span class="profile-info-name" id="profileCenterName">-</span>
-            <span class="profile-info-groups" id="profileCenterGroups"></span>
+      <div class="profile-modal-panel">
+        <div class="profile-modal-hero">
+          <div class="profile-modal-header">
+            <div>
+              <div class="profile-modal-kicker">ACCOUNT CENTER</div>
+              <h3>个人信息</h3>
+            </div>
+            <button type="button" class="btn-sm profile-modal-close" id="closeProfileCenterBtn" aria-label="关闭">关闭</button>
           </div>
-          <div class="profile-info-username" id="profileCenterUsername">-</div>
-          <div class="profile-info-username" id="profileCenterLastLoginAt">登录时间: -</div>
-          <div class="profile-info-username" id="profileCenterLastLoginIp">登录IP: -</div>
+          <div class="profile-info-row">
+            <div id="profileCenterAvatar" class="profile-info-avatar">U</div>
+            <div class="profile-info-main">
+              <div class="profile-info-name-row">
+                <span class="profile-info-name" id="profileCenterName">-</span>
+                <span class="profile-info-groups" id="profileCenterGroups"></span>
+              </div>
+              <div class="profile-info-username" id="profileCenterUsername">-</div>
+            </div>
+          </div>
         </div>
-      </div>
-      <div class="profile-info-quota" id="profileCenterQuota">空间额度：-</div>
-      <div class="profile-action-row">
-        <button type="button" class="btn-sm" id="openAvatarUpdateBtn">更换头像</button>
-        <button type="button" class="btn-sm" id="openProfileEditBtn">修改资料</button>
-      </div>
-      <div class="modal-actions">
-        <button type="button" class="btn-sm danger" id="profileLogoutBtn">退出登录</button>
-        <button type="button" class="btn-sm" id="closeProfileCenterBtn">关闭</button>
+        <div class="profile-info-grid">
+          <div class="profile-info-card">
+            <div class="profile-info-label">最近登录</div>
+            <div class="profile-info-username" id="profileCenterLastLoginAt">登录时间: -</div>
+          </div>
+          <div class="profile-info-card">
+            <div class="profile-info-label">访问来源</div>
+            <div class="profile-info-username" id="profileCenterLastLoginIp">登录IP: -</div>
+          </div>
+          <div class="profile-info-card profile-info-card-wide">
+            <div class="profile-info-label">存储空间</div>
+            <div class="profile-info-quota" id="profileCenterQuota">空间额度：-</div>
+          </div>
+        </div>
+        <div class="profile-action-row">
+          <button type="button" class="btn-sm" id="openAvatarUpdateBtn">更换头像</button>
+          <button type="button" class="btn-sm" id="openProfileEditBtn">修改资料</button>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-sm danger" id="profileLogoutBtn">退出登录</button>
+        </div>
       </div>
     </div>
   </div>

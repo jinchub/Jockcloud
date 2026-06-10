@@ -1004,15 +1004,33 @@ const openProfileCenter = async () => {
   await loadCurrentUserStats();
   renderProfileCenter();
   profileCenterModal.style.display = "flex";
+  setProfileCenterTriggerActive(true);
+};
+
+const setProfileCenterTriggerActive = (active) => {
+  const logoBox = document.querySelector(".logo-box");
+  if (!logoBox) return;
+  logoBox.classList.toggle("active", !!active);
 };
 
 const closeModalById = (modalEl) => {
   if (!modalEl) return;
   modalEl.style.display = "none";
+  if (modalEl === profileCenterModal) {
+    setProfileCenterTriggerActive(false);
+  }
+};
+
+const closeProfileCenterOnMobileNav = () => {
+  if (!profileCenterModal) return;
+  if (!window.matchMedia("(max-width: 768px)").matches) return;
+  if (profileCenterModal.style.display === "none" || !profileCenterModal.style.display) return;
+  closeModalById(profileCenterModal);
 };
 
 const bindProfileCenter = () => {
   const logoBox = document.querySelector(".logo-box");
+  const filesNavBtn = document.querySelector('.primary-nav-item[data-view="files"]');
   if (logoBox) {
     logoBox.style.cursor = "pointer";
     logoBox.onclick = (event) => {
@@ -1022,6 +1040,12 @@ const bindProfileCenter = () => {
   }
   if (closeProfileCenterBtn) {
     closeProfileCenterBtn.onclick = () => closeModalById(profileCenterModal);
+  }
+  if (filesNavBtn) {
+    filesNavBtn.addEventListener("click", closeProfileCenterOnMobileNav);
+  }
+  if (uploadTasksNavBtn) {
+    uploadTasksNavBtn.addEventListener("click", closeProfileCenterOnMobileNav);
   }
   if (closePlanComparisonBtn) {
     closePlanComparisonBtn.onclick = () => closePlanComparisonModal();
