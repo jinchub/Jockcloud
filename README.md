@@ -103,60 +103,74 @@ npm start
 
 启动成功后，访问 `http://localhost:3000` 即可使用。
 
+## 系统架构
+
+### 分层说明
+
+- **接入与启动层**：`server.js` 负责启动服务，`src/app.js` 负责初始化 Express、数据库、日志、静态资源、HTML 模板渲染与定时任务。
+- **路由层**：`src/routes/` 按功能拆分接口模块，覆盖认证、文件管理、上传下载、分享、私密空间、系统设置、同步、监控等能力。
+- **服务层**：`src/services/` 封装认证运行时、上传中间件、下载限速、同步执行、压缩解压、回收站、分片上传会话等核心业务逻辑。
+- **中间件层**：`src/middlewares/` 提供登录鉴权、请求限流、统一错误处理等横切能力，保证接口访问的一致性。
+- **配置与工具层**：`src/utils/` 统一管理常量、默认配置、日志、权限、挂载配置、系统设置读写和各类辅助函数。
+- **数据与存储层**：MySQL 负责用户、文件、分享、挂载、同步任务、系统设置等持久化；本地磁盘、NFS 挂载目录和对象存储共同承担文件实际存储。
+
+### 请求处理流程
+
+1. 客户端访问页面或 API。
+2. Express 先经过限流、鉴权、监控、参数解析等中间件。
+3. 路由模块根据业务类型分发到对应的服务层逻辑。
+4. 服务层读写 MySQL、文件系统或云存储，并执行权限、配额、格式、限速等校验。
+5. 定时任务在后台持续处理回收站清理、运行时清理和同步调度。
+
 ## 目录结构
 
 ```
 jockcloud/
-├── src/                      # 后端源代码目录
-│   ├── app.js               # Express 应用主入口
-│   ├── db.js                # MySQL 数据库连接与初始化
-│   ├── routes/              # API 路由定义
-│   │   ├── auth.js          # 认证相关路由
-│   │   ├── entries.js       # 文件/文件夹管理
-│   │   ├── uploads*.js      # 上传相关路由
-│   │   ├── downloads.js     # 下载相关路由
-│   │   ├── shares.js        # 分享功能
-│   │   ├── sync-tasks.js    # 同步任务
-│   │   ├── mounts.js        # 云存储挂载
-│   │   ├── users.js         # 用户管理
-│   │   ├── settings.js      # 系统设置
+├── src/                           # 后端源代码目录
+│   ├── app.js                     # 应用初始化、依赖装配、任务启动
+│   ├── db.js                      # MySQL 连接与表初始化
+│   ├── routes/                    # API 路由定义
+│   │   ├── auth.js                # 登录、注册、验证码、会话
+│   │   ├── entries.js             # 文件/文件夹增删改查
+│   │   ├── uploads-basic.js       # 普通上传、分片上传
+│   │   ├── downloads.js           # 下载、压缩包处理、预览相关下载
+│   │   ├── shares.js              # 分享链接与分享下载
+│   │   ├── hidden-space.js        # 私密空间校验与访问
+│   │   ├── settings.js            # 系统设置读写
+│   │   ├── sync-tasks*.js         # 同步任务与流式事件
+│   │   ├── mounts.js              # 云存储挂载管理
 │   │   └── ...
-│   ├── services/            # 业务逻辑服务层
-│   │   ├── auth-runtime.js  # 认证运行时
-│   │   ├── upload-middlewares.js  # 上传中间件
-│   │   ├── sync-service.js  # 同步服务
+│   ├── services/                  # 业务服务层
+│   │   ├── auth-runtime.js        # 登录、短信、用户组上传策略
+│   │   ├── upload-middlewares.js  # 上传校验、落盘、磁盘选择
+│   │   ├── download-runtime.js    # 下载限速
+│   │   ├── sync-runner.js         # 单个同步任务执行器
+│   │   ├── sync-service.js        # 同步任务调度入口
 │   │   └── ...
-│   ├── middlewares/         # Express 中间件
-│   │   ├── auth.js          # 认证中间件
-│   │   ├── rate-limit.js    # 限流中间件
-│   │   └── error-handler.js # 错误处理
-│   ├── jobs/                # 定时任务
-│   │   ├── recycle-cleanup.job.js  # 回收站清理
-│   │   ├── runtime-cleanup.job.js  # 运行时清理
-│   │   └── sync-scheduler.job.js   # 同步调度
-│   └── utils/               # 工具函数
-│       ├── config.js        # 配置加载
-│       ├── constants.js     # 常量定义
-│       ├── settings-db.js   # 设置数据库操作
-│       └── ...
-├── views/                    # 前端视图模板
-│   ├── js/                  # 前端 JavaScript（未压缩版本）
-│   ├── components/          # HTML 组件片段
-│   └── *.html               # 页面模板
-├── public/                   # 静态资源目录
-│   ├── css/                 # 样式文件
-│   ├── js/                  # 公共脚本
-│   └── avatar/              # 默认头像 SVG
-├── uploads/                  # 本地文件上传存储
-│   ├── admin-1/             # 用户文件目录
-│   └── avatar/              # 用户头像存储
-├── logs/                     # 日志目录
-│   ├── app.log              # 应用日志
-│   └── error.log            # 错误日志
-├── .env                      # 环境变量配置文件
-├── package.json             # Node.js 项目配置
-├── server.js                # 服务器启动入口
-└── README.md                # 项目文档
+│   ├── middlewares/               # 中间件
+│   │   ├── auth.js                # 登录鉴权与管理员鉴权
+│   │   ├── rate-limit.js          # 请求限流
+│   │   └── error-handler.js       # 统一错误处理
+│   ├── jobs/                      # 定时任务
+│   │   ├── recycle-cleanup.job.js # 回收站清理
+│   │   ├── runtime-cleanup.job.js # 运行时清理
+│   │   └── sync-scheduler.job.js  # 同步调度
+│   └── utils/                     # 常量、日志、权限、配置辅助
+├── views/                         # 前端页面模板与未压缩 JS 源码
+│   ├── js/                        # 前端 JavaScript 源码
+│   ├── components/                # HTML 组件片段
+│   └── *.html                     # 页面模板
+├── public/                        # 静态资源与生成后的压缩 JS
+│   ├── css/                       # 样式文件
+│   ├── js/                        # 运行时使用的压缩脚本
+│   └── avatar/                    # 默认头像 SVG
+├── uploads/                       # 普通空间、头像、分片缓存等本地存储
+├── hidden-uploads/                # 私密空间文件存储
+├── logs/                          # 应用日志与错误日志
+├── .env                           # 环境变量配置文件
+├── package.json                   # Node.js 项目配置
+├── server.js                      # 服务启动入口
+└── README.md                      # 项目文档
 ```
 
 ## 主要 API 路由
@@ -215,100 +229,97 @@ jockcloud/
 - `PUT /api/sync-tasks/:id` - 更新同步任务
 - `DELETE /api/sync-tasks/:id` - 删除同步任务
 
-## 系统配置说明
+## 系统说明与配置
 
-### 环境变量配置
+### 配置来源与优先级
 
-以下环境变量在 `.env` 文件中配置，**应用启动时读取**：
+系统配置主要来自 4 个层级，推荐按下面顺序理解：
 
-**必需配置**：
-- `DB_HOST` - MySQL 数据库地址
-- `DB_PORT` - MySQL 数据库端口
+1. **环境变量 (`.env`)**：服务启动参数、数据库连接、短信默认凭证等，应用启动时读取。
+2. **系统设置（数据库 `settings` 表）**：运行时配置中心，管理员在页面上修改后立即生效或在下次读取时生效。
+3. **代码默认值 (`src/utils/default-settings.js`)**：当数据库未配置时作为兜底值。
+4. **代码常量 (`src/utils/constants.js`)**：底层固定常量和运行时边界，通常需要改代码才能调整。
+
+### 环境变量说明
+
+以下配置建议写入 `.env`：
+
+**基础连接**：
+- `DB_HOST` - MySQL 地址
+- `DB_PORT` - MySQL 端口
 - `DB_USER` - 数据库用户名
 - `DB_PASSWORD` - 数据库密码
 - `DB_NAME` - 数据库名称
-- `PORT` - 服务端口（默认：3000）
-- `HOST` - 服务监听地址（默认：0.0.0.0）
+- `PORT` - 服务端口，默认 `3000`
+- `HOST` - 监听地址，默认 `0.0.0.0`
 
-**可选配置**：
-- `DYPNS_ACCESS_KEY_ID` - 阿里云 AccessKey ID（短信验证码）
-- `DYPNS_ACCESS_KEY_SECRET` - 阿里云 AccessKey Secret
-- `DYSMS_REGION` - 阿里云短信服务区域
+**可选项**：
+- `MAX_UPLOAD_FILE_SIZE_MB` - 全局默认上传大小上限，默认 `10240`
+- `LOG_LEVEL` - 日志输出级别，可选 `debug / info / warn / error / silent`
+- `DYPNS_ACCESS_KEY_ID` - 阿里云短信/号码认证 AccessKey ID
+- `DYPNS_ACCESS_KEY_SECRET` - 阿里云短信/号码认证 AccessKey Secret
+- `DYPNS_REGION` - 阿里云号码认证区域
 - `DYSMS_SIGN_NAME` - 短信签名
 - `DYSMS_TEMPLATE_ID` - 短信模板 ID
-- `MAX_UPLOAD_FILE_SIZE_MB` - 默认最大上传文件大小（MB，默认：10240）
 
-**注意**：短信配置优先级为：系统设置界面配置 > 环境变量 > 默认值
+**说明**：
+- 短信配置优先级：**系统设置 > `.env` > 默认值**
+- 日志级别会通过 `installConsoleLogLevel` 统一拦截 `console.log/info/warn/error`
 
-### 代码常量配置
+### 系统设置页说明
 
-以下配置为代码中的**固定常量**，如需修改需更改源代码：
+管理员登录后可通过**系统设置**页面维护以下运行时配置：
 
-- `RECYCLE_RETENTION_DAYS` - 回收站保留天数（30 天）
-- `RECYCLE_CLEANUP_INTERVAL_MS` - 回收站清理间隔（60 分钟）
-- `DEFAULT_LOGIN_SESSION_MINUTES` - 默认登录会话时长（10080 分钟/7 天）
-- `CAPTCHA_EXPIRE_MS` - 验证码过期时间（5 分钟）
-- `SMS_CODE_EXPIRE_MS` - 短信验证码过期时间（5 分钟）
-- `SMS_SEND_INTERVAL_MS` - 短信发送间隔（60 秒）
-- `DEFAULT_CHUNK_UPLOAD_THRESHOLD_MB` - 分片上传阈值（200 MB）
-- `CHUNK_SESSION_EXPIRE_MS` - 分片会话过期时间（7 天）
-- `RATE_LIMIT_WINDOW_MS` - 限流时间窗口（60 秒）
-- `RATE_LIMIT_MAX_REQUESTS` - 限流最大请求数（100 次）
-- `SYNC_SCHEDULER_CRON` - 同步调度器 Cron 表达式（`*/10 * * * * *`）
+**系统基础**：
+- 网站标题、站点描述、登录页标题
+- 请求速率限制开关、时间窗口和最大请求数
+- 预览格式配置（图片、视频、音频、文本、文档）
+- 多存储盘配置：本地盘、NFS 挂载目录、默认盘和容量检测
 
-### 系统设置界面配置
-
-登录系统后，管理员可通过**系统设置**页面配置以下内容：
-
-**系统配置**：
-- 网站标题、描述
-- 登录页标题
-- 请求速率限制
-- 主题模式
-
-**上传配置**：
-- 最大上传文件大小
-- 最大上传文件数量
-- 最大并发上传数量
+**上传相关**：
+- 最大上传大小、最大文件数、最大并发数
 - 分片上传阈值
-- 上传分类规则（图片、视频、音频、文档等）
-- 头像上传配置
+- 上传分类规则（后缀白名单 + 分类大小限制）
+- 头像上传大小与允许格式
+- 全局“**不限制上传后缀**”开关（`uploadFormatUnlimited`）
 
-**下载配置**：
-- 下载速度限制
-- 用户组下载配额
+**下载相关**：
+- 全局下载速度限制
+- 按用户组下载速度限制
+- 分享下载速度限制
 
-**登录配置**：
+**登录与安全**：
 - 登录验证码开关
 - 短信验证码登录开关
-- 短信配置（优先级高于环境变量）
 - 登录会话时长
-- 短信发送频率限制
+- 私密空间无操作自动退出时间
+- 短信发送间隔、IP 窗口限制和最大次数
 
-**菜单配置**：
-- 配置每个菜单项的可访问用户和用户组
+**权限与菜单**：
+- 菜单可见范围（按用户/用户组）
+- 移动端菜单显示控制
+- 用户组方案控制上传大小、文件数、下载速度等限制
 
-**预览配置**：
-- 配置支持预览的文件格式（图片、视频、音频、文本、文档）
+### 固定常量说明
 
-### 云存储挂载配置
+以下配置属于代码内置边界，默认位于 `src/utils/constants.js`：
 
-系统支持通过**挂载管理**功能添加云存储：
+- `RECYCLE_RETENTION_DAYS` - 回收站保留天数，默认 30 天
+- `RECYCLE_CLEANUP_INTERVAL_MS` - 回收站清理周期，默认 60 分钟
+- `DEFAULT_LOGIN_SESSION_MINUTES` - 默认登录会话时长，默认 7 天
+- `CAPTCHA_EXPIRE_MS` / `SMS_CODE_EXPIRE_MS` - 验证码过期时间，默认 5 分钟
+- `SMS_SEND_INTERVAL_MS` - 短信最小发送间隔，默认 60 秒
+- `DEFAULT_CHUNK_UPLOAD_THRESHOLD_MB` - 分片上传阈值，默认 200 MB
+- `CHUNK_SESSION_EXPIRE_MS` - 分片会话过期时间，默认 7 天
+- `SYNC_SCHEDULER_CRON` - 同步调度周期，默认每 10 秒检查一次
+- `PREVIEW_MEDIA_STREAM_CHUNK_BYTES` - 媒体预览流式读取块大小
 
-1. 进入**挂载管理**页面
-2. 点击**新建挂载**
-3. 选择云存储类型：
-   - 阿里云 OSS
-   - 腾讯云 COS
-   - 七牛云
-4. 填写配置信息：
-   - Bucket 名称
-   - 区域（Region）
-   - AccessKey / SecretKey
-   - 下载域名（可选）
-5. 保存后即可使用云存储功能
+### 存储与挂载说明
 
-**注意**：云存储配置通过数据库管理，不使用环境变量。
+- **本地存储**：普通文件默认写入 `uploads/`，私密空间文件写入 `hidden-uploads/`
+- **多存储盘**：系统可配置多个本地/NFS 存储根目录，上传时自动选择可写且空间满足要求的存储盘
+- **云存储挂载**：支持阿里云 OSS、腾讯云 COS、七牛云，挂载配置保存在数据库，不依赖环境变量
+- **前端资源**：`views/js/` 为源码，`public/js/` 为启动或请求时生成的压缩产物
 
 ## 默认配置值
 
