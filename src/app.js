@@ -91,6 +91,7 @@ const {
   loadEnvFile,
   requireEnv,
   getDbConfig,
+  installConsoleLogLevel,
   safeJsonStringify,
   writeLogLine,
   logInfo,
@@ -114,6 +115,11 @@ const {
   detectArchiveType,
   normalizeStorageSpaceType,
   resolveStorageRootDir,
+  pickWritableStorageRoot,
+  getStorageReserveErrorMessage,
+  normalizeStorageDiskConfig,
+  setStorageDiskConfig,
+  getStorageDiskConfig,
   resolveAbsoluteStoragePath,
   resolveStorageSpaceTypeByRequest,
   formatStorageDate,
@@ -217,6 +223,7 @@ const {
   logFileOperation
 } = require("./utils");
 loadEnvFile();
+installConsoleLogLevel();
 
 const app = express();
 app.use(compression());
@@ -296,6 +303,15 @@ const normalizeSettings = (payload = {}) => {
   const maxUploadFileCount = normalizeUploadFileCount(system.maxUploadFileCount, DEFAULT_SETTINGS.system.maxUploadFileCount);
   const maxConcurrentUploadCount = normalizeConcurrentUploadCount(system.maxConcurrentUploadCount, DEFAULT_SETTINGS.system.maxConcurrentUploadCount);
   const chunkUploadThresholdMb = normalizeChunkUploadThresholdMb(system.chunkUploadThresholdMb, DEFAULT_SETTINGS.system.chunkUploadThresholdMb);
+  const normalizeBooleanFlag = (value, fallback = false) => {
+    if (value === undefined || value === null || value === "") return Boolean(fallback);
+    if (typeof value === "string") {
+      const normalized = value.trim().toLowerCase();
+      if (normalized === "true" || normalized === "1" || normalized === "yes" || normalized === "on") return true;
+      if (normalized === "false" || normalized === "0" || normalized === "no" || normalized === "off") return false;
+    }
+    return Boolean(value);
+  };
   const normalizeRateLimit = (value) => {
     const rateLimit = value && typeof value === "object" ? value : {};
     return {
@@ -418,6 +434,7 @@ const normalizeSettings = (payload = {}) => {
       maxUploadFileCount,
       maxConcurrentUploadCount,
       chunkUploadThresholdMb,
+      uploadFormatUnlimited: normalizeBooleanFlag(system.uploadFormatUnlimited, DEFAULT_SETTINGS.system.uploadFormatUnlimited),
       uploadCategoryRules: normalizeUploadCategoryRules(system.uploadCategoryRules, maxUploadSizeMb || DEFAULT_SETTINGS.system.maxUploadSizeMb),
       avatarUploadSizeMb: Math.max(1, Math.min(100, Math.floor(toNumber(system.avatarUploadSizeMb, DEFAULT_SETTINGS.system.avatarUploadSizeMb)))),
       avatarUploadFormats: normalizeAvatarUploadFormats(system.avatarUploadFormats),
@@ -425,12 +442,14 @@ const normalizeSettings = (payload = {}) => {
       loginTitle: String(system.loginTitle || system.siteTitle || DEFAULT_SETTINGS.system.loginTitle).trim().slice(0, 120) || DEFAULT_SETTINGS.system.loginTitle,
       siteDescription: String(system.siteDescription || DEFAULT_SETTINGS.system.siteDescription).trim().slice(0, 500),
       rateLimit: normalizeRateLimit(system.rateLimit),
-      previewConfig: normalizePreviewConfig(system.previewConfig)
+      previewConfig: normalizePreviewConfig(system.previewConfig),
+      storageDisks: normalizeStorageDiskConfig(system.storageDisks)
     },
     login: {
       loginCaptchaEnabled: Boolean(login.loginCaptchaEnabled),
       smsLoginEnabled: Boolean(login.smsLoginEnabled),
       loginSessionMinutes: Math.max(1, Math.min(43200, Math.floor(toNumber(login.loginSessionMinutes, DEFAULT_SETTINGS.login.loginSessionMinutes)))),
+      hiddenSpaceAutoExitMinutes: Math.max(1, Math.min(1440, Math.floor(toNumber(login.hiddenSpaceAutoExitMinutes, DEFAULT_SETTINGS.login.hiddenSpaceAutoExitMinutes)))),
       smsSendIntervalSeconds: Math.max(1, Math.min(3600, Math.floor(toNumber(login.smsSendIntervalSeconds, DEFAULT_SETTINGS.login.smsSendIntervalSeconds)))),
       smsIpLimitWindowMinutes: Math.max(1, Math.min(1440, Math.floor(toNumber(login.smsIpLimitWindowMinutes, DEFAULT_SETTINGS.login.smsIpLimitWindowMinutes)))),
       smsIpLimitMaxCount: Math.max(1, Math.min(10000, Math.floor(toNumber(login.smsIpLimitMaxCount, DEFAULT_SETTINGS.login.smsIpLimitMaxCount)))),
@@ -564,6 +583,8 @@ const { runSyncTaskNow } = createSyncRunner({
     getUploadStorageDir,
     path,
     resolveStorageRootDir,
+    pickWritableStorageRoot,
+    getStorageReserveErrorMessage,
     crypto,
     resolveStorageNameFromPath,
     resolveFolderByRelativeDir,
@@ -659,6 +680,8 @@ const {
   resolveStorageSpaceTypeByRequest,
   getUploadStorageDir,
   resolveStorageRootDir,
+  pickWritableStorageRoot,
+  getStorageReserveErrorMessage,
   normalizeUploadName,
   safeFileName,
   getUploadRuntimeOptions,
@@ -757,6 +780,7 @@ const {
 const refreshUploadLimitFromSettings = async () => {
   const settings = await readSettings();
   setCurrentMaxUploadFileSizeByMb(settings.system.maxUploadSizeMb);
+  setStorageDiskConfig(settings.system.storageDisks);
   return settings;
 };
 
@@ -1004,6 +1028,7 @@ registerAllRoutes(app, {
   normalizeStorageSpaceType,
   getUploadStorageDir,
   resolveStorageRootDir,
+  pickWritableStorageRoot,
   resolveStorageNameFromPath,
   resolveUploadCategory,
   writeThumbnailFromDataUrl,
@@ -1051,6 +1076,8 @@ registerAllRoutes(app, {
   normalizeSettings,
   writeSettings,
   setCurrentMaxUploadFileSizeByMb,
+  setStorageDiskConfig,
+  getStorageDiskConfig,
   getAllowedMenusForUser,
   getMobileVisibleMenus,
   MENU_PERMISSION_KEYS,

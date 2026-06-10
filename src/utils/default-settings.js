@@ -6,6 +6,7 @@ const DEFAULT_SETTINGS = {
     maxUploadFileCount: 100,
     maxConcurrentUploadCount: 3,
     chunkUploadThresholdMb: DEFAULT_CHUNK_UPLOAD_THRESHOLD_MB,
+    uploadFormatUnlimited: false,
     uploadCategoryRules: JSON.parse(JSON.stringify(DEFAULT_UPLOAD_CATEGORY_RULES)),
     avatarUploadSizeMb: DEFAULT_AVATAR_UPLOAD_SIZE_MB,
     avatarUploadFormats: DEFAULT_AVATAR_UPLOAD_FORMATS.slice(),
@@ -16,6 +17,10 @@ const DEFAULT_SETTINGS = {
       enabled: true,
       windowSeconds: 60,
       maxRequests: 100
+    },
+    storageDisks: {
+      defaultDiskId: "",
+      disks: []
     },
     previewConfig: {
       imageExts: DEFAULT_PREVIEW_CONFIG.imageExts,
@@ -29,6 +34,7 @@ const DEFAULT_SETTINGS = {
     loginCaptchaEnabled: false,
     smsLoginEnabled: false,
     loginSessionMinutes: DEFAULT_LOGIN_SESSION_MINUTES,
+    hiddenSpaceAutoExitMinutes: 10,
     smsSendIntervalSeconds: 60,
     smsIpLimitWindowMinutes: 10,
     smsIpLimitMaxCount: 10,

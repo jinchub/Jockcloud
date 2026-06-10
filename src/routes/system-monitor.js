@@ -264,7 +264,6 @@ module.exports = (app, deps) => {
         jsLatestFile,
         appStartTime: Date.now() - Math.floor(process.uptime() * 1000),
         serverPort: process.env.PORT || 3000,
-        programDir: process.cwd(),
         memory: {
           used: formatBytes(memoryUsage.rss),
           usedBytes: memoryUsage.rss,

@@ -21,6 +21,8 @@ const initDatabase = async () => {
       view_mode VARCHAR(16) NOT NULL DEFAULT 'list',
       grid_size VARCHAR(16) NOT NULL DEFAULT 'medium',
       visible_categories TEXT NULL,
+      last_login_at DATETIME NULL,
+      last_login_ip VARCHAR(64) NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       INDEX idx_users_phone (phone),
@@ -288,6 +290,23 @@ const initDatabase = async () => {
       INDEX idx_timestamp (timestamp)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
+
+  const [userTableColumns] = await pool.query(
+    `
+      SELECT COLUMN_NAME
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = ?
+        AND TABLE_NAME = 'users'
+    `,
+    [dbConfig.database]
+  );
+  const userColumnSet = new Set(userTableColumns.map((row) => String(row.COLUMN_NAME || "").trim()));
+  if (!userColumnSet.has("last_login_at")) {
+    await pool.query("ALTER TABLE users ADD COLUMN last_login_at DATETIME NULL AFTER visible_categories");
+  }
+  if (!userColumnSet.has("last_login_ip")) {
+    await pool.query("ALTER TABLE users ADD COLUMN last_login_ip VARCHAR(64) NULL AFTER last_login_at");
+  }
 
   const [users] = await pool.query("SELECT id FROM users ORDER BY id ASC LIMIT 1");
   const isFirstInit = users.length === 0;

@@ -20,6 +20,7 @@ module.exports = (app, deps) => {
           maxUploadFileCount: settings.system.maxUploadFileCount,
           maxConcurrentUploadCount: settings.system.maxConcurrentUploadCount,
           chunkUploadThresholdMb: settings.system.chunkUploadThresholdMb,
+          uploadFormatUnlimited: settings.system.uploadFormatUnlimited,
           uploadCategoryRules: settings.system.uploadCategoryRules,
           avatarUploadSizeMb: settings.system.avatarUploadSizeMb,
           avatarUploadFormats: settings.system.avatarUploadFormats,
@@ -32,6 +33,7 @@ module.exports = (app, deps) => {
           loginCaptchaEnabled: settings.login.loginCaptchaEnabled,
           smsLoginEnabled: settings.login.smsLoginEnabled,
           loginSessionMinutes: settings.login.loginSessionMinutes,
+          hiddenSpaceAutoExitMinutes: settings.login.hiddenSpaceAutoExitMinutes,
           smsSendIntervalSeconds: settings.login.smsSendIntervalSeconds
         }
       });
@@ -41,6 +43,7 @@ module.exports = (app, deps) => {
           maxUploadFileCount: DEFAULT_SETTINGS.system.maxUploadFileCount,
           maxConcurrentUploadCount: DEFAULT_SETTINGS.system.maxConcurrentUploadCount,
           chunkUploadThresholdMb: DEFAULT_SETTINGS.system.chunkUploadThresholdMb,
+          uploadFormatUnlimited: DEFAULT_SETTINGS.system.uploadFormatUnlimited,
           uploadCategoryRules: DEFAULT_SETTINGS.system.uploadCategoryRules,
           avatarUploadSizeMb: DEFAULT_SETTINGS.system.avatarUploadSizeMb,
           avatarUploadFormats: DEFAULT_SETTINGS.system.avatarUploadFormats,
@@ -53,6 +56,7 @@ module.exports = (app, deps) => {
           loginCaptchaEnabled: DEFAULT_SETTINGS.login.loginCaptchaEnabled,
           smsLoginEnabled: DEFAULT_SETTINGS.login.smsLoginEnabled,
           loginSessionMinutes: DEFAULT_SETTINGS.login.loginSessionMinutes,
+          hiddenSpaceAutoExitMinutes: DEFAULT_SETTINGS.login.hiddenSpaceAutoExitMinutes,
           smsSendIntervalSeconds: DEFAULT_SETTINGS.login.smsSendIntervalSeconds
         }
       });

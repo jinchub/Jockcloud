@@ -132,6 +132,8 @@ const registerAllRoutes = (app, deps) => {
     normalizeSettings,
     writeSettings,
     setCurrentMaxUploadFileSizeByMb,
+    setStorageDiskConfig,
+    getStorageDiskConfig,
     getAllowedMenusForUser,
     getMobileVisibleMenus,
     MENU_PERMISSION_KEYS,
@@ -144,6 +146,8 @@ const registerAllRoutes = (app, deps) => {
     UPLOAD_DIR,
     getAvatarStorageDir,
     normalizeStorageRelativePath,
+    pickWritableStorageRoot,
+    getStorageReserveErrorMessage,
     apiMonitorStore,
     PREVIEW_MEDIA_STREAM_CHUNK_BYTES,
     copyFileRecord,
@@ -165,12 +169,15 @@ const registerAllRoutes = (app, deps) => {
     insertUserGroupMembers,
     hashPassword,
     verifyPassword,
+    resolveStorageRootDir,
     resolveAbsoluteStoragePath,
     fs,
     normalizeUserGroupUploadMaxSizeMb,
     normalizeUserGroupUploadMaxFileCount,
     convertUserGroupUploadSizeMbToGb,
-    convertUserGroupUploadSizeGbToMb
+    convertUserGroupUploadSizeGbToMb,
+    getStorageDiskConfig,
+    resolveStorageNameFromPath
   };
   registerUserRoutes(app, routeDeps);
 
@@ -277,6 +284,8 @@ const registerAllRoutes = (app, deps) => {
     path,
     getUploadStorageDir,
     resolveStorageRootDir,
+    pickWritableStorageRoot,
+    getStorageReserveErrorMessage,
     resolveStorageNameFromPath,
     resolveUploadCategory,
     writeThumbnailFromDataUrl,
@@ -313,6 +322,8 @@ const registerAllRoutes = (app, deps) => {
     readSettings,
     getUploadStorageDir,
     resolveStorageRootDir,
+    pickWritableStorageRoot,
+    getStorageReserveErrorMessage,
     crypto,
     resolveStorageNameFromPath,
     inferMimeTypeByFileName,
@@ -484,7 +495,12 @@ const registerAllRoutes = (app, deps) => {
     authRequired,
     adminRequired,
     pool,
-    sendDbError
+    sendDbError,
+    resolveStorageRootDir,
+    readSettings,
+    writeSettings,
+    setStorageDiskConfig,
+    getStorageDiskConfig
   });
 
   app.locals.pool = pool;

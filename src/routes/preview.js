@@ -16,6 +16,26 @@ module.exports = (app, deps) => {
     PREVIEW_MEDIA_STREAM_CHUNK_BYTES
   } = deps;
 
+  const escapeHtml = (value) => String(value || "").replace(/[&<>"']/g, (char) => (
+    { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[char]
+  ));
+
+  const isOfficePasswordProtectedError = (err) => {
+    const message = String(err && err.message ? err.message : err || "").toLowerCase();
+    return message.includes("password-protected")
+      || message.includes("password protected")
+      || message.includes("encrypted")
+      || message.includes("密码保护")
+      || message.includes("已加密");
+  };
+
+  const sendOfficePreviewUnsupportedHtml = (res, originalName) => {
+    const escapedOriginalName = escapeHtml(originalName);
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${escapedOriginalName}</title><style>body { margin: 0; padding: 0; background: #f7f8fa; font-family: Arial, sans-serif; color: #333; } .preview-message { min-height: 100vh; box-sizing: border-box; display: flex; align-items: center; justify-content: center; padding: 24px; } .preview-message-card { max-width: 520px; background: #fff; border: 1px solid #e5e6eb; border-radius: 12px; padding: 24px; text-align: center; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06); } .preview-message-title { font-size: 18px; font-weight: 600; margin-bottom: 12px; } .preview-message-desc { font-size: 14px; line-height: 1.7; color: #666; }</style></head><body><div class="preview-message"><div class="preview-message-card"><div class="preview-message-title">该文档已加密</div><div class="preview-message-desc">当前暂不支持输入文档密码进行在线预览，请下载文件后输入密码打开。</div></div></div></body></html>`;
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.send(html);
+  };
+
   app.get("/api/preview/:id", authRequired, requireFilePermission("download"), async (req, res) => {
     const spaceType = resolveStorageSpaceTypeByRequest(req);
     const fileId = normalizeFolderId(req.params.id);
@@ -64,9 +84,7 @@ module.exports = (app, deps) => {
       }
       if (mode === "office") {
         const originalName = rows[0].originalName || "";
-        const escapedOriginalName = String(originalName).replace(/[&<>"']/g, (char) => (
-          { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[char]
-        ));
+        const escapedOriginalName = escapeHtml(originalName);
         const extMatch = originalName.match(/\.([^.]+)$/);
         const ext = extMatch ? extMatch[1].toLowerCase() : "";
         try {
@@ -114,6 +132,10 @@ module.exports = (app, deps) => {
           res.status(400).send("不支持的办公文档格式预览");
           return;
         } catch (err) {
+          if (isOfficePasswordProtectedError(err)) {
+            sendOfficePreviewUnsupportedHtml(res, originalName);
+            return;
+          }
           res.status(500).send("文档解析失败: " + (err && err.message ? err.message : "未知错误"));
           return;
         }

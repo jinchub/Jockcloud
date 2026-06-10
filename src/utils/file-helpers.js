@@ -1,7 +1,49 @@
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
 const crypto = require("crypto");
+const { execSync } = require("child_process");
 const { UPLOAD_DIR, HIDDEN_UPLOAD_DIR, THUMBNAIL_MAX_DATA_URL_LENGTH, THUMBNAIL_IMAGE_MIME_SET, THUMBNAIL_MIME_TO_EXT_MAP } = require("./constants");
+
+const STORAGE_DISK_PREFIX_SEPARATOR = "|";
+const STORAGE_DISK_FREE_SPACE_RESERVE_BYTES = 2 * 1024 * 1024 * 1024;
+const NFS_AUTO_MOUNT_BASE_DIR = path.join(process.cwd(), ".jockcloud-nfs-mounts");
+const RAW_NFS_REMOTE_PATH_PATTERN = /^(?![a-zA-Z]:[\\/])[^\\/:]+:\/.+/;
+let storageDiskConfig = {
+  defaultDiskId: "",
+  disks: []
+};
+const getStorageReserveErrorMessage = () => "存储空间不足，系统会为每个存储盘保留 2GB 空间";
+const isRawNfsRemotePath = (value) => RAW_NFS_REMOTE_PATH_PATTERN.test(String(value || "").trim());
+const shellQuote = (value) => `'${String(value || "").replace(/'/g, `'\\''`)}'`;
+const isMountedNfsPathSync = (targetPath) => {
+  if (os.platform() === "win32") return true;
+  try {
+    execSync(`mountpoint -q ${shellQuote(targetPath)}`, { stdio: "ignore" });
+    return true;
+  } catch (error) {
+    return false;
+  }
+};
+const ensureNfsMountedSync = (disk) => {
+  if (!disk || String(disk.source || "") !== "nfs") return true;
+  if (String(disk.mountMode || "") !== "auto") return true;
+  if (os.platform() === "win32") return false;
+  const remotePath = String(disk.remotePath || "").trim();
+  const mountPath = path.resolve(String(disk.path || "").trim());
+  if (!remotePath || !mountPath || !isRawNfsRemotePath(remotePath)) return false;
+  try {
+    fs.mkdirSync(mountPath, { recursive: true });
+    if (isMountedNfsPathSync(mountPath)) return true;
+    execSync(`mount -t nfs ${shellQuote(remotePath)} ${shellQuote(mountPath)}`, {
+      stdio: "ignore",
+      maxBuffer: 1024 * 1024
+    });
+    return isMountedNfsPathSync(mountPath);
+  } catch (error) {
+    return false;
+  }
+};
 
 const safeFileName = (name) => String(name || "")
   .replace(/[\u0000-\u001f\u007f]/g, "")
@@ -60,11 +102,184 @@ const detectArchiveType = (name, mimeType = "") => {
 
 const normalizeStorageSpaceType = (value) => String(value || "").trim().toLowerCase() === "hidden" ? "hidden" : "normal";
 const resolveStorageRootDir = (spaceType = "normal") => normalizeStorageSpaceType(spaceType) === "hidden" ? HIDDEN_UPLOAD_DIR : UPLOAD_DIR;
+const normalizeStorageDiskId = (value) => String(value || "").trim().toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 32);
+const parseStoredStorageName = (value) => {
+  const raw = String(value || "").trim();
+  if (!raw) return { diskId: "", relativePath: "" };
+  const separatorIndex = raw.indexOf(STORAGE_DISK_PREFIX_SEPARATOR);
+  if (separatorIndex > 0) {
+    const possibleDiskId = normalizeStorageDiskId(raw.slice(0, separatorIndex));
+    const relativePath = normalizeStorageRelativePath(raw.slice(separatorIndex + 1));
+    if (possibleDiskId && relativePath) {
+      return { diskId: possibleDiskId, relativePath };
+    }
+  }
+  return {
+    diskId: "",
+    relativePath: normalizeStorageRelativePath(raw)
+  };
+};
+const buildStoredStorageName = (relativePath, diskId = "") => {
+  const normalizedRelativePath = normalizeStorageRelativePath(relativePath);
+  if (!normalizedRelativePath) return "";
+  const normalizedDiskId = normalizeStorageDiskId(diskId);
+  return normalizedDiskId
+    ? `${normalizedDiskId}${STORAGE_DISK_PREFIX_SEPARATOR}${normalizedRelativePath}`
+    : normalizedRelativePath;
+};
+const normalizeStorageDiskList = (value) => {
+  const rawList = Array.isArray(value) ? value : [];
+  const result = [];
+  const seen = new Set();
+  rawList.forEach((item, index) => {
+    if (!item || typeof item !== "object") return;
+    const diskId = normalizeStorageDiskId(item.id || item.diskId || `disk${index + 1}`);
+    const diskPath = String(item.path || "").trim();
+    if (!diskId || !diskPath || !path.isAbsolute(diskPath) || seen.has(diskId)) return;
+    seen.add(diskId);
+    result.push({
+      id: diskId,
+      name: String(item.name || item.label || diskId).trim().slice(0, 80) || diskId,
+      path: path.resolve(diskPath),
+      enabled: item.enabled === undefined ? true : Boolean(item.enabled),
+      source: String(item.source || "").trim().toLowerCase() === "nfs" ? "nfs" : "system",
+      remotePath: String(item.remotePath || "").trim(),
+      mountMode: String(item.mountMode || "").trim().toLowerCase() === "auto" ? "auto" : "direct"
+    });
+  });
+  return result;
+};
+const normalizeStorageDiskConfig = (value) => {
+  const source = value && typeof value === "object" ? value : {};
+  const disks = normalizeStorageDiskList(source.disks);
+  const enabledDisks = disks.filter((item) => item.enabled);
+  const preferredDefaultId = normalizeStorageDiskId(source.defaultDiskId);
+  const defaultDiskId = enabledDisks.some((item) => item.id === preferredDefaultId)
+    ? preferredDefaultId
+    : (enabledDisks[0] ? enabledDisks[0].id : "");
+  return { defaultDiskId, disks };
+};
+const setStorageDiskConfig = (value) => {
+  storageDiskConfig = normalizeStorageDiskConfig(value);
+  storageDiskConfig.disks.forEach((item) => {
+    if (String(item.source || "") === "nfs") {
+      ensureNfsMountedSync(item);
+      return;
+    }
+    try {
+      fs.mkdirSync(item.path, { recursive: true });
+    } catch (error) {}
+  });
+  return storageDiskConfig;
+};
+const getStorageDiskConfig = () => storageDiskConfig;
+const resolveConfiguredStorageRootDir = (spaceType = "normal", diskId = "") => {
+  const normalizedSpaceType = normalizeStorageSpaceType(spaceType);
+  if (normalizedSpaceType === "hidden") return HIDDEN_UPLOAD_DIR;
+  const normalizedDiskId = normalizeStorageDiskId(diskId);
+  const disks = storageDiskConfig && Array.isArray(storageDiskConfig.disks) ? storageDiskConfig.disks : [];
+  if (normalizedDiskId) {
+    const matchedDisk = disks.find((item) => item.enabled && item.id === normalizedDiskId);
+    if (matchedDisk) return matchedDisk.path;
+  }
+  const defaultDisk = disks.find((item) => item.enabled && item.id === storageDiskConfig.defaultDiskId);
+  return defaultDisk ? defaultDisk.path : UPLOAD_DIR;
+};
+const getPathFreeBytesSync = (targetPath) => {
+  try {
+    if (typeof fs.statfsSync === "function") {
+      const stats = fs.statfsSync(targetPath);
+      const blockSize = Number(stats.bsize || stats.frsize || 0);
+      const availableBlocks = Number(stats.bavail || stats.blocks || 0);
+      const freeBytes = blockSize * availableBlocks;
+      if (Number.isFinite(freeBytes) && freeBytes >= 0) return freeBytes;
+    }
+  } catch (error) {}
+  try {
+    const resolvedPath = path.resolve(targetPath || process.cwd());
+    if (os.platform() === "win32") {
+      const driveName = path.parse(resolvedPath).root.replace(/[:\\\/]/g, "");
+      if (!driveName) return 0;
+      const output = execSync(
+        `powershell -Command "Get-PSDrive -Name '${driveName}' -PSProvider FileSystem | Select-Object -ExpandProperty Free"`,
+        { encoding: "utf8", maxBuffer: 1024 * 1024 }
+      );
+      const freeBytes = Number(String(output || "").trim());
+      return Number.isFinite(freeBytes) && freeBytes >= 0 ? freeBytes : 0;
+    }
+    const output = execSync(`df -k "${resolvedPath.replace(/"/g, '\\"')}" | tail -1`, {
+      encoding: "utf8",
+      maxBuffer: 1024 * 1024
+    });
+    const parts = String(output || "").trim().split(/\s+/);
+    const freeKb = Number(parts[3]);
+    return Number.isFinite(freeKb) && freeKb >= 0 ? freeKb * 1024 : 0;
+  } catch (error) {
+    return 0;
+  }
+};
+const pickWritableStorageRoot = (spaceType = "normal", requiredBytes = 0, preferredDiskId = "") => {
+  const normalizedSpaceType = normalizeStorageSpaceType(spaceType);
+  const expectedBytes = Math.max(0, Math.floor(Number(requiredBytes) || 0));
+  if (normalizedSpaceType === "hidden") {
+    const freeBytes = getPathFreeBytesSync(HIDDEN_UPLOAD_DIR);
+    if (freeBytes < expectedBytes + STORAGE_DISK_FREE_SPACE_RESERVE_BYTES) {
+      return null;
+    }
+    return {
+      diskId: "",
+      rootDir: HIDDEN_UPLOAD_DIR,
+      freeBytes
+    };
+  }
+  const configured = normalizeStorageDiskConfig(storageDiskConfig);
+  const enabledDisks = configured.disks.filter((item) => item.enabled);
+  if (!enabledDisks.length) {
+    const freeBytes = getPathFreeBytesSync(UPLOAD_DIR);
+    if (freeBytes < expectedBytes + STORAGE_DISK_FREE_SPACE_RESERVE_BYTES) {
+      return null;
+    }
+    return {
+      diskId: "",
+      rootDir: UPLOAD_DIR,
+      freeBytes
+    };
+  }
+  const orderedDisks = [];
+  const pushed = new Set();
+  const pushDisk = (disk) => {
+    if (!disk || pushed.has(disk.id)) return;
+    pushed.add(disk.id);
+    orderedDisks.push(disk);
+  };
+  pushDisk(enabledDisks.find((item) => item.id === normalizeStorageDiskId(preferredDiskId)));
+  pushDisk(enabledDisks.find((item) => item.id === configured.defaultDiskId));
+  enabledDisks.forEach(pushDisk);
+  for (const item of orderedDisks) {
+    if (String(item.source || "") === "nfs") {
+      if (!ensureNfsMountedSync(item)) {
+        continue;
+      }
+      try {
+        if (!fs.existsSync(item.path) || !fs.statSync(item.path).isDirectory()) continue;
+      } catch (error) {
+        continue;
+      }
+    }
+    const freeBytes = getPathFreeBytesSync(item.path);
+    if (freeBytes >= expectedBytes + STORAGE_DISK_FREE_SPACE_RESERVE_BYTES) {
+      return { diskId: item.id, rootDir: item.path, freeBytes };
+    }
+  }
+  return null;
+};
 const resolveAbsoluteStoragePath = (storageName, spaceType = "normal") => {
-  const normalizedStorageName = normalizeStorageRelativePath(storageName);
-  if (!normalizedStorageName) return "";
-  const rootDir = path.resolve(resolveStorageRootDir(spaceType));
-  const filePath = path.resolve(rootDir, normalizedStorageName);
+  const parsedStorage = parseStoredStorageName(storageName);
+  if (!parsedStorage.relativePath) return "";
+  const rootDir = path.resolve(parsedStorage.diskId
+    ? resolveConfiguredStorageRootDir(spaceType, parsedStorage.diskId)
+    : resolveStorageRootDir(spaceType));
+  const filePath = path.resolve(rootDir, parsedStorage.relativePath);
   if (filePath !== rootDir && !filePath.startsWith(`${rootDir}${path.sep}`)) {
     return "";
   }
@@ -105,16 +320,20 @@ const getAvatarStorageDir = (user) => `avatar/${getUserStorageRoot(user)}`;
 
 const makeStorageName = (originalName, relativeDir = "") => {
   const fileName = `${Date.now()}-${crypto.randomBytes(8).toString("hex")}-${safeFileName(originalName)}`;
-  const normalizedDir = normalizeStorageRelativePath(relativeDir);
-  return normalizedDir ? `${normalizedDir}/${fileName}` : fileName;
+  const parsedRelativeDir = parseStoredStorageName(relativeDir);
+  const normalizedDir = normalizeStorageRelativePath(parsedRelativeDir.relativePath);
+  const relativePath = normalizedDir ? `${normalizedDir}/${fileName}` : fileName;
+  return buildStoredStorageName(relativePath, parsedRelativeDir.diskId);
 };
 
 const makeThumbnailStorageName = (baseStorageName, ext = "webp") => {
-  const normalizedBaseStorageName = normalizeStorageRelativePath(baseStorageName);
+  const parsedStorageName = parseStoredStorageName(baseStorageName);
+  const normalizedBaseStorageName = normalizeStorageRelativePath(parsedStorageName.relativePath);
   const baseDir = path.posix.dirname(normalizedBaseStorageName);
   const baseName = path.posix.basename(normalizedBaseStorageName, path.posix.extname(normalizedBaseStorageName));
   const thumbFileName = `${Date.now()}-${crypto.randomBytes(6).toString("hex")}-${safeFileName(baseName || "thumb")}.thumb.${safeFileName(ext || "webp")}`;
-  return baseDir && baseDir !== "." ? `${baseDir}/${thumbFileName}` : thumbFileName;
+  const relativePath = baseDir && baseDir !== "." ? `${baseDir}/${thumbFileName}` : thumbFileName;
+  return buildStoredStorageName(relativePath, parsedStorageName.diskId);
 };
 
 const parseThumbnailDataUrl = (value) => {
@@ -199,10 +418,10 @@ const writeExtractedThumbnailFromSource = (sourcePath, baseStorageName, mimeType
   return thumbnailStorageName;
 };
 
-const resolveStorageNameFromPath = (filePath, fallbackName = "", storageRootDir = UPLOAD_DIR) => {
+const resolveStorageNameFromPath = (filePath, fallbackName = "", storageRootDir = UPLOAD_DIR, diskId = "") => {
   const relative = normalizeStorageRelativePath(path.relative(storageRootDir, filePath));
-  if (relative) return relative;
-  return normalizeStorageRelativePath(fallbackName);
+  if (relative) return buildStoredStorageName(relative, diskId);
+  return buildStoredStorageName(fallbackName, diskId);
 };
 
 module.exports = {
@@ -213,6 +432,16 @@ module.exports = {
   detectArchiveType,
   normalizeStorageSpaceType,
   resolveStorageRootDir,
+  normalizeStorageDiskId,
+  parseStoredStorageName,
+  buildStoredStorageName,
+  normalizeStorageDiskConfig,
+  setStorageDiskConfig,
+  getStorageDiskConfig,
+  resolveConfiguredStorageRootDir,
+  getPathFreeBytesSync,
+  getStorageReserveErrorMessage,
+  pickWritableStorageRoot,
   resolveAbsoluteStoragePath,
   resolveStorageSpaceTypeByRequest,
   formatStorageDate,

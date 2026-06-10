@@ -6,6 +6,8 @@ const createUploadMiddlewares = ({
   resolveStorageSpaceTypeByRequest,
   getUploadStorageDir,
   resolveStorageRootDir,
+  pickWritableStorageRoot,
+  getStorageReserveErrorMessage,
   normalizeUploadName,
   safeFileName,
   getUploadRuntimeOptions,
@@ -26,7 +28,15 @@ const createUploadMiddlewares = ({
       const spaceType = resolveStorageSpaceTypeByRequest(req);
       req.uploadSpaceType = spaceType;
       const targetRelativeDir = getUploadStorageDir(req.user);
-      const targetDir = path.join(resolveStorageRootDir(spaceType), targetRelativeDir);
+      const requiredBytes = Math.max(0, Math.floor(Number(req.headers && req.headers["content-length"]) || 0));
+      const selectedStorage = pickWritableStorageRoot(spaceType, requiredBytes);
+      if (!selectedStorage) {
+        cb(new Error(getStorageReserveErrorMessage()));
+        return;
+      }
+      req.uploadDiskId = selectedStorage.diskId || "";
+      req.uploadStorageRootDir = selectedStorage.rootDir || resolveStorageRootDir(spaceType);
+      const targetDir = path.join(req.uploadStorageRootDir, targetRelativeDir);
       fs.mkdirSync(targetDir, { recursive: true });
       cb(null, targetDir);
     },

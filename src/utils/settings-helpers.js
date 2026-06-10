@@ -18,6 +18,16 @@ const toNumber = (value, fallback) => {
   return num;
 };
 
+const normalizeBooleanFlag = (value, fallback = false) => {
+  if (value === undefined || value === null || value === "") return Boolean(fallback);
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "true" || normalized === "1" || normalized === "yes" || normalized === "on") return true;
+    if (normalized === "false" || normalized === "0" || normalized === "no" || normalized === "off") return false;
+  }
+  return Boolean(value);
+};
+
 const normalizeViewMode = (value) => {
   const normalized = String(value || "").trim().toLowerCase();
   return VIEW_MODE_OPTIONS.has(normalized) ? normalized : "list";
@@ -261,7 +271,9 @@ const getUploadCategoryRuntimeOptions = (settings = DEFAULT_SETTINGS) => {
   const system = settings && settings.system && typeof settings.system === "object" ? settings.system : {};
   const globalMaxSizeMb = normalizeGlobalUploadMaxSizeMb(system.maxUploadSizeMb, DEFAULT_SETTINGS.system.maxUploadSizeMb);
   const rules = normalizeUploadCategoryRules(system.uploadCategoryRules, globalMaxSizeMb || DEFAULT_SETTINGS.system.maxUploadSizeMb);
+  const uploadFormatUnlimited = normalizeBooleanFlag(system.uploadFormatUnlimited, DEFAULT_SETTINGS.system.uploadFormatUnlimited);
   return {
+    uploadFormatUnlimited,
     rules,
     extCategoryMap: buildUploadCategoryExtMap(rules)
   };
@@ -292,6 +304,7 @@ const resolveStoredFileCategory = (originalName, mimeType, categoryRuntimeOption
 
 const getUploadFormatError = (file, categoryRuntimeOptions = null) => {
   const runtimeOptions = categoryRuntimeOptions || getUploadCategoryRuntimeOptions(DEFAULT_SETTINGS);
+  if (runtimeOptions && runtimeOptions.uploadFormatUnlimited) return "";
   const resolvedCategory = resolveUploadCategory(file, runtimeOptions);
   if (resolvedCategory !== "other") return "";
   const ext = getUploadFileExt(file && file.originalname ? file.originalname : "");

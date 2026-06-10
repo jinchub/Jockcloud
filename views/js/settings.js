@@ -70,6 +70,7 @@
       loginCaptchaEnabled: false,
       smsLoginEnabled: false,
       loginSessionMinutes: 10080,
+      hiddenSpaceAutoExitMinutes: 10,
       smsSendIntervalSeconds: 60,
       smsIpLimitWindowMinutes: 10,
       smsIpLimitMaxCount: 10,
@@ -343,6 +344,7 @@
         maxUploadFileCount,
         maxConcurrentUploadCount,
         chunkUploadThresholdMb,
+        uploadFormatUnlimited: Boolean(system.uploadFormatUnlimited),
         uploadCategoryRules: normalizeUploadCategoryRules(system.uploadCategoryRules, maxUploadSizeMb || DEFAULT_SETTINGS.system.maxUploadSizeMb),
         avatarUploadSizeMb: Math.max(1, Math.min(100, Math.floor(toNumber(system.avatarUploadSizeMb, DEFAULT_SETTINGS.system.avatarUploadSizeMb)))),
         avatarUploadFormats: normalizeAvatarFormats(system.avatarUploadFormats),
@@ -356,6 +358,7 @@
         loginCaptchaEnabled: Boolean(login.loginCaptchaEnabled),
         smsLoginEnabled: Boolean(login.smsLoginEnabled),
         loginSessionMinutes: Math.max(1, Math.min(43200, Math.floor(toNumber(login.loginSessionMinutes, DEFAULT_SETTINGS.login.loginSessionMinutes)))),
+        hiddenSpaceAutoExitMinutes: Math.max(1, Math.min(1440, Math.floor(toNumber(login.hiddenSpaceAutoExitMinutes, DEFAULT_SETTINGS.login.hiddenSpaceAutoExitMinutes)))),
         smsSendIntervalSeconds: Math.max(1, Math.min(3600, Math.floor(toNumber(login.smsSendIntervalSeconds, DEFAULT_SETTINGS.login.smsSendIntervalSeconds)))),
         smsIpLimitWindowMinutes: Math.max(1, Math.min(1440, Math.floor(toNumber(login.smsIpLimitWindowMinutes, DEFAULT_SETTINGS.login.smsIpLimitWindowMinutes)))),
         smsIpLimitMaxCount: Math.max(1, Math.min(10000, Math.floor(toNumber(login.smsIpLimitMaxCount, DEFAULT_SETTINGS.login.smsIpLimitMaxCount)))),
@@ -397,6 +400,7 @@
     const settingsMaxConcurrentUploadCount = document.getElementById("settingsMaxConcurrentUploadCount");
     const settingsChunkUploadThresholdMb = document.getElementById("settingsChunkUploadThresholdMb");
     const settingsMaxUploadUnlimited = document.getElementById("settingsMaxUploadUnlimited");
+    const settingsUploadFormatsUnlimited = document.getElementById("settingsUploadFormatsUnlimited");
     const settingsUploadFormatsImage = document.getElementById("settingsUploadFormatsImage");
     const settingsUploadFormatsVideo = document.getElementById("settingsUploadFormatsVideo");
     const settingsUploadFormatsAudio = document.getElementById("settingsUploadFormatsAudio");
@@ -421,6 +425,7 @@
     const settingsLoginCaptchaEnabled = document.getElementById("settingsLoginCaptchaEnabled");
     const settingsSmsLoginEnabled = document.getElementById("settingsSmsLoginEnabled");
     const settingsLoginSessionMinutes = document.getElementById("settingsLoginSessionMinutes");
+    const settingsHiddenSpaceAutoExitMinutes = document.getElementById("settingsHiddenSpaceAutoExitMinutes");
     const smsEnvConfigTip = document.getElementById("smsEnvConfigTip");
     const settingsSmsSendIntervalSeconds = document.getElementById("settingsSmsSendIntervalSeconds");
     const settingsSmsIpLimitWindowMinutes = document.getElementById("settingsSmsIpLimitWindowMinutes");
@@ -438,6 +443,16 @@
     const downloadGroupSpeedLimitsList = document.getElementById("downloadGroupSpeedLimitsList");
     const settingsMenuPermissionsList = document.getElementById("settingsMenuPermissionsList");
     const settingsMenuUserEmptyTip = document.getElementById("settingsMenuUserEmptyTip");
+    const uploadSettingsInputs = {
+      maxUploadSize: settingsMaxUploadSize,
+      maxUploadFileCount: settingsMaxUploadFileCount,
+      maxConcurrentUploadCount: settingsMaxConcurrentUploadCount,
+      chunkUploadThresholdMb: settingsChunkUploadThresholdMb,
+      maxUploadUnlimited: settingsMaxUploadUnlimited,
+      uploadFormatsUnlimited: settingsUploadFormatsUnlimited,
+      avatarUploadFormats: settingsAvatarUploadFormats,
+      avatarUploadSize: settingsAvatarUploadSize
+    };
     const uploadRuleInputs = {
       image: { formats: settingsUploadFormatsImage },
       video: { formats: settingsUploadFormatsVideo },
@@ -452,7 +467,8 @@
       const current = uploadRuleInputs[item.key];
       return current && current.formats;
     });
-    if (!settingsSidebar || !settingsAsideList || !toggleSettingsSidebarBtn || !settingsPanelTitle || !settingsPanelMeta || !saveSettingsBtn || !systemSettingsForm || !uploadSettingsForm || !loginSettingsForm || !settingsMaxUploadSize || !settingsMaxUploadFileCount || !settingsMaxConcurrentUploadCount || !settingsChunkUploadThresholdMb || !settingsMaxUploadUnlimited || !hasUploadRuleInputs || !settingsAvatarUploadFormats || !settingsAvatarUploadSize || !settingsSiteTitle || !settingsLoginTitle || !settingsSiteDescription || !settingsLoginCaptchaEnabled || !settingsSmsLoginEnabled || !settingsLoginSessionMinutes || !smsEnvConfigTip || !settingsSmsSendIntervalSeconds || !settingsSmsIpLimitWindowMinutes || !settingsSmsIpLimitMaxCount || !smsSendIntervalRow || !smsIpLimitWindowRow || !smsIpLimitCountRow || !menuSettingsForm || !downloadSettingsForm || !settingsDownloadGlobalSpeedLimit || !settingsDownloadGlobalSpeedUnit || !settingsDownloadShareSpeedLimit || !settingsDownloadShareSpeedUnit || !downloadGroupSpeedLimitsList || !settingsMenuPermissionsList || !settingsMenuUserEmptyTip || !settingsPreviewImageExts || !settingsPreviewVideoExts || !settingsPreviewAudioExts || !settingsPreviewTextExts || !settingsPreviewDocExts) {
+    const hasUploadSettingsInputs = Object.values(uploadSettingsInputs).every(Boolean);
+    if (!settingsSidebar || !settingsAsideList || !toggleSettingsSidebarBtn || !settingsPanelTitle || !settingsPanelMeta || !saveSettingsBtn || !systemSettingsForm || !uploadSettingsForm || !loginSettingsForm || !hasUploadSettingsInputs || !hasUploadRuleInputs || !settingsSiteTitle || !settingsLoginTitle || !settingsSiteDescription || !settingsLoginCaptchaEnabled || !settingsSmsLoginEnabled || !settingsLoginSessionMinutes || !settingsHiddenSpaceAutoExitMinutes || !smsEnvConfigTip || !settingsSmsSendIntervalSeconds || !settingsSmsIpLimitWindowMinutes || !settingsSmsIpLimitMaxCount || !smsSendIntervalRow || !smsIpLimitWindowRow || !smsIpLimitCountRow || !menuSettingsForm || !downloadSettingsForm || !settingsDownloadGlobalSpeedLimit || !settingsDownloadGlobalSpeedUnit || !settingsDownloadShareSpeedLimit || !settingsDownloadShareSpeedUnit || !downloadGroupSpeedLimitsList || !settingsMenuPermissionsList || !settingsMenuUserEmptyTip || !settingsPreviewImageExts || !settingsPreviewVideoExts || !settingsPreviewAudioExts || !settingsPreviewTextExts || !settingsPreviewDocExts) {
       return {
         onEnterView: async () => {}
       };
@@ -879,26 +895,57 @@
       }
     };
 
-    const setFormValues = () => {
-      const maxUploadSizeMb = runtime.settings.system.maxUploadSizeMb;
-      if (Number.isFinite(Number(maxUploadSizeMb)) && Number(maxUploadSizeMb) > 0) {
-        settingsMaxUploadUnlimited.checked = false;
-        settingsMaxUploadSize.value = String(Math.floor(Number(maxUploadSizeMb)));
-      } else {
-        settingsMaxUploadUnlimited.checked = true;
-        settingsMaxUploadSize.value = "";
-      }
-      updateMaxUploadUnlimitedUi();
-      settingsMaxUploadFileCount.value = String(runtime.settings.system.maxUploadFileCount);
-      settingsMaxConcurrentUploadCount.value = String(runtime.settings.system.maxConcurrentUploadCount);
-      settingsChunkUploadThresholdMb.value = String(runtime.settings.system.chunkUploadThresholdMb);
+    const updateUploadFormatsUnlimitedUi = () => {
+      const unlimited = settingsUploadFormatsUnlimited.checked;
       UPLOAD_CATEGORY_ITEMS.forEach((item) => {
         const current = uploadRuleInputs[item.key];
-        const rule = runtime.settings.system.uploadCategoryRules[item.key];
+        current.formats.disabled = unlimited;
+      });
+    };
+
+    const applyUploadSettingsToForm = (systemSettings) => {
+      const maxUploadSizeMb = systemSettings.maxUploadSizeMb;
+      if (Number.isFinite(Number(maxUploadSizeMb)) && Number(maxUploadSizeMb) > 0) {
+        uploadSettingsInputs.maxUploadUnlimited.checked = false;
+        uploadSettingsInputs.maxUploadSize.value = String(Math.floor(Number(maxUploadSizeMb)));
+      } else {
+        uploadSettingsInputs.maxUploadUnlimited.checked = true;
+        uploadSettingsInputs.maxUploadSize.value = "";
+      }
+      updateMaxUploadUnlimitedUi();
+      uploadSettingsInputs.uploadFormatsUnlimited.checked = Boolean(systemSettings.uploadFormatUnlimited);
+      uploadSettingsInputs.maxUploadFileCount.value = String(systemSettings.maxUploadFileCount);
+      uploadSettingsInputs.maxConcurrentUploadCount.value = String(systemSettings.maxConcurrentUploadCount);
+      uploadSettingsInputs.chunkUploadThresholdMb.value = String(systemSettings.chunkUploadThresholdMb);
+      UPLOAD_CATEGORY_ITEMS.forEach((item) => {
+        const current = uploadRuleInputs[item.key];
+        const rule = systemSettings.uploadCategoryRules[item.key];
         current.formats.value = Array.isArray(rule.formats) ? rule.formats.join(",") : "";
       });
-      settingsAvatarUploadSize.value = String(runtime.settings.system.avatarUploadSizeMb);
-      settingsAvatarUploadFormats.value = runtime.settings.system.avatarUploadFormats.join(",");
+      updateUploadFormatsUnlimitedUi();
+      uploadSettingsInputs.avatarUploadSize.value = String(systemSettings.avatarUploadSizeMb);
+      uploadSettingsInputs.avatarUploadFormats.value = systemSettings.avatarUploadFormats.join(",");
+    };
+
+    const readUploadSettingsPayload = () => ({
+      maxUploadSizeMb: uploadSettingsInputs.maxUploadUnlimited.checked ? -1 : uploadSettingsInputs.maxUploadSize.value,
+      maxUploadFileCount: uploadSettingsInputs.maxUploadFileCount.value,
+      maxConcurrentUploadCount: uploadSettingsInputs.maxConcurrentUploadCount.value,
+      chunkUploadThresholdMb: uploadSettingsInputs.chunkUploadThresholdMb.value,
+      uploadFormatUnlimited: uploadSettingsInputs.uploadFormatsUnlimited.checked,
+      uploadCategoryRules: UPLOAD_CATEGORY_ITEMS.reduce((acc, item) => {
+        const current = uploadRuleInputs[item.key];
+        acc[item.key] = {
+          formats: current.formats.value
+        };
+        return acc;
+      }, {}),
+      avatarUploadSizeMb: uploadSettingsInputs.avatarUploadSize.value,
+      avatarUploadFormats: uploadSettingsInputs.avatarUploadFormats.value
+    });
+
+    const setFormValues = () => {
+      applyUploadSettingsToForm(runtime.settings.system);
       settingsSiteTitle.value = runtime.settings.system.siteTitle;
       settingsLoginTitle.value = runtime.settings.system.loginTitle;
       settingsSiteDescription.value = runtime.settings.system.siteDescription;
@@ -913,6 +960,7 @@
       settingsLoginCaptchaEnabled.checked = runtime.settings.login.loginCaptchaEnabled;
       settingsSmsLoginEnabled.checked = runtime.settings.login.smsLoginEnabled;
       settingsLoginSessionMinutes.value = String(runtime.settings.login.loginSessionMinutes);
+      settingsHiddenSpaceAutoExitMinutes.value = String(runtime.settings.login.hiddenSpaceAutoExitMinutes);
       settingsSmsSendIntervalSeconds.value = String(runtime.settings.login.smsSendIntervalSeconds);
       settingsSmsIpLimitWindowMinutes.value = String(runtime.settings.login.smsIpLimitWindowMinutes);
       settingsSmsIpLimitMaxCount.value = String(runtime.settings.login.smsIpLimitMaxCount);
@@ -1031,19 +1079,7 @@
       if (runtime.activeMenu === "upload") {
         return {
           system: {
-            maxUploadSizeMb: settingsMaxUploadUnlimited.checked ? -1 : settingsMaxUploadSize.value,
-            maxUploadFileCount: settingsMaxUploadFileCount.value,
-            maxConcurrentUploadCount: settingsMaxConcurrentUploadCount.value,
-            chunkUploadThresholdMb: settingsChunkUploadThresholdMb.value,
-            uploadCategoryRules: UPLOAD_CATEGORY_ITEMS.reduce((acc, item) => {
-              const current = uploadRuleInputs[item.key];
-              acc[item.key] = {
-                formats: current.formats.value
-              };
-              return acc;
-            }, {}),
-            avatarUploadSizeMb: settingsAvatarUploadSize.value,
-            avatarUploadFormats: settingsAvatarUploadFormats.value
+            ...readUploadSettingsPayload()
           }
         };
       }
@@ -1053,6 +1089,7 @@
             loginCaptchaEnabled: settingsLoginCaptchaEnabled.checked,
             smsLoginEnabled: settingsSmsLoginEnabled.checked,
             loginSessionMinutes: settingsLoginSessionMinutes.value,
+            hiddenSpaceAutoExitMinutes: settingsHiddenSpaceAutoExitMinutes.value,
             smsSendIntervalSeconds: settingsSmsSendIntervalSeconds.value,
             smsIpLimitWindowMinutes: settingsSmsIpLimitWindowMinutes.value,
             smsIpLimitMaxCount: settingsSmsIpLimitMaxCount.value
@@ -1231,6 +1268,10 @@
 
     settingsMaxUploadUnlimited.addEventListener("change", () => {
       updateMaxUploadUnlimitedUi();
+    });
+
+    settingsUploadFormatsUnlimited.addEventListener("change", () => {
+      updateUploadFormatsUnlimitedUi();
     });
 
     settingsSmsLoginEnabled.addEventListener("change", () => {

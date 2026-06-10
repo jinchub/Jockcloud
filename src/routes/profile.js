@@ -30,7 +30,7 @@ module.exports = (app, deps) => {
 
   app.get("/api/auth/me", authRequired, async (req, res) => {
     try {
-      const [rows] = await pool.query("SELECT id, username, name, phone, permissions, role, avatar, view_mode AS viewMode, grid_size AS gridSize, visible_categories AS visibleCategories FROM users WHERE id = ?", [req.user.userId]);
+      const [rows] = await pool.query("SELECT id, username, name, phone, permissions, role, avatar, view_mode AS viewMode, grid_size AS gridSize, visible_categories AS visibleCategories, last_login_at AS lastLoginAt, last_login_ip AS lastLoginIp FROM users WHERE id = ?", [req.user.userId]);
       if (rows.length > 0) {
         const row = rows[0];
         const groupContextMap = await loadUserGroupContextMap([req.user.userId]);
@@ -65,6 +65,8 @@ module.exports = (app, deps) => {
       phone: req.user.phone || "",
       role: req.user.role || "user",
       avatar: req.user.avatar || "",
+      lastLoginAt: req.user.lastLoginAt || null,
+      lastLoginIp: req.user.lastLoginIp || "",
       viewMode: normalizeViewMode(req.user.viewMode),
       gridSize: normalizeGridSize(req.user.gridSize),
       visibleCategories: normalizeVisibleCategories(req.user.visibleCategories),
@@ -79,6 +81,34 @@ module.exports = (app, deps) => {
       allowedMenus,
       mobileVisibleMenus
     });
+  });
+
+  app.get("/api/auth/plan-groups", authRequired, async (_req, res) => {
+    try {
+      const [groups] = await pool.query(`
+        SELECT
+          id,
+          name,
+          permissions,
+          max_upload_size_mb AS maxUploadSizeMb,
+          max_upload_file_count AS maxUploadFileCount,
+          quota_bytes AS quotaBytes
+        FROM user_groups
+        ORDER BY id ASC
+      `);
+      res.json(
+        groups.map((group) => ({
+          id: Number(group.id),
+          name: group.name,
+          permissions: parsePermissionList(group.permissions, { fallbackToAll: false }),
+          maxUploadSizeMb: normalizeUserGroupUploadMaxSizeMb(group.maxUploadSizeMb),
+          maxUploadFileCount: normalizeUserGroupUploadMaxFileCount(group.maxUploadFileCount),
+          quotaBytes: group.quotaBytes === null || group.quotaBytes === undefined ? -1 : Number(group.quotaBytes)
+        }))
+      );
+    } catch (error) {
+      sendDbError(res, error);
+    }
   });
 
   app.put("/api/auth/view-preference", authRequired, async (req, res) => {

@@ -41,7 +41,7 @@ module.exports = (app, deps) => {
         return;
       }
       if (Number(rows[0].enabled || 0) === 1) {
-        res.status(400).json({ message: "隐藏空间已开通" });
+        res.status(400).json({ message: "私密空间已开通" });
         return;
       }
       const passwordHash = await hashPassword(password);
@@ -49,7 +49,7 @@ module.exports = (app, deps) => {
         "UPDATE users SET hidden_space_enabled = 1, hidden_space_password_hash = ? WHERE id = ?",
         [passwordHash, req.user.userId]
       );
-      res.json({ message: "隐藏空间开通成功" });
+      res.json({ message: "私密空间开通成功" });
     } catch (error) {
       sendDbError(res, error);
     }
@@ -67,7 +67,7 @@ module.exports = (app, deps) => {
         [req.user.userId]
       );
       if (rows.length === 0 || Number(rows[0].enabled || 0) !== 1) {
-        res.status(400).json({ message: "隐藏空间未开通" });
+        res.status(400).json({ message: "私密空间未开通" });
         return;
       }
       const passwordVerified = await verifyPassword(password, rows[0].passwordHash);
@@ -98,7 +98,7 @@ module.exports = (app, deps) => {
         [req.user.userId]
       );
       if (rows.length === 0 || Number(rows[0].enabled || 0) !== 1) {
-        res.status(400).json({ message: "隐藏空间未开通" });
+        res.status(400).json({ message: "私密空间未开通" });
         return;
       }
       const oldPasswordVerified = await verifyPassword(oldPassword, rows[0].loginPasswordHash);
@@ -108,7 +108,7 @@ module.exports = (app, deps) => {
       }
       const newPasswordHash = await hashPassword(newPassword);
       await pool.query("UPDATE users SET hidden_space_password_hash = ? WHERE id = ? LIMIT 1", [newPasswordHash, req.user.userId]);
-      res.json({ message: "隐私空间密码重置成功" });
+      res.json({ message: "私密空间密码重置成功" });
     } catch (error) {
       sendDbError(res, error);
     }
@@ -130,7 +130,7 @@ module.exports = (app, deps) => {
         return;
       }
       if (Number(rows[0].enabled || 0) !== 1) {
-        res.status(400).json({ message: "隐藏空间未开通" });
+        res.status(400).json({ message: "私密空间未开通" });
         return;
       }
       const phone = normalizePhone(rows[0].phone);
@@ -159,13 +159,13 @@ module.exports = (app, deps) => {
         expiresAt: now + SMS_CODE_EXPIRE_MS
       });
       const sendResult = await dispatchSmsCode({ loginSettings: settings.login, phone });
-      logInfo("隐私空间重置密码短信验证码已发送", { phone, bizId: sendResult.bizId || "", sendIntervalSeconds: Math.floor(smsPolicy.sendIntervalMs / 1000) });
+      logInfo("私密空间重置密码短信验证码已发送", { phone, bizId: sendResult.bizId || "", sendIntervalSeconds: Math.floor(smsPolicy.sendIntervalMs / 1000) });
       res.json({ message: "验证码已发送", sendIntervalSeconds: Math.floor(smsPolicy.sendIntervalMs / 1000) });
     } catch (error) {
       if (error && error.message === "阿里云短信发送失败") {
         const smsProviderCode = error.smsProviderCode ? String(error.smsProviderCode) : "";
         const smsProviderMessage = error.smsProviderMessage ? String(error.smsProviderMessage) : "";
-        logError("隐私空间重置密码短信发送失败", { userId: req.user.userId, smsProviderCode, smsProviderMessage });
+        logError("私密空间重置密码短信发送失败", { userId: req.user.userId, smsProviderCode, smsProviderMessage });
         if (smsProviderCode === "biz.FREQUENCY") {
           res.status(429).json({ message: "发送过于频繁，请稍后再试" });
           return;
@@ -204,7 +204,7 @@ module.exports = (app, deps) => {
         return;
       }
       if (Number(rows[0].enabled || 0) !== 1) {
-        res.status(400).json({ message: "隐藏空间未开通" });
+        res.status(400).json({ message: "私密空间未开通" });
         return;
       }
       const phone = normalizePhone(rows[0].phone);
@@ -216,12 +216,12 @@ module.exports = (app, deps) => {
       const newPasswordHash = await hashPassword(newPassword);
       await pool.query("UPDATE users SET hidden_space_password_hash = ? WHERE id = ? LIMIT 1", [newPasswordHash, req.user.userId]);
       smsCodeStore.delete(phone);
-      res.json({ message: "隐私空间密码重置成功" });
+      res.json({ message: "私密空间密码重置成功" });
     } catch (error) {
       if (error && error.message === "短信验证码校验失败") {
         const smsProviderCode = error.smsProviderCode ? String(error.smsProviderCode) : "";
         const smsProviderMessage = error.smsProviderMessage ? String(error.smsProviderMessage) : "";
-        logError("隐私空间重置密码短信验证码校验失败", { userId: req.user.userId, smsProviderCode, smsProviderMessage });
+        logError("私密空间重置密码短信验证码校验失败", { userId: req.user.userId, smsProviderCode, smsProviderMessage });
         res.status(400).json({ message: "短信验证码错误或已过期" });
         return;
       }

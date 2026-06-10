@@ -24,6 +24,8 @@ module.exports = (app, deps) => {
     readSettings,
     getUploadStorageDir,
     resolveStorageRootDir,
+    pickWritableStorageRoot,
+    getStorageReserveErrorMessage,
     crypto,
     resolveStorageNameFromPath,
     inferMimeTypeByFileName,
@@ -40,6 +42,26 @@ module.exports = (app, deps) => {
     hasFilePermission,
     logFileOperation
   } = deps;
+
+  const escapeHtml = (value) => String(value || "").replace(/[&<>"']/g, (char) => (
+    { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[char]
+  ));
+
+  const isOfficePasswordProtectedError = (err) => {
+    const message = String(err && err.message ? err.message : err || "").toLowerCase();
+    return message.includes("password-protected")
+      || message.includes("password protected")
+      || message.includes("encrypted")
+      || message.includes("密码保护")
+      || message.includes("已加密");
+  };
+
+  const sendOfficePreviewUnsupportedHtml = (res, fileName) => {
+    const escapedOriginalName = escapeHtml(fileName);
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${escapedOriginalName}</title><style>body { margin: 0; padding: 0; background: #f7f8fa; font-family: Arial, sans-serif; color: #333; } .preview-message { min-height: 100vh; box-sizing: border-box; display: flex; align-items: center; justify-content: center; padding: 24px; } .preview-message-card { max-width: 520px; background: #fff; border: 1px solid #e5e6eb; border-radius: 12px; padding: 24px; text-align: center; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06); } .preview-message-title { font-size: 18px; font-weight: 600; margin-bottom: 12px; } .preview-message-desc { font-size: 14px; line-height: 1.7; color: #666; }</style></head><body><div class="preview-message"><div class="preview-message-card"><div class="preview-message-title">该文档已加密</div><div class="preview-message-desc">当前暂不支持输入文档密码进行在线预览，请下载文件后输入密码打开。</div></div></div></body></html>`;
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.send(html);
+  };
 
   const isLocalhostRequest = (req) => {
     const ip = req.ip || req.connection.remoteAddress || "";
@@ -261,9 +283,7 @@ module.exports = (app, deps) => {
       
       // 处理 Office 文档预览模式
       if (mode === "office") {
-        const escapedOriginalName = String(fileName).replace(/[&<>"']/g, (char) => (
-          { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[char]
-        ));
+        const escapedOriginalName = escapeHtml(fileName);
         const extMatch = fileName.match(/\.([^.]+)$/);
         const ext = extMatch ? extMatch[1].toLowerCase() : "";
         try {
@@ -309,6 +329,10 @@ module.exports = (app, deps) => {
           res.status(400).send("不支持的办公文档格式预览");
           return;
         } catch (err) {
+          if (isOfficePasswordProtectedError(err)) {
+            sendOfficePreviewUnsupportedHtml(res, fileName);
+            return;
+          }
           res.status(500).send("文档解析失败: " + (err && err.message ? err.message : "未知错误"));
           return;
         }
@@ -448,12 +472,17 @@ module.exports = (app, deps) => {
           const fileName = safeFileName(relativePath.split("/").pop() || "file");
           if (!fileName) continue;
           const targetDir = getUploadStorageDir(req.user);
-          const storageDir = path.join(resolveStorageRootDir(spaceType), targetDir);
+          const selectedStorage = pickWritableStorageRoot(spaceType, Number(item.size || 0));
+          if (!selectedStorage) {
+            return res.status(507).json({ message: getStorageReserveErrorMessage() });
+          }
+          const storageRootDir = selectedStorage.rootDir || resolveStorageRootDir(spaceType);
+          const storageDir = path.join(storageRootDir, targetDir);
           fs.mkdirSync(storageDir, { recursive: true });
           const storageBaseName = `${Date.now()}-${crypto.randomBytes(8).toString("hex")}-${fileName}`;
           const targetPathOnDisk = path.join(storageDir, storageBaseName);
           fs.copyFileSync(item.sourcePath, targetPathOnDisk);
-          const storageName = resolveStorageNameFromPath(targetPathOnDisk, storageBaseName, resolveStorageRootDir(spaceType));
+          const storageName = resolveStorageNameFromPath(targetPathOnDisk, storageBaseName, storageRootDir, selectedStorage.diskId);
           const entryFolderId = await resolveFolderByRelativeDir(req.user.userId, targetFolderId, relativePath.split("/").slice(0, -1).join("/"), folderCache, spaceType);
           const mimeType = inferMimeTypeByFileName(fileName, "application/octet-stream");
           const fileCategory = normalizeFileCategoryKey(resolveStoredFileCategory(fileName, mimeType, uploadCategoryRuntimeOptions));
@@ -830,13 +859,18 @@ module.exports = (app, deps) => {
         const usedNameSet = new Set(nameRows.map((item) => safeFileName(item.originalName || "")).filter(Boolean));
         const finalArchiveName = resolveUniqueName(normalizedArchiveName, usedNameSet);
         const targetDir = getUploadStorageDir(req.user);
-        const storageDir = path.join(resolveStorageRootDir(spaceType), targetDir);
+        const selectedStorage = pickWritableStorageRoot(spaceType, fs.statSync(archivePath).size);
+        if (!selectedStorage) {
+          return res.status(507).json({ message: getStorageReserveErrorMessage() });
+        }
+        const storageRootDir = selectedStorage.rootDir || resolveStorageRootDir(spaceType);
+        const storageDir = path.join(storageRootDir, targetDir);
         fs.mkdirSync(storageDir, { recursive: true });
         const storageBaseName = `${Date.now()}-${crypto.randomBytes(8).toString("hex")}-${safeFileName(finalArchiveName)}`;
         const targetPathOnDisk = path.join(storageDir, storageBaseName);
         fs.copyFileSync(archivePath, targetPathOnDisk);
         const stat = fs.statSync(targetPathOnDisk);
-        const storageName = resolveStorageNameFromPath(targetPathOnDisk, storageBaseName, resolveStorageRootDir(spaceType));
+        const storageName = resolveStorageNameFromPath(targetPathOnDisk, storageBaseName, storageRootDir, selectedStorage.diskId);
         await pool.query(
           "INSERT INTO files (user_id, space_type, folder_id, original_name, storage_name, thumbnail_storage_name, file_category, size, mime_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
           [req.user.userId, spaceType, targetFolderId, finalArchiveName, storageName, null, "archive", Math.max(0, Number(stat.size || 0)), "application/zip"]

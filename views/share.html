@@ -29,6 +29,9 @@
     .btn.primary:hover { background: #4080ff; }
     .btn.ghost { background: unset;color: rgb(0 78 255 / 80%); border: 0; }
     .btn.ghost:hover { color: #004cff;}
+    .btn[disabled], .btn.is-disabled { background: #f2f3f5; color: #bfc4cd; cursor: not-allowed; pointer-events: none; }
+    .btn.ghost[disabled], .btn.ghost.is-disabled { color: #bfc4cd; }
+    .btn.ghost[disabled]:hover, .btn.ghost.is-disabled:hover { color: #bfc4cd; }
     .verify-actions { margin-top: 16px; }
     .breadcrumb { margin-top: 20px; font-size: 14px; color: #666; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
     .breadcrumb a { color: #165dff; text-decoration: none; transition: color 0.3s; }
@@ -144,7 +147,8 @@
       currentFolderId: null,
       rootFolderId: null,
       pathStack: [],
-      shareUser: null
+      shareUser: null,
+      folderDownloadableCache: new Map()
     };
 
     const shareTitle = document.getElementById("shareTitle");
@@ -286,6 +290,44 @@
       return `${base}?token=${encodeURIComponent(state.token)}`;
     };
 
+    const getFolderDownloadable = async (folderId) => {
+      const targetFolderId = Number(folderId) || 0;
+      if (!targetFolderId) return false;
+      if (state.folderDownloadableCache.has(targetFolderId)) {
+        return await state.folderDownloadableCache.get(targetFolderId);
+      }
+      const request = (async () => {
+        const { response, data } = await requestJson(`/api/share/${state.shareCode}/folder/${targetFolderId}/size`);
+        if (!response.ok) {
+          throw new Error(data.message || "检查目录状态失败");
+        }
+        return Number(data.fileCount || 0) > 0;
+      })();
+      state.folderDownloadableCache.set(targetFolderId, request);
+      try {
+        const downloadable = await request;
+        state.folderDownloadableCache.set(targetFolderId, downloadable);
+        return downloadable;
+      } catch (error) {
+        state.folderDownloadableCache.delete(targetFolderId);
+        throw error;
+      }
+    };
+
+    const syncFolderDownloadButtonState = async (button, folderId) => {
+      if (!button) return;
+      try {
+        const downloadable = await getFolderDownloadable(folderId);
+        if (!button.isConnected) return;
+        button.disabled = !downloadable;
+        button.title = downloadable ? "" : "空目录不可下载";
+      } catch (error) {
+        if (!button.isConnected) return;
+        button.disabled = false;
+        button.title = "";
+      }
+    };
+
     const renderEntries = (entries) => {
       entryList.innerHTML = "";
       if (!Array.isArray(entries) || entries.length === 0) {
@@ -333,9 +375,20 @@
             };
           }
           const downloadBtn = row.querySelector("[data-download='1']");
+          if (isFolder) {
+            syncFolderDownloadButtonState(downloadBtn, item.id);
+          }
           downloadBtn.onclick = async () => {
+            if (downloadBtn.disabled) return;
             if (isFolder) {
               try {
+                const downloadable = await getFolderDownloadable(item.id);
+                if (!downloadable) {
+                  downloadBtn.disabled = true;
+                  downloadBtn.title = "空目录不可下载";
+                  showTip("空目录不可下载", true);
+                  return;
+                }
                 const { response, data } = await requestJson(`/api/share/${state.shareCode}/folder/${item.id}/size`);
                 if (response.ok && data && typeof data.totalSize === 'number') {
                   const maxSize = 100 * 1024 * 1024;
@@ -369,6 +422,7 @@
     };
 
     const loadShare = async () => {
+      state.folderDownloadableCache = new Map();
       const { response, data } = await requestJson(`/api/share/${state.shareCode}`);
       if (!response.ok) {
         showTip(data.message || "分享不存在", true);

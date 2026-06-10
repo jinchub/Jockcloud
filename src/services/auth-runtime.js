@@ -151,14 +151,19 @@ const createAuthRuntime = ({
     }
   };
 
-  const createLoginSession = async (userId, res) => {
+  const createLoginSession = async (userId, req, res) => {
     const settings = await readSettings();
     const loginSessionMinutes = settings.login.loginSessionMinutes;
     await pool.query("DELETE FROM sessions WHERE expires_at <= NOW()");
     const token = makeToken();
+    const loginIp = String((req && req.ip) || "").trim().slice(0, 64) || null;
     await pool.query(
       "INSERT INTO sessions (user_id, token, expires_at) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL ? MINUTE))",
       [userId, token, loginSessionMinutes]
+    );
+    await pool.query(
+      "UPDATE users SET last_login_at = NOW(), last_login_ip = ? WHERE id = ?",
+      [loginIp, userId]
     );
     res.setHeader(
       "Set-Cookie",

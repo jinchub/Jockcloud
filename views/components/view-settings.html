@@ -124,6 +124,16 @@
                 <div class="settings-form-tip">
                   生效顺序：优先按用户组上传大小配置（设为不限制则不限制）；用户未加入用户组时按默认文件上传大小限制
                 </div>
+                <div class="settings-form-row checkbox">
+                  <label for="settingsUploadFormatsUnlimited">上传后缀限制</label>
+                  <label class="permission-checkbox" style="display:flex;align-items:center;gap:6px;">
+                    <input type="checkbox" id="settingsUploadFormatsUnlimited" />
+                    <span>不限制</span>
+                  </label>
+                </div>
+                <div class="settings-form-tip">
+                  勾选后上传时不校验文件后缀；取消勾选后按下面分类格式限制
+                </div>
                 <div class="settings-form-row">
                   <label for="settingsUploadFormatsImage">图片分类格式</label>
                   <input type="text" id="settingsUploadFormatsImage" placeholder="jpg,jpeg,png,webp,bmp,gif" />
@@ -192,6 +202,10 @@
                 <div class="settings-form-row">
                   <label for="settingsLoginSessionMinutes">登录有效期(分钟)</label>
                   <input type="number" id="settingsLoginSessionMinutes" min="1" max="43200" required />
+                </div>
+                <div class="settings-form-row">
+                  <label for="settingsHiddenSpaceAutoExitMinutes">私密空间无操作自动退出(分钟)</label>
+                  <input type="number" id="settingsHiddenSpaceAutoExitMinutes" min="1" max="1440" required />
                 </div>
               </form>
               <form id="menuSettingsForm" class="settings-form" style="display:none;">

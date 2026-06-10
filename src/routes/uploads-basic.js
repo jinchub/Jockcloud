@@ -35,6 +35,8 @@ module.exports = (app, deps) => {
     path,
     getUploadStorageDir,
     resolveStorageRootDir,
+    pickWritableStorageRoot,
+    getStorageReserveErrorMessage,
     resolveStorageNameFromPath,
     resolveUploadCategory,
     writeThumbnailFromDataUrl,
@@ -383,13 +385,20 @@ module.exports = (app, deps) => {
         }
       }
       const targetRelativeDir = getUploadStorageDir(req.user);
-      const targetDir = path.join(resolveStorageRootDir(spaceType), targetRelativeDir);
+      const selectedStorage = pickWritableStorageRoot(spaceType, Number(meta.fileSize || 0));
+      if (!selectedStorage) {
+        removeChunkSession(uploadId);
+        res.status(507).json({ message: getStorageReserveErrorMessage() });
+        return;
+      }
+      const targetRootDir = selectedStorage.rootDir || resolveStorageRootDir(spaceType);
+      const targetDir = path.join(targetRootDir, targetRelativeDir);
       fs.mkdirSync(targetDir, { recursive: true });
       const normalizedName = normalizeUploadName(meta.fileName || "file");
       const finalStorageName = `${Date.now()}-${crypto.randomBytes(8).toString("hex")}-${safeFileName(normalizedName)}`;
       finalFilePath = path.join(targetDir, finalStorageName);
       fs.renameSync(dataPath, finalFilePath);
-      const storageName = resolveStorageNameFromPath(finalFilePath, finalStorageName, resolveStorageRootDir(spaceType));
+      const storageName = resolveStorageNameFromPath(finalFilePath, finalStorageName, targetRootDir, selectedStorage.diskId);
       const thumbnailDataUrl = String(req.body && req.body.thumbnailDataUrl ? req.body.thumbnailDataUrl : "");
       const resolvedFileCategory = resolveUploadCategory({ originalname: meta.fileName, mimetype: meta.mimeType }, uploadCategoryRuntimeOptions);
       const thumbnailStorageName = resolvedFileCategory === "image"
@@ -642,7 +651,8 @@ module.exports = (app, deps) => {
           }
         }
         
-        const storageName = resolveStorageNameFromPath(item.currentFile.path, item.currentFile.filename, resolveStorageRootDir(spaceType));
+        const currentRootDir = req.uploadStorageRootDir || resolveStorageRootDir(spaceType);
+        const storageName = resolveStorageNameFromPath(item.currentFile.path, item.currentFile.filename, currentRootDir, req.uploadDiskId || "");
         const resolvedFileCategory = resolveUploadCategory(item.currentFile, uploadCategoryRuntimeOptions);
         const thumbnailStorageName = resolvedFileCategory === "image" ? writeThumbnailFromDataUrl(item.thumbnailDataUrl, storageName, spaceType) : "";
         const fileCategory = normalizeFileCategoryKey(resolveStoredFileCategory(actualOriginalName, item.currentFile.mimetype, uploadCategoryRuntimeOptions));

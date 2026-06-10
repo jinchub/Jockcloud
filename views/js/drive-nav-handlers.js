@@ -31,9 +31,6 @@ const bindNav = () => {
         }
       }
       await switchMainView("files");
-      if (state.fileSpace === "hidden") {
-        setHiddenSpaceUnlocked(false);
-      }
       await switchFileSpace("normal", "myFiles");
       state.view = "files";
       state.category = "";
@@ -126,7 +123,7 @@ const bindNav = () => {
         updateRouteQuery({ main: "files", side: "recycle", category: null, fileSpace: state.fileSpace });
         refreshAll();
       };
-    } else if (text.includes("隐藏空间")) {
+    } else if (item.id === "hiddenSpaceNavBtn" || text.includes("私密空间")) {
        item.onclick = async (e) => {
          e.preventDefault();
          const pass = await ensureHiddenSpaceAccess();
@@ -187,6 +184,7 @@ const bindNav = () => {
         state.keyword = "";
         state.currentFolderId = null;
         state.selectedEntry = null;
+        updateHiddenSpaceUiState();
         updateRouteQuery({ main: "files", side: "myFiles", category: null });
         refreshAll();
       };
@@ -201,6 +199,7 @@ const bindNav = () => {
         state.category = catKey;
         state.keyword = "";
         state.selectedEntry = null;
+        updateHiddenSpaceUiState();
         updateRouteQuery({ main: "files", side: "category", category: catKey });
         refreshAll();
       };
@@ -219,6 +218,7 @@ const bindNav = () => {
         state.keyword = "";
         state.currentFolderId = null;
         state.selectedEntry = null;
+        updateHiddenSpaceUiState();
         updateRouteQuery({ main: "files", side: "myFiles", category: null });
         refreshAll();
       };

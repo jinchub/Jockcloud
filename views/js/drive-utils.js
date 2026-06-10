@@ -85,6 +85,15 @@ const normalizeAvatarFormatList = (value) => {
   return result.length > 0 ? result : DEFAULT_AVATAR_UPLOAD_FORMATS.slice();
 };
 
+const normalizeUploadFormatUnlimited = (value) => {
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "true" || normalized === "1" || normalized === "yes" || normalized === "on") return true;
+    if (normalized === "false" || normalized === "0" || normalized === "no" || normalized === "off") return false;
+  }
+  return Boolean(value);
+};
+
 const normalizeUploadAllowedExtSet = (rules) => {
   if (!rules || typeof rules !== "object") return null;
   const extSet = new Set();
@@ -99,6 +108,34 @@ const normalizeUploadAllowedExtSet = (rules) => {
   return extSet.size > 0 ? extSet : null;
 };
 
+const getPublicUploadRuntimeConfig = (settings) => {
+  const source = settings && typeof settings === "object" ? settings : {};
+  const system = source.system && typeof source.system === "object" ? source.system : source;
+  const maxUploadFileCount = Math.max(1, Math.min(1000, Math.floor(Number(system.maxUploadFileCount) || state.maxUploadFileCount || 100)));
+  const maxConcurrentUploadCount = Math.max(1, Math.min(20, Math.floor(Number(system.maxConcurrentUploadCount) || state.maxConcurrentUploadCount || 3)));
+  const chunkUploadThresholdMb = Math.max(1, Math.min(102400, Math.floor(Number(system.chunkUploadThresholdMb) || state.chunkUploadThresholdMb || DEFAULT_CHUNK_UPLOAD_THRESHOLD_MB)));
+  const uploadFormatUnlimited = normalizeUploadFormatUnlimited(system.uploadFormatUnlimited);
+  return {
+    maxUploadFileCount,
+    maxConcurrentUploadCount,
+    chunkUploadThresholdMb,
+    chunkUploadThresholdBytes: chunkUploadThresholdMb * 1024 * 1024,
+    uploadFormatUnlimited,
+    uploadAllowedExtSet: uploadFormatUnlimited ? null : normalizeUploadAllowedExtSet(system.uploadCategoryRules)
+  };
+};
+
+const applyPublicUploadRuntimeConfig = (settings) => {
+  const config = getPublicUploadRuntimeConfig(settings);
+  state.maxUploadFileCount = config.maxUploadFileCount;
+  state.maxConcurrentUploadCount = config.maxConcurrentUploadCount;
+  state.chunkUploadThresholdMb = config.chunkUploadThresholdMb;
+  state.chunkUploadThresholdBytes = config.chunkUploadThresholdBytes;
+  state.uploadFormatUnlimited = config.uploadFormatUnlimited;
+  state.uploadAllowedExtSet = config.uploadAllowedExtSet;
+  return config;
+};
+
 const getUploadFileExtByName = (name) => {
   const normalizedName = String(name || "").trim().toLowerCase();
   const dotIndex = normalizedName.lastIndexOf(".");
@@ -107,6 +144,7 @@ const getUploadFileExtByName = (name) => {
 };
 
 const collectUnsupportedUploadItems = (items) => {
+  if (state.uploadFormatUnlimited) return [];
   if (!(state.uploadAllowedExtSet instanceof Set) || state.uploadAllowedExtSet.size === 0) return [];
   const unsupported = [];
   items.forEach((item) => {
@@ -2937,17 +2975,9 @@ const loadPublicSettings = async () => {
       document.title = title;
     }
     const avatarUploadSizeMb = Math.max(1, Math.min(100, Math.floor(Number(system.avatarUploadSizeMb) || DEFAULT_AVATAR_UPLOAD_SIZE_MB)));
-    const maxUploadFileCount = Math.max(1, Math.min(1000, Math.floor(Number(system.maxUploadFileCount) || 100)));
-    const maxConcurrentUploadCount = Math.max(1, Math.min(20, Math.floor(Number(system.maxConcurrentUploadCount) || 3)));
-    const chunkUploadThresholdMb = Math.max(1, Math.min(102400, Math.floor(Number(system.chunkUploadThresholdMb) || DEFAULT_CHUNK_UPLOAD_THRESHOLD_MB)));
     const avatarUploadFormats = normalizeAvatarFormatList(system.avatarUploadFormats);
-    const uploadAllowedExtSet = normalizeUploadAllowedExtSet(system.uploadCategoryRules);
     const previewConfig = system.previewConfig && typeof system.previewConfig === "object" ? system.previewConfig : {};
-    state.maxUploadFileCount = maxUploadFileCount;
-    state.maxConcurrentUploadCount = maxConcurrentUploadCount;
-    state.chunkUploadThresholdMb = chunkUploadThresholdMb;
-    state.chunkUploadThresholdBytes = chunkUploadThresholdMb * 1024 * 1024;
-    state.uploadAllowedExtSet = uploadAllowedExtSet;
+    applyPublicUploadRuntimeConfig(settings);
     state.avatarUploadSizeMb = avatarUploadSizeMb;
     state.avatarUploadMaxSizeBytes = avatarUploadSizeMb * 1024 * 1024;
     state.avatarUploadFormats = avatarUploadFormats;
@@ -2957,7 +2987,12 @@ const loadPublicSettings = async () => {
     }
     updateAvatarUploadUiHints();
     const sessionMinutes = Math.max(1, Math.min(43200, Math.floor(Number(login.loginSessionMinutes) || 10080)));
+    const hiddenSpaceAutoExitMinutes = Math.max(1, Math.min(1440, Math.floor(Number(login.hiddenSpaceAutoExitMinutes) || state.hiddenSpaceAutoExitMinutes || 10)));
     state.loginSessionMinutes = sessionMinutes;
+    state.hiddenSpaceAutoExitMinutes = hiddenSpaceAutoExitMinutes;
+    if (hiddenSpaceManager && typeof hiddenSpaceManager.setAutoExitMinutes === "function") {
+      hiddenSpaceManager.setAutoExitMinutes(hiddenSpaceAutoExitMinutes, state, { closeBtn: closeHiddenSpaceBtn, dot: hiddenSpaceDot, resetBtn: resetHiddenSpacePwdBtn, autoExitTip: hiddenSpaceAutoExitTip, unlockedIcon: hiddenSpaceUnlockedIcon });
+    }
     const savedLoginAt = Number(localStorage.getItem(LOGIN_AT_STORAGE_KEY) || 0);
     const loginAt = Number.isFinite(savedLoginAt) && savedLoginAt > 0 ? savedLoginAt : Date.now();
     localStorage.setItem(LOGIN_AT_STORAGE_KEY, String(loginAt));

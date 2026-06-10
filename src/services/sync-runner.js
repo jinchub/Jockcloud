@@ -42,6 +42,8 @@ const createSyncRunner = ({
       getUploadStorageDir,
       path,
       resolveStorageRootDir,
+      pickWritableStorageRoot,
+      getStorageReserveErrorMessage,
       crypto,
       resolveStorageNameFromPath,
       resolveFolderByRelativeDir,
@@ -365,7 +367,12 @@ const createSyncRunner = ({
             if (!fileName) continue;
             console.log(`[runRemoteToLocal下载文件] userId=${normalizedUserId}, taskId=${normalizedTaskId}, file=${normalizedRelativePath}`);
             const targetDir = getUploadStorageDir(user);
-            const storageDir = path.join(resolveStorageRootDir(spaceType), targetDir);
+            const selectedStorage = pickWritableStorageRoot(spaceType, Number(remoteItem.size || 0));
+            if (!selectedStorage) {
+              throw new Error(getStorageReserveErrorMessage());
+            }
+            const storageRootDir = selectedStorage.rootDir || resolveStorageRootDir(spaceType);
+            const storageDir = path.join(storageRootDir, targetDir);
             const relativeDir = normalizedRelativePath.split("/").slice(0, -1).join("/");
             // 确保上传目录存在
             fs.mkdirSync(storageDir, { recursive: true });
@@ -374,7 +381,7 @@ const createSyncRunner = ({
             const targetPathOnDisk = path.join(storageDir, uniqueFileName);
             await downloadObjectByMount(mount, remoteKey, targetPathOnDisk);
             console.log(`[runRemoteToLocal下载成功] userId=${normalizedUserId}, taskId=${normalizedTaskId}, file=${normalizedRelativePath}`);
-            const storageName = resolveStorageNameFromPath(targetPathOnDisk, uniqueFileName, resolveStorageRootDir(spaceType));
+            const storageName = resolveStorageNameFromPath(targetPathOnDisk, uniqueFileName, storageRootDir, selectedStorage.diskId);
             console.log(`[runRemoteToLocal下载成功后] userId=${normalizedUserId}, taskId=${normalizedTaskId}, storageName=${storageName}`);
             let entryFolderId = null;
             if (localResolved.exists && localResolved.folderId !== null) {

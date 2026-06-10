@@ -147,10 +147,6 @@ const PERMISSION_LABELS = {
   viewArchive: "查看压缩包"
 };
 let userModalMode = "full";
-let currentUserGroupIds = [];
-const quotaGbInput = document.getElementById("quotaGb");
-const quotaUnlimitedInput = document.getElementById("quotaUnlimited");
-const quotaUnitInput = document.getElementById("quotaUnit");
 const QUOTA_UNIT_BYTES = {
   KB: 1024,
   MB: 1024 * 1024,
@@ -224,13 +220,10 @@ const getSelectedUserGroupId = () => {
 const setUserModalMode = (mode) => {
   userModalMode = mode;
   const isPermissionMode = mode === "permissions";
-  const isQuotaMode = mode === "quota";
   const hiddenGroupIds = isPermissionMode
-    ? ["fullnameGroup", "phoneGroup", "passwordGroup", "roleGroup", "avatarGroup", "quotaGroup", "userGroupsGroup"]
-    : isQuotaMode
-      ? ["fullnameGroup", "phoneGroup", "passwordGroup", "roleGroup", "avatarGroup", "permissionsGroup", "userGroupsGroup"]
-      : [];
-  ["fullnameGroup", "phoneGroup", "passwordGroup", "roleGroup", "avatarGroup", "quotaGroup", "permissionsGroup", "userGroupsGroup"].forEach(id => {
+    ? ["fullnameGroup", "phoneGroup", "passwordGroup", "roleGroup", "avatarGroup", "userGroupsGroup"]
+    : [];
+  ["fullnameGroup", "phoneGroup", "passwordGroup", "roleGroup", "avatarGroup", "permissionsGroup", "userGroupsGroup"].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     el.style.display = hiddenGroupIds.includes(id) ? "none" : "";
@@ -239,131 +232,12 @@ const setUserModalMode = (mode) => {
   if (permissionsGroup) permissionsGroup.style.display = isPermissionMode ? "" : "none";
 };
 
-const setQuotaInputs = (quota = -1, userGroupIds = []) => {
-  if (!quotaGbInput || !quotaUnlimitedInput || !quotaUnitInput) return;
-  
-  const quotaUnlimitedLabel = document.getElementById("quotaUnlimitedLabel");
-  const hasUserGroup = Array.isArray(userGroupIds) && userGroupIds.length > 0;
-  
-  // 如果配额为 -1，表示使用默认限制（用户组配额）
-  if (Number(quota) === -1) {
-    quotaUnlimitedInput.checked = true;
-    quotaGbInput.value = "";
-    quotaGbInput.disabled = true;
-    quotaUnitInput.value = "GB";
-    quotaUnitInput.disabled = true;
-    quotaUnitInput.dataset.prevUnit = "GB";
-    if (quotaUnlimitedLabel) {
-      quotaUnlimitedLabel.textContent = hasUserGroup ? "使用默认限制" : "不限制";
-    }
-    return;
-  }
-  
-  // 否则使用自定义配额
-  const numericQuota = Number(quota);
-  let unit = "GB";
-  let unitBytes = QUOTA_UNIT_BYTES.GB;
-  if (numericQuota > 0 && numericQuota < QUOTA_UNIT_BYTES.MB) {
-    unit = "KB";
-    unitBytes = QUOTA_UNIT_BYTES.KB;
-  } else if (numericQuota > 0 && numericQuota < QUOTA_UNIT_BYTES.GB) {
-    unit = "MB";
-    unitBytes = QUOTA_UNIT_BYTES.MB;
-  } else if (numericQuota >= QUOTA_UNIT_BYTES.TB) {
-    unit = "TB";
-    unitBytes = QUOTA_UNIT_BYTES.TB;
-  }
-  quotaUnlimitedInput.checked = false;
-  quotaGbInput.disabled = false;
-  quotaUnitInput.disabled = false;
-  quotaUnitInput.value = unit;
-  quotaUnitInput.dataset.prevUnit = unit;
-  quotaGbInput.value = (numericQuota / unitBytes).toFixed(2).replace(/\.?0+$/, "");
-  if (quotaUnlimitedLabel) {
-    quotaUnlimitedLabel.textContent = "自定义配额";
-  }
-};
-
-const getQuotaValue = async () => {
-  if (!quotaGbInput || !quotaUnlimitedInput || !quotaUnitInput) return -1;
-  if (quotaUnlimitedInput.checked) {
-    // 勾选"使用默认限制"时，查询用户组的配额
-    if (currentUserGroupIds && currentUserGroupIds.length > 0) {
-      try {
-        const res = await request(`/api/user-groups`);
-        const groups = await res.json();
-        const userGroups = groups.filter(g => currentUserGroupIds.includes(g.id));
-        
-        // 取用户组的最小配额
-        let minQuota = -1;
-        userGroups.forEach(group => {
-          const quota = Number(group.quotaBytes || -1);
-          if (quota === -1) {
-            minQuota = -1; // 有一个组不限制，则返回 -1
-          } else if (quota > 0 && (minQuota === -1 || quota < minQuota)) {
-            minQuota = quota;
-          }
-        });
-        return minQuota;
-      } catch (e) {
-        return -1;
-      }
-    }
-    return -1;
-  }
-  const value = Number(quotaGbInput.value);
-  const unitBytes = QUOTA_UNIT_BYTES[quotaUnitInput.value] || QUOTA_UNIT_BYTES.GB;
-  if (!Number.isFinite(value) || value < 0) return null;
-  return Math.round(value * unitBytes);
-};
-
-if (quotaUnlimitedInput && quotaGbInput && quotaUnitInput) {
-  quotaUnlimitedInput.onchange = () => {
-    const hasUserGroup = currentUserGroupIds && currentUserGroupIds.length > 0;
-    const quotaUnlimitedLabel = document.getElementById("quotaUnlimitedLabel");
-    
-    if (quotaUnlimitedInput.checked) {
-      // 勾选：使用默认限制
-      quotaGbInput.disabled = true;
-      quotaUnitInput.disabled = true;
-      quotaGbInput.value = "";
-      if (quotaUnlimitedLabel) {
-        quotaUnlimitedLabel.textContent = hasUserGroup ? "使用默认限制" : "不限制";
-      }
-    } else {
-      // 不勾选：自定义配额，必须输入大于 0 的值
-      quotaGbInput.disabled = false;
-      quotaUnitInput.disabled = false;
-      quotaGbInput.value = "";
-      quotaGbInput.focus();
-      if (quotaUnlimitedLabel) {
-        quotaUnlimitedLabel.textContent = "自定义配额";
-      }
-    }
-  };
-  quotaUnitInput.onchange = () => {
-    if (quotaUnlimitedInput.checked) return;
-    const currentValue = Number(quotaGbInput.value);
-    if (!Number.isFinite(currentValue) || currentValue < 0) return;
-    const previousUnit = quotaUnitInput.dataset.prevUnit || "GB";
-    const previousUnitBytes = QUOTA_UNIT_BYTES[previousUnit] || QUOTA_UNIT_BYTES.GB;
-    const currentUnitBytes = QUOTA_UNIT_BYTES[quotaUnitInput.value] || QUOTA_UNIT_BYTES.GB;
-    const bytes = currentValue * previousUnitBytes;
-    quotaGbInput.value = (bytes / currentUnitBytes).toFixed(2).replace(/\.?0+$/, "");
-    quotaUnitInput.dataset.prevUnit = quotaUnitInput.value;
-  };
-}
-
-const openUserModal = (id, mode = "full") => {
+const openUserModal = async (id, mode = "full") => {
   const user = usersData.find(u => u.id === id);
   if (!user) return;
   renderPermissionInputs();
   setUserModalMode(mode);
-  
-  // 保存当前用户组 ID
-  currentUserGroupIds = user.groupIds || [];
-  
-  document.getElementById("userModalTitle").textContent = mode === "permissions" ? "配置权限" : mode === "quota" ? "调整空间配额" : "编辑用户";
+  document.getElementById("userModalTitle").textContent = mode === "permissions" ? "配置权限" : "编辑用户";
   document.getElementById("userId").value = user.id;
   document.getElementById("username").value = user.username;
   document.getElementById("username").disabled = true; // Cannot change username
@@ -391,7 +265,6 @@ const openUserModal = (id, mode = "full") => {
   const avatarPreview = document.getElementById("avatarPreview");
   if (avatarInput) avatarInput.value = avatarUrl;
   if (avatarPreview) avatarPreview.src = avatarUrl || `https://ui-avatars.com/api/?name=${user.username}&background=random`;
-  setQuotaInputs(user.quota, currentUserGroupIds);
   
   document.getElementById("userModal").style.display = "flex";
 };
@@ -402,10 +275,6 @@ window.editUser = (id) => {
 
 window.editUserPermissions = (id) => {
   openUserModal(id, "permissions");
-};
-
-window.editUserQuota = (id) => {
-  openUserModal(id, "quota");
 };
 
 window.deleteUser = async (id) => {
@@ -439,10 +308,6 @@ document.getElementById("addUserBtn").onclick = () => {
     userGroupId = userGroupsData.find(g => g.name === "user")?.id || null;
   }
   renderUserGroupSingleSelect(userGroupId);
-  
-  // 默认空间配额 100GB
-  setQuotaInputs(100 * 1024 * 1024 * 1024);
-  if (quotaUnitInput) quotaUnitInput.dataset.prevUnit = quotaUnitInput.value;
   
   const roleSelect = document.getElementById("role");
   if (roleSelect) {
@@ -478,27 +343,12 @@ document.getElementById("userForm").onsubmit = async (e) => {
     body = { permissions };
     url = `/api/users/${id}`;
     method = "PUT";
-  } else if (userModalMode === "quota") {
-    if (!id) return;
-    const quota = await getQuotaValue();
-    if (quota === null) {
-      alert("请输入正确的空间配额");
-      return;
-    }
-    body = { quota };
-    url = `/api/users/${id}`;
-    method = "PUT";
   } else {
-    const quota = await getQuotaValue();
-    if (quota === null) {
-      alert("请输入正确的空间配额");
-      return;
-    }
     if (password && String(password).length < 6) {
       alert("密码至少6位");
       return;
     }
-    body = { username, name, phone, quota, role, avatar, groupIds };
+    body = { username, name, phone, role, avatar, groupIds };
     if (password) body.password = password;
     url = id ? `/api/users/${id}` : "/api/users";
     method = id ? "PUT" : "POST";
@@ -513,7 +363,6 @@ document.getElementById("userForm").onsubmit = async (e) => {
     if (res.ok) {
       document.getElementById("userModal").style.display = "none";
       await loadUsers();
-      if (userModalMode === "quota") renderQuotaTable();
     } else {
       const data = await res.json();
       alert(data.message || "操作失败");
@@ -841,4 +690,3 @@ if (userGroupQuotaUnlimitedInput && userGroupQuotaInput && userGroupQuotaUnitInp
     userGroupQuotaUnitInput.dataset.prevUnit = userGroupQuotaUnitInput.value;
   };
 }
-

@@ -4026,6 +4026,15 @@ html {
   padding-bottom: 0;
 }
 
+#view-quota {
+  overflow-y: auto;
+  padding-bottom: 10px;
+}
+
+#view-quota .admin-table-panel {
+  flex: 0 0 auto;
+}
+
 .admin-view-head-row {
   display: flex;
   justify-content: space-between;

@@ -434,16 +434,7 @@ const refreshUploadLimitsFromServer = async () => {
     const res = await fetch("/api/public-settings");
     if (!res.ok) return;
     const settings = await res.json().catch(() => ({}));
-    const system = settings && settings.system && typeof settings.system === "object" ? settings.system : {};
-    const maxUploadFileCount = Math.max(1, Math.min(1000, Math.floor(Number(system.maxUploadFileCount) || state.maxUploadFileCount || 100)));
-    const maxConcurrentUploadCount = Math.max(1, Math.min(20, Math.floor(Number(system.maxConcurrentUploadCount) || state.maxConcurrentUploadCount || 3)));
-    const chunkUploadThresholdMb = Math.max(1, Math.min(102400, Math.floor(Number(system.chunkUploadThresholdMb) || state.chunkUploadThresholdMb || DEFAULT_CHUNK_UPLOAD_THRESHOLD_MB)));
-    const uploadAllowedExtSet = normalizeUploadAllowedExtSet(system.uploadCategoryRules);
-    state.maxUploadFileCount = maxUploadFileCount;
-    state.maxConcurrentUploadCount = maxConcurrentUploadCount;
-    state.chunkUploadThresholdMb = chunkUploadThresholdMb;
-    state.chunkUploadThresholdBytes = chunkUploadThresholdMb * 1024 * 1024;
-    state.uploadAllowedExtSet = uploadAllowedExtSet;
+    applyPublicUploadRuntimeConfig(settings);
   } catch (e) {}
 };
 

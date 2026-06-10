@@ -353,10 +353,7 @@ const loadSystemInfo = async () => {
     if (elServerPort) elServerPort.textContent = data.serverPort || "未知";
     if (elProgramDir) elProgramDir.textContent = data.programDir || "未知";
     if (elJsBuildTime) {
-      let timeStr = data.jsBuildTime ? new Date(data.jsBuildTime).toLocaleString() : "未知";
-      if (data.jsLatestFile) {
-        timeStr += ` (${data.jsLatestFile})`;
-      }
+      const timeStr = data.jsBuildTime ? new Date(data.jsBuildTime).toLocaleString() : "未知";
       elJsBuildTime.textContent = timeStr;
     }
     if (elMemoryUsage) elMemoryUsage.textContent = `${data.memory.used} / ${data.memory.total}`;
@@ -1138,12 +1135,12 @@ const loadAccessMonitorInfo = async () => {
         '/api/entries/:type/:id': '获取条目详情',
         '/api/entries/batch': '批量操作条目',
         '/api/preview/:id': '文件预览',
-        '/api/hidden-space/status': '隐藏空间状态',
-        '/api/hidden-space/setup': '设置隐藏空间',
-        '/api/hidden-space/verify': '验证隐藏空间密码',
-        '/api/hidden-space/reset-password': '重置隐藏空间密码',
-        '/api/hidden-space/reset-password/send-code': '发送隐藏空间密码重置验证码',
-        '/api/hidden-space/reset-password/by-sms': '通过短信重置隐藏空间密码',
+        '/api/hidden-space/status': '私密空间状态',
+        '/api/hidden-space/setup': '设置私密空间',
+        '/api/hidden-space/verify': '验证私密空间密码',
+        '/api/hidden-space/reset-password': '重置私密空间密码',
+        '/api/hidden-space/reset-password/send-code': '发送私密空间密码重置验证码',
+        '/api/hidden-space/reset-password/by-sms': '通过短信重置私密空间密码',
         '/api/admin/stats': '管理员统计信息'
       };
       
@@ -1175,7 +1172,7 @@ const loadAccessMonitorInfo = async () => {
             'entries': '条目',
             'sync-tasks': '同步任务',
             'upload-tasks': '上传任务',
-            'hidden-space': '隐藏空间',
+            'hidden-space': '私密空间',
             'admin': '管理',
             'online-users': '在线用户',
             'stats': '统计',

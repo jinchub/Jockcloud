@@ -12,10 +12,170 @@ const renderGroupBadge = (groupName, clickable = false) => {
   }
 };
 
-const showPlanComparison = () => {
+let planComparisonLoadPromise = null;
+
+const getPlanComparisonToneKey = (groupName) => {
+  const lowerName = String(groupName || "").trim().toLowerCase();
+  if (lowerName === "svip") return "svip";
+  if (lowerName === "vip") return "vip";
+  return "user";
+};
+
+const getPlanComparisonDisplayName = (groupName) => {
+  const rawName = String(groupName || "").trim();
+  if (!rawName) return "未命名用户组";
+  return rawName.toLowerCase() === "user" ? "普通用户" : rawName;
+};
+
+const getPlanComparisonIconText = (groupName) => {
+  const lowerName = String(groupName || "").trim().toLowerCase();
+  if (lowerName === "svip") return "S";
+  if (lowerName === "vip") return "V";
+  if (lowerName === "user") return "U";
+  return escapeHtml(getPlanComparisonDisplayName(groupName).charAt(0).toUpperCase() || "U");
+};
+
+const sortPlanComparisonGroups = (groups = []) => {
+  const priorityMap = { svip: 1, vip: 2, user: 3 };
+  return (Array.isArray(groups) ? groups : []).slice().sort((a, b) => {
+    const aName = String(a && a.name || "").trim().toLowerCase();
+    const bName = String(b && b.name || "").trim().toLowerCase();
+    const aPriority = Object.prototype.hasOwnProperty.call(priorityMap, aName) ? priorityMap[aName] : 99;
+    const bPriority = Object.prototype.hasOwnProperty.call(priorityMap, bName) ? priorityMap[bName] : 99;
+    if (aPriority !== bPriority) return aPriority - bPriority;
+    return Number(a && a.id || 0) - Number(b && b.id || 0);
+  });
+};
+
+const getPlanComparisonQuotaText = (quotaBytes) => {
+  const quota = Number(quotaBytes);
+  return quota === -1 ? "不限制" : formatSize(Number.isFinite(quota) ? quota : 0);
+};
+
+const getPlanComparisonUploadSizeText = (maxUploadSizeMb) => {
+  const sizeMb = Number(maxUploadSizeMb || 0);
+  return sizeMb > 0 ? formatSize(sizeMb * 1024 * 1024) : "不限制";
+};
+
+const getPlanComparisonUploadCountText = (maxUploadFileCount) => {
+  const fileCount = Number(maxUploadFileCount || 0);
+  return fileCount > 0 ? `${fileCount} 个` : "不限制";
+};
+
+const getPlanComparisonArchiveSupportHtml = (permissions = [], toneKey = "user") => {
+  const permissionSet = new Set(Array.isArray(permissions) ? permissions : []);
+  const valueClass = `${toneKey}-value`;
+  if (permissionSet.has("extract")) {
+    return `<span class="${valueClass}"><i class="fa-solid fa-check support-icon"></i> 查看预览/解压</span>`;
+  }
+  if (permissionSet.has("viewArchive")) {
+    return `<span class="${valueClass}"><i class="fa-solid fa-check support-icon"></i> 查看预览</span>`;
+  }
+  return `<span class="${valueClass}"><i class="fa-solid fa-xmark support-icon" style="color: #f53f3f"></i>不支持</span>`;
+};
+
+const renderPlanComparisonState = (message, isError = false) => {
+  const headEl = document.getElementById("planComparisonTableHead");
+  const bodyEl = document.getElementById("planComparisonTableBody");
+  if (!headEl || !bodyEl) return;
+  headEl.innerHTML = `
+    <tr>
+      <th>权益</th>
+      <th>方案</th>
+    </tr>
+  `;
+  bodyEl.innerHTML = `
+    <tr>
+      <td class="feature-name">状态</td>
+      <td class="feature-value${isError ? " user-value" : ""}">${escapeHtml(String(message || ""))}</td>
+    </tr>
+  `;
+};
+
+const renderPlanComparisonTable = (groups = []) => {
+  const headEl = document.getElementById("planComparisonTableHead");
+  const bodyEl = document.getElementById("planComparisonTableBody");
+  if (!headEl || !bodyEl) return;
+  const sortedGroups = sortPlanComparisonGroups(groups);
+  if (!sortedGroups.length) {
+    renderPlanComparisonState("暂无用户组配置", false);
+    return;
+  }
+
+  headEl.innerHTML = `
+    <tr>
+      <th>权益</th>
+      ${sortedGroups.map((group) => {
+        const toneKey = getPlanComparisonToneKey(group && group.name);
+        return `
+          <th>
+            <div class="plan-header">
+              <span class="plan-icon plan-icon-${toneKey}">${getPlanComparisonIconText(group && group.name)}</span>
+              <span class="plan-name">${escapeHtml(getPlanComparisonDisplayName(group && group.name))}</span>
+            </div>
+          </th>
+        `;
+      }).join("")}
+    </tr>
+  `;
+
+  const rows = [
+    {
+      name: "空间容量",
+      renderValue: (group) => escapeHtml(getPlanComparisonQuotaText(group && group.quotaBytes))
+    },
+    {
+      name: "上传大小限制",
+      renderValue: (group) => escapeHtml(getPlanComparisonUploadSizeText(group && group.maxUploadSizeMb))
+    },
+    {
+      name: "单次上传数量",
+      renderValue: (group) => escapeHtml(getPlanComparisonUploadCountText(group && group.maxUploadFileCount))
+    },
+    {
+      name: "压缩文件",
+      renderValue: (group) => getPlanComparisonArchiveSupportHtml(group && group.permissions, getPlanComparisonToneKey(group && group.name))
+    }
+  ];
+
+  bodyEl.innerHTML = rows.map((row) => `
+    <tr>
+      <td class="feature-name">${escapeHtml(row.name)}</td>
+      ${sortedGroups.map((group) => `<td class="feature-value ${getPlanComparisonToneKey(group && group.name)}-value">${row.renderValue(group)}</td>`).join("")}
+    </tr>
+  `).join("");
+};
+
+const loadPlanComparison = async () => {
+  if (planComparisonLoadPromise) return planComparisonLoadPromise;
+  planComparisonLoadPromise = (async () => {
+    const res = await request("/api/auth/plan-groups");
+    let data = null;
+    try {
+      data = await res.json();
+    } catch (error) {}
+    if (!res.ok) {
+      throw new Error(data && data.message ? data.message : "加载方案配置失败");
+    }
+    renderPlanComparisonTable(Array.isArray(data) ? data : []);
+  })();
+  try {
+    await planComparisonLoadPromise;
+  } finally {
+    planComparisonLoadPromise = null;
+  }
+};
+
+const showPlanComparison = async () => {
   const modal = document.getElementById("planComparisonModal");
   if (modal) {
     modal.style.display = "flex";
+  }
+  renderPlanComparisonState("加载中...", false);
+  try {
+    await loadPlanComparison();
+  } catch (error) {
+    renderPlanComparisonState(error && error.message ? error.message : "加载方案配置失败", true);
   }
 };
 
@@ -26,14 +186,376 @@ const closePlanComparisonModal = () => {
   }
 };
 
+let storageDiskPageData = {
+  systemDisks: [],
+  storageConfig: {
+    programDiskId: "",
+    defaultDiskId: "",
+    defaultDiskLocked: false,
+    disks: []
+  }
+};
+let storageDiskEventsBound = false;
+const createTempNfsDiskId = () => `nfs${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+const isRawNfsLikePath = (value) => /^(?![a-zA-Z]:[\\/])[^\\/:]+:\/.+/.test(String(value || "").trim());
+let pendingNfsTestPath = "";
+let pendingNfsTestPassed = false;
+
+const renderSystemDiskTable = () => {
+  const tbody = document.querySelector("#systemDiskTable tbody");
+  if (!tbody) return;
+  const rows = Array.isArray(storageDiskPageData.systemDisks) ? storageDiskPageData.systemDisks : [];
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#999;">暂无磁盘数据</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map((item) => `
+    <tr>
+      <td>${escapeHtml(item.label || item.mount || "-")}</td>
+      <td>${escapeHtml(item.mount || "-")}</td>
+      <td>${formatSize(Number(item.totalBytes || 0))}</td>
+      <td>${formatSize(Number(item.usedBytes || 0))}</td>
+      <td>${formatSize(Number(item.freeBytes || 0))}</td>
+    </tr>
+  `).join("");
+};
+
+const renderStorageConfigTable = () => {
+  const tbody = document.querySelector("#storageDiskConfigTable tbody");
+  if (!tbody) return;
+  const storageConfig = storageDiskPageData.storageConfig && typeof storageDiskPageData.storageConfig === "object"
+    ? storageDiskPageData.storageConfig
+    : { programDiskId: "", defaultDiskId: "", defaultDiskLocked: false, disks: [] };
+  const rows = Array.isArray(storageConfig.disks) ? storageConfig.disks : [];
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:#999;">未检测到可用磁盘</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map((item) => {
+    const isDefault = String(item.id || "") === String(storageConfig.defaultDiskId || "");
+    const diskName = item.isProgramDisk ? `${item.name}（程序所在盘）` : item.name;
+    const isNfs = String(item.source || "").toLowerCase() === "nfs";
+    const defaultDisabledAttr = storageConfig.defaultDiskLocked ? "disabled" : "";
+    const enabledDisabledAttr = item.hasData ? "disabled" : (storageConfig.defaultDiskLocked && isDefault ? "disabled" : "");
+    const pathDisabledAttr = item.hasData ? "disabled" : "";
+    const removeDisabledAttr = item.hasData ? "disabled" : "";
+    const rowTitle = item.hasData ? ' title="该存储盘已有数据，已锁定关键操作"' : "";
+    const pathCell = isNfs
+      ? `<input type="text" class="storage-disk-path-input" value="${escapeHtml(String(item.remotePath || item.path || ""))}" placeholder="输入 NFS 远程路径或已挂载目录" style="width:100%; padding:4px 8px; border:1px solid #dcdfe6; border-radius:4px;" ${pathDisabledAttr} />`
+      : escapeHtml(String(item.path || "-"));
+    const actionCell = isNfs
+      ? `<button type="button" class="btn-sm storage-disk-remove-btn" ${removeDisabledAttr}>移除</button>`
+      : "-";
+    const mountText = isNfs
+      ? escapeHtml(String(item.mountMode || "") === "auto" ? `自动挂载到 ${item.path || "-"}` : (item.systemDiskMount || item.mount || "-"))
+      : escapeHtml(item.systemDiskMount || item.mount || "-");
+    return `
+      <tr data-disk-id="${escapeHtml(String(item.id || ""))}" data-source="${isNfs ? "nfs" : "system"}"${rowTitle}>
+        <td><input type="radio" name="defaultStorageDisk" ${isDefault ? "checked" : ""} ${defaultDisabledAttr} /></td>
+        <td>${isNfs ? "NFS" : "本地盘"}</td>
+        <td>${escapeHtml(diskName || "-")}</td>
+        <td class="storage-disk-mount">${mountText}</td>
+        <td>${pathCell}</td>
+        <td class="storage-disk-total">${Number(item.totalBytes || 0) > 0 ? formatSize(Number(item.totalBytes || 0)) : "-"}</td>
+        <td class="storage-disk-free">${Number(item.freeBytes || 0) > 0 ? formatSize(Number(item.freeBytes || 0)) : "-"}</td>
+        <td style="text-align:center;"><input type="checkbox" class="storage-disk-enabled" ${item.enabled === false ? "" : "checked"} ${enabledDisabledAttr} /></td>
+        <td>${actionCell}</td>
+      </tr>
+    `;
+  }).join("");
+};
+
+const collectStorageDiskConfigPayload = () => {
+  const rows = Array.from(document.querySelectorAll("#storageDiskConfigTable tbody tr[data-disk-id]"));
+  const disks = rows.map((row) => {
+    const diskId = String(row.dataset.diskId || "").trim();
+    const source = String(row.dataset.source || "system").trim().toLowerCase();
+    const enabled = !!(row.querySelector(".storage-disk-enabled") || {}).checked;
+    const isDefault = !!(row.querySelector('input[type="radio"][name="defaultStorageDisk"]') || {}).checked;
+    const pathInput = row.querySelector(".storage-disk-path-input");
+    const diskPath = pathInput ? String(pathInput.value || "").trim() : "";
+    const payload = {
+      id: diskId,
+      source,
+      enabled,
+      isDefault
+    };
+    if (source === "nfs") {
+      payload.path = diskPath;
+    }
+    return payload;
+  }).filter((item) => item.id);
+  const invalidNfsDisk = disks.find((item) => item.source === "nfs" && !item.path);
+  if (invalidNfsDisk) {
+    throw new Error("请输入 NFS 挂载目录绝对路径");
+  }
+  const defaultDisk = disks.find((item) => item.isDefault && item.enabled) || disks.find((item) => item.enabled) || null;
+  return {
+    defaultDiskId: defaultDisk ? defaultDisk.id : "",
+    disks: disks.map((item) => ({
+      id: item.id,
+      source: item.source,
+      path: item.path,
+      enabled: item.enabled
+    }))
+  };
+};
+
+const loadStorageDisks = async () => {
+  try {
+    const res = await request("/api/admin/storage-disks");
+    if (!res.ok) return;
+    const payload = await res.json();
+    storageDiskPageData = {
+      systemDisks: Array.isArray(payload.systemDisks) ? payload.systemDisks : [],
+      storageConfig: payload.storageConfig && typeof payload.storageConfig === "object"
+        ? payload.storageConfig
+        : { programDiskId: "", defaultDiskId: "", defaultDiskLocked: false, disks: [] }
+    };
+    renderSystemDiskTable();
+    renderStorageConfigTable();
+  } catch (e) {}
+};
+
+const getNfsStorageModalElements = () => {
+  const modal = document.getElementById("nfsStorageModal");
+  return {
+    modal,
+    form: document.getElementById("nfsStorageForm"),
+    pathInput: document.getElementById("nfsStorageModalPathInput"),
+    resultEl: document.getElementById("nfsStorageTestResult"),
+    testBtn: document.getElementById("testNfsStorageBtn"),
+    cancelBtn: document.getElementById("cancelNfsStorageModalBtn")
+  };
+};
+
+const setNfsStorageTestResult = (message, isError = false) => {
+  const { resultEl } = getNfsStorageModalElements();
+  if (!resultEl) return;
+  resultEl.textContent = String(message || "");
+  resultEl.style.color = isError ? "#f53f3f" : "#52c41a";
+};
+
+const openNfsStorageModal = () => {
+  const { modal, pathInput, resultEl } = getNfsStorageModalElements();
+  if (!modal || !pathInput) return;
+  pendingNfsTestPath = "";
+  pendingNfsTestPassed = false;
+  pathInput.value = "";
+  if (resultEl) {
+    resultEl.textContent = "";
+    resultEl.style.color = "#666";
+  }
+  modal.style.display = "flex";
+  setTimeout(() => pathInput.focus(), 0);
+};
+
+const closeNfsStorageModal = () => {
+  const { modal } = getNfsStorageModalElements();
+  if (!modal) return;
+  modal.style.display = "none";
+};
+
+const testNfsStorageAccess = async () => {
+  const { pathInput, testBtn } = getNfsStorageModalElements();
+  const targetPath = String(pathInput && pathInput.value || "").trim();
+  if (!targetPath) {
+    pendingNfsTestPassed = false;
+    setNfsStorageTestResult("请输入 NFS 挂载目录绝对路径", true);
+    return false;
+  }
+  try {
+    if (testBtn) testBtn.disabled = true;
+    const res = await request("/api/admin/storage-disks/test-nfs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: targetPath })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      pendingNfsTestPassed = false;
+      pendingNfsTestPath = "";
+      setNfsStorageTestResult(data.message || "权限测试失败", true);
+      return false;
+    }
+    pendingNfsTestPassed = true;
+    pendingNfsTestPath = String(data.path || targetPath).trim();
+    setNfsStorageTestResult(data.mountMode === "auto"
+      ? `${data.message || "权限测试通过"}，将自动挂载到 ${data.mountPath || "-"}`
+      : (data.message || "权限测试通过"));
+    return true;
+  } catch (error) {
+    pendingNfsTestPassed = false;
+    pendingNfsTestPath = "";
+    setNfsStorageTestResult("权限测试失败", true);
+    return false;
+  } finally {
+    if (testBtn) testBtn.disabled = false;
+  }
+};
+
+const appendNfsStorageRow = (targetPath) => {
+  const tbody = document.querySelector("#storageDiskConfigTable tbody");
+  if (!tbody) return false;
+  const currentRows = Array.from(tbody.querySelectorAll("tr[data-disk-id]"));
+  const normalizedTargetPath = String(targetPath || "").trim();
+  const duplicated = currentRows.some((row) => {
+    if (String(row.dataset.source || "") !== "nfs") return false;
+    const input = row.querySelector(".storage-disk-path-input");
+    return String(input && input.value || "").trim() === normalizedTargetPath;
+  });
+  if (duplicated) {
+    setNfsStorageTestResult("该 NFS 挂载目录已存在", true);
+    return false;
+  }
+  const row = document.createElement("tr");
+  row.dataset.diskId = createTempNfsDiskId();
+  row.dataset.source = "nfs";
+  const defaultDisabledAttr = storageDiskPageData.storageConfig && storageDiskPageData.storageConfig.defaultDiskLocked ? "disabled" : "";
+  row.innerHTML = `
+    <td><input type="radio" name="defaultStorageDisk" ${defaultDisabledAttr} /></td>
+    <td>NFS</td>
+    <td>NFS 挂载</td>
+    <td class="storage-disk-mount">${escapeHtml(isRawNfsLikePath(normalizedTargetPath) ? "待自动挂载" : normalizedTargetPath)}</td>
+    <td><input type="text" class="storage-disk-path-input" value="${escapeHtml(normalizedTargetPath)}" placeholder="输入 NFS 远程路径或已挂载目录" style="width:100%; padding:4px 8px; border:1px solid #dcdfe6; border-radius:4px;" /></td>
+    <td>-</td>
+    <td>-</td>
+    <td style="text-align:center;"><input type="checkbox" class="storage-disk-enabled" checked /></td>
+    <td><button type="button" class="btn-sm storage-disk-remove-btn">移除</button></td>
+  `;
+  tbody.appendChild(row);
+  return true;
+};
+
+const bindStorageDiskEvents = () => {
+  if (storageDiskEventsBound) return;
+  storageDiskEventsBound = true;
+  const addNfsBtn = document.getElementById("addNfsStorageBtn");
+  const saveBtn = document.getElementById("saveStorageDiskBtn");
+  const refreshBtn = document.getElementById("refreshStorageDisksBtn");
+  const storageTableBody = document.querySelector("#storageDiskConfigTable tbody");
+  const {
+    modal: nfsStorageModal,
+    form: nfsStorageForm,
+    pathInput: nfsStorageModalPathInput,
+    testBtn: testNfsStorageBtn,
+    cancelBtn: cancelNfsStorageModalBtn
+  } = getNfsStorageModalElements();
+  if (addNfsBtn) {
+    addNfsBtn.onclick = () => {
+      openNfsStorageModal();
+    };
+  }
+  if (nfsStorageModalPathInput) {
+    nfsStorageModalPathInput.addEventListener("input", () => {
+      const currentPath = String(nfsStorageModalPathInput.value || "").trim();
+      if (currentPath !== pendingNfsTestPath) {
+        pendingNfsTestPassed = false;
+        setNfsStorageTestResult("", false);
+      }
+    });
+  }
+  if (testNfsStorageBtn) {
+    testNfsStorageBtn.onclick = async () => {
+      await testNfsStorageAccess();
+    };
+  }
+  if (cancelNfsStorageModalBtn) {
+    cancelNfsStorageModalBtn.onclick = () => {
+      closeNfsStorageModal();
+    };
+  }
+  if (nfsStorageModal) {
+    nfsStorageModal.addEventListener("click", (event) => {
+      if (event.target === nfsStorageModal) {
+        closeNfsStorageModal();
+      }
+    });
+  }
+  if (nfsStorageForm) {
+    nfsStorageForm.onsubmit = async (event) => {
+      event.preventDefault();
+      const currentPath = String(nfsStorageModalPathInput && nfsStorageModalPathInput.value || "").trim();
+      if (!currentPath) {
+        setNfsStorageTestResult("请输入 NFS 挂载目录绝对路径", true);
+        return;
+      }
+      if (!pendingNfsTestPassed || pendingNfsTestPath !== currentPath) {
+        const passed = await testNfsStorageAccess();
+        if (!passed) return;
+      }
+      if (!appendNfsStorageRow(pendingNfsTestPath || currentPath)) return;
+      closeNfsStorageModal();
+    };
+  }
+  if (saveBtn) {
+    saveBtn.onclick = async () => {
+      let payload;
+      try {
+        payload = collectStorageDiskConfigPayload();
+      } catch (error) {
+        alert(error.message || "存储盘配置不正确");
+        return;
+      }
+      if (storageDiskPageData.storageConfig && storageDiskPageData.storageConfig.defaultDiskLocked) {
+        const currentDefaultId = String(storageDiskPageData.storageConfig.defaultDiskId || "");
+        const currentDefaultDisk = payload.disks.find((item) => item.id === currentDefaultId);
+        if (payload.defaultDiskId !== currentDefaultId) {
+          alert("默认盘已有数据，不能修改默认盘");
+          return;
+        }
+        if (currentDefaultDisk && !currentDefaultDisk.enabled) {
+          alert("默认盘已有数据，不能禁用默认盘");
+          return;
+        }
+      }
+      if (!payload.disks.some((item) => item.enabled)) {
+        alert("请至少启用一块存储盘");
+        return;
+      }
+      try {
+        const res = await request("/api/admin/storage-disks", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.message || "保存失败");
+          return;
+        }
+        await loadQuota();
+        alert(data.message || "保存成功");
+      } catch (e) {
+        alert("保存失败");
+      }
+    };
+  }
+  if (refreshBtn) {
+    refreshBtn.onclick = async () => {
+      await loadStorageDisks();
+    };
+  }
+  if (storageTableBody) {
+    storageTableBody.addEventListener("click", (event) => {
+      const removeBtn = event.target.closest(".storage-disk-remove-btn");
+      if (!removeBtn) return;
+      const row = removeBtn.closest("tr[data-disk-id]");
+      if (!row || String(row.dataset.source || "") !== "nfs") return;
+      row.remove();
+    });
+  }
+};
+
 const loadQuota = async () => {
   try {
+    bindStorageDiskEvents();
     const res = await request("/api/admin/stats");
     const stats = await res.json();
-    document.getElementById("totalSpaceDisplay").textContent = formatSize(stats.totalUsed);
-    document.getElementById("totalSpaceDisplay").textContent = "不限制";
-    document.getElementById("usedSpaceDisplay").textContent = formatSize(stats.totalUsed);
+    document.getElementById("totalSpaceDisplay").textContent = Number(stats.totalSpace || 0) > 0 ? formatSize(stats.totalSpace) : "-";
+    document.getElementById("usedSpaceDisplay").textContent = Number(stats.availableSpace || 0) > 0 ? formatSize(stats.availableSpace) : "-";
     document.getElementById("userCountDisplay").textContent = stats.userCount;
+    await loadStorageDisks();
     
     // 初始化搜索状态
     if (state.quotaSearchTerm === undefined) {
@@ -85,6 +607,7 @@ const renderQuotaTable = () => {
       <tr>
         <td>${u.id}</td>
         <td>${u.username} (${u.name || "-"})</td>
+        <td>${escapeHtml(u.storageDiskDisplay || "-")}</td>
         <td>${formatSize(used)}${percent === "-" ? "" : ` (${percent})`}</td>
         <td>${effectiveQuota === -1 ? "无限制" : formatSize(effectiveQuota)}</td>
         <td>
@@ -96,7 +619,6 @@ const renderQuotaTable = () => {
           </div>
         </td>
         <td>${u.fileCount || 0}</td>
-        <td><button class="btn-sm" onclick="editUserQuota(${u.id})">调整</button></td>
       </tr>
     `;
   }).join("");
@@ -178,6 +700,12 @@ const renderProfileCenter = () => {
   }
   if (profileCenterUsername) {
     profileCenterUsername.textContent = `用户名: ${user.username || "-"}`;
+  }
+  if (profileCenterLastLoginAt) {
+    profileCenterLastLoginAt.textContent = `登录时间: ${formatDate(user.lastLoginAt)}`;
+  }
+  if (profileCenterLastLoginIp) {
+    profileCenterLastLoginIp.textContent = `登录IP: ${user.lastLoginIp || "-"}`;
   }
   if (profileCenterQuota) {
     profileCenterQuota.textContent = `空间额度：${formatQuotaSummary(state.currentUserStats)}`;
@@ -511,6 +1039,20 @@ if (closeHiddenSpaceBtn) {
   };
 }
 
+if (hiddenSpaceUnlockedIcon) {
+  hiddenSpaceUnlockedIcon.onclick = async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!state.hiddenSpaceUnlocked) return;
+    setHiddenSpaceUnlocked(false);
+    if (state.fileSpace === "hidden") {
+      await switchFileSpace("normal", "myFiles");
+      return;
+    }
+    updateHiddenSpaceUiState();
+  };
+}
+
 if (resetHiddenSpacePwdBtn) {
   resetHiddenSpacePwdBtn.onclick = async () => {
     if (!hiddenSpaceManager || typeof hiddenSpaceManager.resetPassword !== "function") return;
@@ -537,7 +1079,7 @@ if (resetHiddenSpacePwdBtn) {
     await hiddenSpaceManager.resetPassword(
       request,
       state,
-      { closeBtn: closeHiddenSpaceBtn, dot: hiddenSpaceDot, resetBtn: resetHiddenSpacePwdBtn },
+      { closeBtn: closeHiddenSpaceBtn, dot: hiddenSpaceDot, resetBtn: resetHiddenSpacePwdBtn, autoExitTip: hiddenSpaceAutoExitTip, unlockedIcon: hiddenSpaceUnlockedIcon },
       (message) => alert(message),
       ask,
       choose,

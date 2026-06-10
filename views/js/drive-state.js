@@ -52,6 +52,7 @@ const state = {
   maxConcurrentUploadCount: 3,
   chunkUploadThresholdMb: DEFAULT_CHUNK_UPLOAD_THRESHOLD_MB,
   chunkUploadThresholdBytes: DEFAULT_CHUNK_UPLOAD_THRESHOLD_MB * 1024 * 1024,
+  uploadFormatUnlimited: false,
   uploadAllowedExtSet: null,
   avatarUploadSizeMb: DEFAULT_AVATAR_UPLOAD_SIZE_MB,
   avatarUploadMaxSizeBytes: DEFAULT_AVATAR_UPLOAD_SIZE_MB * 1024 * 1024,
@@ -61,8 +62,15 @@ const state = {
   categoryTimelineEnabled: normalizeCategoryTimelineModePreference(localStorage.getItem(CATEGORY_TIMELINE_MODE_STORAGE_KEY)),
   fileSpace: "normal",
   hiddenSpaceEnabled: null,
-  hiddenSpaceUnlocked: hiddenSpaceManager ? hiddenSpaceManager.getInitialUnlocked() : false
+  hiddenSpaceUnlocked: hiddenSpaceManager ? hiddenSpaceManager.getInitialUnlocked() : false,
+  hiddenSpaceAutoExitMinutes: hiddenSpaceManager && typeof hiddenSpaceManager.getAutoExitMinutes === "function"
+    ? hiddenSpaceManager.getAutoExitMinutes()
+    : 10
 };
+
+if (hiddenSpaceManager && typeof hiddenSpaceManager.syncAutoExit === "function") {
+  hiddenSpaceManager.syncAutoExit(state, { closeBtn: closeHiddenSpaceBtn, dot: hiddenSpaceDot, resetBtn: resetHiddenSpacePwdBtn, autoExitTip: hiddenSpaceAutoExitTip, unlockedIcon: hiddenSpaceUnlockedIcon });
+}
 
 const clearLoginSessionStorage = () => {
   localStorage.removeItem(LOGIN_AT_STORAGE_KEY);
@@ -78,12 +86,12 @@ const getRootLabelBySpace = () => {
   if (hiddenSpaceManager) {
     return hiddenSpaceManager.getRootLabel(state);
   }
-  return state.fileSpace === "hidden" ? "隐藏空间" : "我的文件";
+  return state.fileSpace === "hidden" ? "私密空间" : "我的文件";
 };
 
 const setHiddenSpaceUnlocked = (unlocked) => {
   if (hiddenSpaceManager) {
-    hiddenSpaceManager.setUnlocked(state, unlocked, { closeBtn: closeHiddenSpaceBtn, dot: hiddenSpaceDot, resetBtn: resetHiddenSpacePwdBtn });
+    hiddenSpaceManager.setUnlocked(state, unlocked, { closeBtn: closeHiddenSpaceBtn, dot: hiddenSpaceDot, resetBtn: resetHiddenSpacePwdBtn, autoExitTip: hiddenSpaceAutoExitTip, unlockedIcon: hiddenSpaceUnlockedIcon });
     return;
   }
   state.hiddenSpaceUnlocked = !!unlocked;
@@ -91,7 +99,7 @@ const setHiddenSpaceUnlocked = (unlocked) => {
 
 const updateHiddenSpaceUiState = () => {
   if (hiddenSpaceManager) {
-    hiddenSpaceManager.updateUi(state, { closeBtn: closeHiddenSpaceBtn, dot: hiddenSpaceDot, resetBtn: resetHiddenSpacePwdBtn });
+    hiddenSpaceManager.updateUi(state, { closeBtn: closeHiddenSpaceBtn, dot: hiddenSpaceDot, resetBtn: resetHiddenSpacePwdBtn, autoExitTip: hiddenSpaceAutoExitTip, unlockedIcon: hiddenSpaceUnlockedIcon });
     return;
   }
 };
@@ -105,14 +113,14 @@ const appendFileSpaceToUrl = (url) => {
 
 const loadHiddenSpaceStatus = async () => {
   if (!hiddenSpaceManager) return;
-  await hiddenSpaceManager.loadStatus(request, state, { closeBtn: closeHiddenSpaceBtn, dot: hiddenSpaceDot, resetBtn: resetHiddenSpacePwdBtn });
+  await hiddenSpaceManager.loadStatus(request, state, { closeBtn: closeHiddenSpaceBtn, dot: hiddenSpaceDot, resetBtn: resetHiddenSpacePwdBtn, autoExitTip: hiddenSpaceAutoExitTip, unlockedIcon: hiddenSpaceUnlockedIcon });
 };
 
 const ensureHiddenSpaceAccess = async () => {
   if (!hiddenSpaceManager) return false;
   const ask = async (message, defaultValue) => {
     if (typeof window.showAppPrompt === "function") {
-      const isVerifyPrompt = String(message || "").trim() === "请输入隐藏空间安全密码";
+      const isVerifyPrompt = String(message || "").trim() === "请输入私密空间安全密码";
       return window.showAppPrompt({
         title: message,
         defaultValue,
@@ -140,7 +148,7 @@ const ensureHiddenSpaceAccess = async () => {
   return hiddenSpaceManager.ensureAccess(
     request,
     state,
-    { closeBtn: closeHiddenSpaceBtn, dot: hiddenSpaceDot, resetBtn: resetHiddenSpacePwdBtn },
+    { closeBtn: closeHiddenSpaceBtn, dot: hiddenSpaceDot, resetBtn: resetHiddenSpacePwdBtn, autoExitTip: hiddenSpaceAutoExitTip, unlockedIcon: hiddenSpaceUnlockedIcon },
     (message) => alert(message),
     ask,
     choose,
@@ -172,6 +180,17 @@ const switchFileSpace = async (nextSpace, side = "myFiles") => {
   updateRouteQuery({ main: "files", side, category: null });
   await refreshAll();
 };
+
+if (hiddenSpaceManager && typeof hiddenSpaceManager.setAutoExitHandler === "function") {
+  hiddenSpaceManager.setAutoExitHandler(async () => {
+    state.hiddenSpaceUnlocked = false;
+    updateHiddenSpaceUiState();
+    if (state.fileSpace === "hidden") {
+      await switchFileSpace("normal", "myFiles");
+    }
+    alert("私密空间已因长时间无操作自动退出");
+  });
+}
 
 const scheduleAutoLogout = (remainMs) => {
   if (state.sessionExpireTimer) {

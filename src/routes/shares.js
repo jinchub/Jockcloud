@@ -758,18 +758,21 @@ module.exports = (app, deps) => {
       const folderIds = await collectDescendantFolderIds(userId, folderId, spaceType);
       
       if (!folderIds.length) {
-        res.json({ totalSize: 0 });
+        res.json({ totalSize: 0, fileCount: 0 });
         return;
       }
       
       const folderClause = folderIds.map(() => "?").join(", ");
       const [result] = await pool.query(
-        `SELECT IFNULL(SUM(size), 0) AS totalSize FROM files WHERE user_id = ? AND space_type = ? AND deleted_at IS NULL AND folder_id IN (${folderClause})`,
+        `SELECT IFNULL(SUM(size), 0) AS totalSize, COUNT(*) AS fileCount
+         FROM files
+         WHERE user_id = ? AND space_type = ? AND deleted_at IS NULL AND folder_id IN (${folderClause})`,
         [userId, spaceType, ...folderIds]
       );
       
       const totalSize = result && result[0] ? Number(result[0].totalSize || 0) : 0;
-      res.json({ totalSize });
+      const fileCount = result && result[0] ? Number(result[0].fileCount || 0) : 0;
+      res.json({ totalSize, fileCount });
     } catch (error) {
       sendDbError(res, error);
     }

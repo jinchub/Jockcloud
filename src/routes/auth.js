@@ -73,7 +73,7 @@ module.exports = (app, deps) => {
         res.status(401).json({ message: "账号或密码错误" });
         return;
       }
-      const loginSessionMinutes = await createLoginSession(rows[0].id, res);
+      const loginSessionMinutes = await createLoginSession(rows[0].id, req, res);
       res.json({ message: "登录成功", loginSessionMinutes });
     } catch (error) {
       sendDbError(res, error);
@@ -290,7 +290,7 @@ module.exports = (app, deps) => {
         return;
       }
       smsCodeStore.delete(phone);
-      const loginSessionMinutes = await createLoginSession(rows[0].id, res);
+      const loginSessionMinutes = await createLoginSession(rows[0].id, req, res);
       res.json({ message: "登录成功", loginSessionMinutes });
     } catch (error) {
       if (error && error.message === "短信验证码校验失败") {
