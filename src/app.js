@@ -295,6 +295,7 @@ const setCurrentMaxUploadFileSizeByMb = (valueMb) => {
 const normalizeSettings = (payload = {}) => {
   const system = payload.system && typeof payload.system === "object" ? payload.system : {};
   const login = payload.login && typeof payload.login === "object" ? payload.login : {};
+  const file = payload.file && typeof payload.file === "object" ? payload.file : {};
   const smsConfig = login.smsConfig && typeof login.smsConfig === "object" ? login.smsConfig : {};
   const menu = payload.menu && typeof payload.menu === "object" ? payload.menu : {};
   const menuPermissions = menu.permissions && typeof menu.permissions === "object" ? menu.permissions : {};
@@ -461,6 +462,9 @@ const normalizeSettings = (payload = {}) => {
         signName: String(smsConfig.signName || "").trim().slice(0, 60),
         templateId: String(smsConfig.templateId || "").trim().slice(0, 120)
       }
+    },
+    file: {
+      renameCanModifyExt: normalizeBooleanFlag(file.renameCanModifyExt, DEFAULT_SETTINGS.file.renameCanModifyExt)
     },
     menu: {
       permissions: MENU_PERMISSION_KEYS.reduce((acc, key) => {

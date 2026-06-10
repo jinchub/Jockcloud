@@ -800,13 +800,51 @@ if (cancelRenameBtn && renameModal) {
   };
 }
 
+const getFileExtensionByName = (name) => {
+  const normalizedName = String(name || "").trim();
+  const dotIndex = normalizedName.lastIndexOf(".");
+  if (dotIndex <= 0 || dotIndex === normalizedName.length - 1) return "";
+  return normalizedName.slice(dotIndex + 1).toLowerCase();
+};
+
+const splitFileNameParts = (name) => {
+  const normalizedName = String(name || "");
+  const dotIndex = normalizedName.lastIndexOf(".");
+  if (dotIndex <= 0 || dotIndex === normalizedName.length - 1) {
+    return { baseName: normalizedName, suffix: "" };
+  }
+  return {
+    baseName: normalizedName.slice(0, dotIndex),
+    suffix: normalizedName.slice(dotIndex)
+  };
+};
+
+const updateRenameSuffixDisplay = (suffix = "") => {
+  if (!renameForm) return;
+  const normalizedSuffix = String(suffix || "");
+  renameForm.dataset.lockedSuffix = normalizedSuffix;
+  if (!renameSuffixDisplay || !renameSuffixText) return;
+  renameSuffixDisplay.style.display = normalizedSuffix ? "inline-flex" : "none";
+  renameSuffixText.textContent = normalizedSuffix;
+};
+
 if (renameForm && renameModal && renameInput) {
   renameForm.onsubmit = async (e) => {
     e.preventDefault();
     if (!state.selectedEntry) return;
     if (!ensurePermission("rename")) return;
-    const newName = renameInput.value.trim();
+    const inputName = renameInput.value.trim();
+    const lockedSuffix = String(renameForm.dataset.lockedSuffix || "");
+    const newName = inputName ? `${inputName}${lockedSuffix}` : "";
     if (!newName) return;
+    if (
+      state.selectedEntry.type === "file" &&
+      state.renameCanModifyExt === false &&
+      getFileExtensionByName(newName) !== getFileExtensionByName(state.selectedEntry.name || "")
+    ) {
+      alert("当前配置不允许通过重命名修改文件后缀名");
+      return;
+    }
     const url = state.selectedEntry.type === "folder" ? `/api/folders/${state.selectedEntry.id}` : `/api/files/${state.selectedEntry.id}`;
     try {
       const res = await request(url, {
@@ -1127,7 +1165,15 @@ document.getElementById("menuRename").onclick = async () => {
   if (!state.selectedEntry) return;
   if (!ensurePermission("rename")) return;
   if (renameModal && renameInput) {
-    renameInput.value = state.selectedEntry.name || "";
+    const entryName = state.selectedEntry.name || "";
+    if (state.selectedEntry.type === "file" && state.renameCanModifyExt === false) {
+      const { baseName, suffix } = splitFileNameParts(entryName);
+      renameInput.value = suffix ? baseName : entryName;
+      updateRenameSuffixDisplay(suffix);
+    } else {
+      renameInput.value = entryName;
+      updateRenameSuffixDisplay("");
+    }
     renameModal.style.display = "flex";
     renameInput.focus();
     renameInput.select();

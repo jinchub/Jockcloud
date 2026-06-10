@@ -212,6 +212,15 @@
                   <input type="number" id="settingsHiddenSpaceAutoExitMinutes" min="1" max="1440" required />
                 </div>
               </form>
+              <form id="fileSettingsForm" class="settings-form" style="display:none;">
+                <div class="settings-form-row checkbox">
+                  <label for="settingsRenameCanModifyExt">重命名允许修改后缀名</label>
+                  <input type="checkbox" id="settingsRenameCanModifyExt" />
+                </div>
+                <div class="settings-form-tip">
+                  关闭后，文件重命名时只能修改主文件名，不能把 jpg 改成 png、txt 改成 md；文件夹不受影响
+                </div>
+              </form>
               <form id="menuSettingsForm" class="settings-form" style="display:none;">
                 <div class="settings-form-tip">
                   点击加号弹窗添加用户或用户组授权；文件菜单默认全员可用；管理员始终全权限

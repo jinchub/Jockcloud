@@ -4,6 +4,7 @@
     { key: "upload", title: "上传配置", desc: "管理上传大小、分类格式与生效顺序", icon: "fa-solid fa-cloud-arrow-up" },
     { key: "download", title: "下载配置", desc: "管理下载速度限制与用户组绑定", icon: "fa-solid fa-download" },
     { key: "login", title: "登录配置", desc: "管理登录相关策略配置", icon: "fa-solid fa-right-to-bracket" },
+    { key: "file", title: "文件配置", desc: "管理文件重命名等行为配置", icon: "fa-solid fa-file-lines" },
     { key: "menu", title: "菜单配置", desc: "配置每个菜单可访问的用户", icon: "fa-solid fa-bars" },
     { key: "preview", title: "预览配置", desc: "配置文件预览支持的文件格式", icon: "fa-solid fa-eye" }
   ];
@@ -82,6 +83,9 @@
         signName: "",
         templateId: ""
       }
+    },
+    file: {
+      renameCanModifyExt: true
     },
     menu: {
       permissions: {
@@ -211,6 +215,7 @@
   const normalizeSettings = (value = {}) => {
     const system = value.system && typeof value.system === "object" ? value.system : {};
     const login = value.login && typeof value.login === "object" ? value.login : {};
+    const file = value.file && typeof value.file === "object" ? value.file : {};
     const smsConfig = login.smsConfig && typeof login.smsConfig === "object" ? login.smsConfig : {};
     const menu = value.menu && typeof value.menu === "object" ? value.menu : {};
     const menuPermissions = menu.permissions && typeof menu.permissions === "object" ? menu.permissions : {};
@@ -372,6 +377,9 @@
           templateId: String(smsConfig.templateId || "").trim().slice(0, 120)
         }
       },
+      file: {
+        renameCanModifyExt: file.renameCanModifyExt !== undefined ? Boolean(file.renameCanModifyExt) : DEFAULT_SETTINGS.file.renameCanModifyExt
+      },
       menu: {
         permissions: APP_MENU_ITEMS.reduce((acc, item) => {
           acc[item.key] = normalizeMenuPermissionEntry(menuPermissions[item.key]);
@@ -397,6 +405,7 @@
     const systemSettingsForm = document.getElementById("systemSettingsForm");
     const uploadSettingsForm = document.getElementById("uploadSettingsForm");
     const loginSettingsForm = document.getElementById("loginSettingsForm");
+    const fileSettingsForm = document.getElementById("fileSettingsForm");
     const settingsMaxUploadSize = document.getElementById("settingsMaxUploadSize");
     const settingsMaxUploadFileCount = document.getElementById("settingsMaxUploadFileCount");
     const settingsMaxConcurrentUploadCount = document.getElementById("settingsMaxConcurrentUploadCount");
@@ -429,6 +438,7 @@
     const settingsAllowMultipleLogin = document.getElementById("settingsAllowMultipleLogin");
     const settingsLoginSessionMinutes = document.getElementById("settingsLoginSessionMinutes");
     const settingsHiddenSpaceAutoExitMinutes = document.getElementById("settingsHiddenSpaceAutoExitMinutes");
+    const settingsRenameCanModifyExt = document.getElementById("settingsRenameCanModifyExt");
     const smsEnvConfigTip = document.getElementById("smsEnvConfigTip");
     const settingsSmsSendIntervalSeconds = document.getElementById("settingsSmsSendIntervalSeconds");
     const settingsSmsIpLimitWindowMinutes = document.getElementById("settingsSmsIpLimitWindowMinutes");
@@ -471,7 +481,7 @@
       return current && current.formats;
     });
     const hasUploadSettingsInputs = Object.values(uploadSettingsInputs).every(Boolean);
-    if (!settingsSidebar || !settingsAsideList || !toggleSettingsSidebarBtn || !settingsPanelTitle || !settingsPanelMeta || !saveSettingsBtn || !systemSettingsForm || !uploadSettingsForm || !loginSettingsForm || !hasUploadSettingsInputs || !hasUploadRuleInputs || !settingsSiteTitle || !settingsLoginTitle || !settingsSiteDescription || !settingsLoginCaptchaEnabled || !settingsSmsLoginEnabled || !settingsAllowMultipleLogin || !settingsLoginSessionMinutes || !settingsHiddenSpaceAutoExitMinutes || !smsEnvConfigTip || !settingsSmsSendIntervalSeconds || !settingsSmsIpLimitWindowMinutes || !settingsSmsIpLimitMaxCount || !smsSendIntervalRow || !smsIpLimitWindowRow || !smsIpLimitCountRow || !menuSettingsForm || !downloadSettingsForm || !settingsDownloadGlobalSpeedLimit || !settingsDownloadGlobalSpeedUnit || !settingsDownloadShareSpeedLimit || !settingsDownloadShareSpeedUnit || !downloadGroupSpeedLimitsList || !settingsMenuPermissionsList || !settingsMenuUserEmptyTip || !settingsPreviewImageExts || !settingsPreviewVideoExts || !settingsPreviewAudioExts || !settingsPreviewTextExts || !settingsPreviewDocExts) {
+    if (!settingsSidebar || !settingsAsideList || !toggleSettingsSidebarBtn || !settingsPanelTitle || !settingsPanelMeta || !saveSettingsBtn || !systemSettingsForm || !uploadSettingsForm || !loginSettingsForm || !fileSettingsForm || !hasUploadSettingsInputs || !hasUploadRuleInputs || !settingsSiteTitle || !settingsLoginTitle || !settingsSiteDescription || !settingsLoginCaptchaEnabled || !settingsSmsLoginEnabled || !settingsAllowMultipleLogin || !settingsLoginSessionMinutes || !settingsHiddenSpaceAutoExitMinutes || !settingsRenameCanModifyExt || !smsEnvConfigTip || !settingsSmsSendIntervalSeconds || !settingsSmsIpLimitWindowMinutes || !settingsSmsIpLimitMaxCount || !smsSendIntervalRow || !smsIpLimitWindowRow || !smsIpLimitCountRow || !menuSettingsForm || !downloadSettingsForm || !settingsDownloadGlobalSpeedLimit || !settingsDownloadGlobalSpeedUnit || !settingsDownloadShareSpeedLimit || !settingsDownloadShareSpeedUnit || !downloadGroupSpeedLimitsList || !settingsMenuPermissionsList || !settingsMenuUserEmptyTip || !settingsPreviewImageExts || !settingsPreviewVideoExts || !settingsPreviewAudioExts || !settingsPreviewTextExts || !settingsPreviewDocExts) {
       return {
         onEnterView: async () => {}
       };
@@ -968,6 +978,7 @@
       settingsSmsSendIntervalSeconds.value = String(runtime.settings.login.smsSendIntervalSeconds);
       settingsSmsIpLimitWindowMinutes.value = String(runtime.settings.login.smsIpLimitWindowMinutes);
       settingsSmsIpLimitMaxCount.value = String(runtime.settings.login.smsIpLimitMaxCount);
+      settingsRenameCanModifyExt.checked = runtime.settings.file.renameCanModifyExt;
       const enabled = runtime.settings.login.smsLoginEnabled;
       updateSmsEnvConfigTip(enabled);
       smsSendIntervalRow.style.display = enabled ? "flex" : "none";
@@ -1101,6 +1112,13 @@
           }
         };
       }
+      if (runtime.activeMenu === "file") {
+        return {
+          file: {
+            renameCanModifyExt: settingsRenameCanModifyExt.checked
+          }
+        };
+      }
       if (runtime.activeMenu === "preview") {
         return {
           system: {
@@ -1190,6 +1208,7 @@
       uploadSettingsForm.style.display = runtime.activeMenu === "upload" ? "grid" : "none";
       downloadSettingsForm.style.display = runtime.activeMenu === "download" ? "block" : "none";
       loginSettingsForm.style.display = runtime.activeMenu === "login" ? "block" : "none";
+      fileSettingsForm.style.display = runtime.activeMenu === "file" ? "block" : "none";
       menuSettingsForm.style.display = runtime.activeMenu === "menu" ? "block" : "none";
       previewSettingsForm.style.display = runtime.activeMenu === "preview" ? "block" : "none";
       renderMenu();

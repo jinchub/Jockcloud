@@ -35,6 +35,9 @@ module.exports = (app, deps) => {
           loginSessionMinutes: settings.login.loginSessionMinutes,
           hiddenSpaceAutoExitMinutes: settings.login.hiddenSpaceAutoExitMinutes,
           smsSendIntervalSeconds: settings.login.smsSendIntervalSeconds
+        },
+        file: {
+          renameCanModifyExt: settings.file.renameCanModifyExt
         }
       });
     } catch (error) {
@@ -58,6 +61,9 @@ module.exports = (app, deps) => {
           loginSessionMinutes: DEFAULT_SETTINGS.login.loginSessionMinutes,
           hiddenSpaceAutoExitMinutes: DEFAULT_SETTINGS.login.hiddenSpaceAutoExitMinutes,
           smsSendIntervalSeconds: DEFAULT_SETTINGS.login.smsSendIntervalSeconds
+        },
+        file: {
+          renameCanModifyExt: DEFAULT_SETTINGS.file.renameCanModifyExt
         }
       });
     }

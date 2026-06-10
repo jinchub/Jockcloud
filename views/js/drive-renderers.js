@@ -977,6 +977,10 @@ const renderDetails = (entry) => {
       <div class="info-prop-value">${isFolder ? folderSizeText : formatSize(entry.size)}</div>
     </div>
     <div class="info-prop">
+      <div class="info-prop-label">${isFolder ? "创建时间" : "上传时间"}</div>
+      <div class="info-prop-value">${formatDate(entry.createdAt)}</div>
+    </div>
+    <div class="info-prop">
       <div class="info-prop-label">修改时间</div>
       <div class="info-prop-value">${formatDate(entry.updatedAt)}</div>
     </div>

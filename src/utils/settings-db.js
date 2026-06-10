@@ -93,6 +93,8 @@ const mergeSettingsPayload = (currentSettings, patch) => {
   const patchSystem = nextPatch.system && typeof nextPatch.system === "object" ? nextPatch.system : {};
   const currentLogin = current.login && typeof current.login === "object" ? current.login : {};
   const patchLogin = nextPatch.login && typeof nextPatch.login === "object" ? nextPatch.login : {};
+  const currentFile = current.file && typeof current.file === "object" ? current.file : {};
+  const patchFile = nextPatch.file && typeof nextPatch.file === "object" ? nextPatch.file : {};
   const currentSmsConfig = currentLogin.smsConfig && typeof currentLogin.smsConfig === "object" ? currentLogin.smsConfig : {};
   const patchSmsConfig = patchLogin.smsConfig && typeof patchLogin.smsConfig === "object" ? patchLogin.smsConfig : {};
   const currentMenu = current.menu && typeof current.menu === "object" ? current.menu : {};
@@ -126,6 +128,10 @@ const mergeSettingsPayload = (currentSettings, patch) => {
         ...currentSmsConfig,
         ...patchSmsConfig
       }
+    },
+    file: {
+      ...currentFile,
+      ...patchFile
     },
     menu: {
       ...currentMenu,

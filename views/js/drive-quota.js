@@ -234,25 +234,26 @@ const renderStorageConfigTable = () => {
   tbody.innerHTML = rows.map((item) => {
     const isDefault = String(item.id || "") === String(storageConfig.defaultDiskId || "");
     const diskName = item.isProgramDisk ? `${item.name}（程序所在盘）` : item.name;
-    const isNfs = String(item.source || "").toLowerCase() === "nfs";
+    const isManagedNfs = String(item.source || "").toLowerCase() === "nfs";
+    const isNfsType = isManagedNfs || /^nfs/i.test(String(item.fsType || "").trim());
     const defaultDisabledAttr = storageConfig.defaultDiskLocked ? "disabled" : "";
     const enabledDisabledAttr = item.hasData ? "disabled" : (storageConfig.defaultDiskLocked && isDefault ? "disabled" : "");
     const pathDisabledAttr = item.hasData ? "disabled" : "";
     const removeDisabledAttr = item.hasData ? "disabled" : "";
     const rowTitle = item.hasData ? ' title="该存储盘已有数据，已锁定关键操作"' : "";
-    const pathCell = isNfs
+    const pathCell = isManagedNfs
       ? `<input type="text" class="storage-disk-path-input" value="${escapeHtml(String(item.remotePath || item.path || ""))}" placeholder="输入 NFS 远程路径或已挂载目录" style="width:100%; padding:4px 8px; border:1px solid #dcdfe6; border-radius:4px;" ${pathDisabledAttr} />`
       : escapeHtml(String(item.path || "-"));
-    const actionCell = isNfs
+    const actionCell = isManagedNfs
       ? `<button type="button" class="btn-sm storage-disk-remove-btn" ${removeDisabledAttr}>移除</button>`
       : "-";
-    const mountText = isNfs
+    const mountText = isManagedNfs
       ? escapeHtml(String(item.mountMode || "") === "auto" ? `自动挂载到 ${item.path || "-"}` : (item.systemDiskMount || item.mount || "-"))
       : escapeHtml(item.systemDiskMount || item.mount || "-");
     return `
-      <tr data-disk-id="${escapeHtml(String(item.id || ""))}" data-source="${isNfs ? "nfs" : "system"}"${rowTitle}>
+      <tr data-disk-id="${escapeHtml(String(item.id || ""))}" data-source="${isManagedNfs ? "nfs" : "system"}"${rowTitle}>
         <td><input type="radio" name="defaultStorageDisk" ${isDefault ? "checked" : ""} ${defaultDisabledAttr} /></td>
-        <td>${isNfs ? "NFS" : "本地盘"}</td>
+        <td>${isNfsType ? "NFS" : "本地盘"}</td>
         <td>${escapeHtml(diskName || "-")}</td>
         <td class="storage-disk-mount">${mountText}</td>
         <td>${pathCell}</td>
@@ -525,7 +526,11 @@ const bindStorageDiskEvents = () => {
           return;
         }
         await loadQuota();
-        alert(data.message || "保存成功");
+        await window.showAppNotice({
+          title: "保存成功",
+          message: data.message || "存储盘配置已保存",
+          noticeType: "normal"
+        });
       } catch (e) {
         alert("保存失败");
       }
@@ -872,6 +877,7 @@ const renderQuotaTable = () => {
     const total = effectiveQuota === -1 ? 0 : effectiveQuota;
     const percentValue = total > 0 ? (used / total) * 100 : 0;
     const percent = total > 0 ? ((used / total) * 100).toFixed(1) + "%" : "-";
+    const usageLabel = total > 0 ? percent : formatSize(used);
     const barColor = percentValue > 95 ? "#f53f3f" : percentValue > 75 ? "#ff7d00" : "#165dff";
     
     return `
@@ -886,7 +892,7 @@ const renderQuotaTable = () => {
             <div style="width:100px; height:8px; background:#ebedf0; border-radius:4px; overflow:hidden;">
               <div style="width:${total > 0 ? Math.min(100, percentValue) : 0}%; height:100%; background:${barColor};"></div>
             </div>
-            <span>${percent}</span>
+            <span>${usageLabel}</span>
           </div>
         </td>
         <td>${u.fileCount || 0}</td>

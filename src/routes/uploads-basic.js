@@ -57,6 +57,13 @@ module.exports = (app, deps) => {
     return resolveGroupQuota(undefined, groupContext.groupQuotas);
   };
 
+  const getFileExtension = (name) => {
+    const normalizedName = String(name || "").trim();
+    const dotIndex = normalizedName.lastIndexOf(".");
+    if (dotIndex <= 0 || dotIndex === normalizedName.length - 1) return "";
+    return normalizedName.slice(dotIndex + 1).toLowerCase();
+  };
+
   app.post("/api/upload/chunk/init", authRequired, requireFilePermission("upload"), async (req, res) => {
     const spaceType = resolveStorageSpaceTypeByRequest(req);
     const clientTaskId = normalizeChunkClientTaskId(req.body && req.body.clientTaskId);
@@ -745,6 +752,20 @@ module.exports = (app, deps) => {
         }
       }
       const nextFileName = name !== undefined ? safeFileName(name) : String(rows[0].originalName || "");
+      if (name !== undefined) {
+        let settings = DEFAULT_SETTINGS;
+        try {
+          settings = await readSettings();
+        } catch (_error) {}
+        if (!settings.file.renameCanModifyExt) {
+          const currentExt = getFileExtension(rows[0].originalName);
+          const nextExt = getFileExtension(nextFileName);
+          if (currentExt !== nextExt) {
+            res.status(400).json({ message: "当前配置不允许通过重命名修改文件后缀名" });
+            return;
+          }
+        }
+      }
       const nextFolderId = folderId !== undefined ? folderId : normalizeFolderId(rows[0].folderId);
       const duplicated = await hasEntryNameConflict(req.user.userId, nextFolderId, nextFileName, { excludeFileId: fileId }, spaceType);
       if (duplicated) {

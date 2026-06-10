@@ -47,6 +47,9 @@ const DEFAULT_SETTINGS = {
       templateId: ""
     }
   },
+  file: {
+    renameCanModifyExt: true
+  },
   menu: {
     permissions: {
       files: { users: [], groups: [] },

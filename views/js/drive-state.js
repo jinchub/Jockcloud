@@ -54,6 +54,7 @@ const state = {
   chunkUploadThresholdBytes: DEFAULT_CHUNK_UPLOAD_THRESHOLD_MB * 1024 * 1024,
   uploadFormatUnlimited: false,
   uploadAllowedExtSet: null,
+  renameCanModifyExt: true,
   avatarUploadSizeMb: DEFAULT_AVATAR_UPLOAD_SIZE_MB,
   avatarUploadMaxSizeBytes: DEFAULT_AVATAR_UPLOAD_SIZE_MB * 1024 * 1024,
   avatarUploadFormats: DEFAULT_AVATAR_UPLOAD_FORMATS.slice(),

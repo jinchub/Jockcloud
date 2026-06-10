@@ -4,7 +4,12 @@
       <form id="renameForm">
         <div class="form-group">
           <label>名称</label>
-          <input type="text" id="renameInput" required />
+          <div class="rename-input-group">
+            <input type="text" id="renameInput" required />
+            <span id="renameSuffixDisplay" class="rename-suffix-display" style="display:none;">
+              <span id="renameSuffixText"></span>
+            </span>
+          </div>
         </div>
         <div class="modal-actions">
           <button type="button" class="btn-sm" id="cancelRenameBtn">取消</button>

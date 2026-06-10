@@ -4265,6 +4265,29 @@ html {
   color: var(--text-primary);
 }
 
+.rename-input-group {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.rename-input-group input {
+  flex: 1;
+  min-width: 0;
+}
+
+.rename-suffix-display {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  border: 1px solid var(--border-tertiary);
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  user-select: none;
+}
+
 #profileAvatarFileInput {
   padding: 0;
   border: 0;

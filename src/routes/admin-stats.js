@@ -14,6 +14,7 @@ const normalizeDiskStats = (item, fallbackMount = "") => {
   return {
     mount: String(item && item.mount || fallbackMount || "").trim(),
     label: String(item && item.label || item && item.name || fallbackMount || "").trim(),
+    fsType: String(item && item.fsType || item && item.type || "").trim().toLowerCase(),
     totalBytes,
     usedBytes,
     freeBytes
@@ -105,19 +106,20 @@ const getStorageStatsByPath = (storageRootDir) => {
         freeBytes: Number(payload.Free || 0)
       }, `${driveName}:\\`);
     }
-    const output = execSync(`df -k "${resolvedRoot.replace(/"/g, '\\"')}" | tail -1`, {
+    const output = execSync(`df -kT "${resolvedRoot.replace(/"/g, '\\"')}" | tail -1`, {
       encoding: "utf8",
       maxBuffer: 1024 * 1024
     });
     const parts = String(output || "").trim().split(/\s+/);
-    if (parts.length < 6) return null;
+    if (parts.length < 7) return null;
     return normalizeDiskStats({
-      mount: parts[5],
+      mount: parts[6],
       label: parts[0],
-      totalBytes: Number(parts[1] || 0) * 1024,
-      usedBytes: Number(parts[2] || 0) * 1024,
-      freeBytes: Number(parts[3] || 0) * 1024
-    }, parts[5]);
+      fsType: parts[1],
+      totalBytes: Number(parts[2] || 0) * 1024,
+      usedBytes: Number(parts[3] || 0) * 1024,
+      freeBytes: Number(parts[4] || 0) * 1024
+    }, parts[6]);
   } catch (error) {
     return null;
   }
@@ -127,32 +129,34 @@ const listSystemDisks = () => {
   try {
     if (os.platform() === "win32") {
       const payload = execWindowsPowerShellJson(
-        'Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3" | Select-Object DeviceID, VolumeName, Size, FreeSpace | ConvertTo-Json -Compress',
+        'Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3" | Select-Object DeviceID, VolumeName, FileSystem, Size, FreeSpace | ConvertTo-Json -Compress',
         "[]"
       );
       const rows = Array.isArray(payload) ? payload : (payload ? [payload] : []);
       return rows.map((item) => normalizeDiskStats({
         mount: `${String(item.DeviceID || "").replace(/\\$/, "")}\\`,
         label: item.VolumeName || item.DeviceID,
+        fsType: item.FileSystem,
         totalBytes: Number(item.Size || 0),
         freeBytes: Number(item.FreeSpace || 0)
       })).filter((item) => item.mount);
     }
-    const output = execSync("df -kP", { encoding: "utf8", maxBuffer: 1024 * 1024 });
+    const output = execSync("df -kPT", { encoding: "utf8", maxBuffer: 1024 * 1024 });
     return String(output || "")
       .split(/\r?\n/)
       .slice(1)
       .map((line) => line.trim())
       .filter(Boolean)
       .map((line) => line.split(/\s+/))
-      .filter((parts) => parts.length >= 6)
-      .filter((parts) => !["tmpfs", "devtmpfs", "overlay", "squashfs"].includes(String(parts[0] || "").toLowerCase()))
+      .filter((parts) => parts.length >= 7)
+      .filter((parts) => !["tmpfs", "devtmpfs", "overlay", "squashfs"].includes(String(parts[1] || "").toLowerCase()))
       .map((parts) => normalizeDiskStats({
-        mount: parts[5],
+        mount: parts[6],
         label: parts[0],
-        totalBytes: Number(parts[1] || 0) * 1024,
-        usedBytes: Number(parts[2] || 0) * 1024,
-        freeBytes: Number(parts[3] || 0) * 1024
+        fsType: parts[1],
+        totalBytes: Number(parts[2] || 0) * 1024,
+        usedBytes: Number(parts[3] || 0) * 1024,
+        freeBytes: Number(parts[4] || 0) * 1024
       }))
       .filter((item) => item.mount);
   } catch (error) {
@@ -202,6 +206,7 @@ const buildStorageDiskPayload = (storageConfig, systemDisks, programStorageRoot)
       path: storagePath,
       enabled: savedItem.enabled === undefined ? isProgramDisk : Boolean(savedItem.enabled),
       source: "system",
+      fsType: String(item.fsType || ""),
       isProgramDisk,
       systemDiskMount: item.mount,
       totalBytes: item.totalBytes,
@@ -221,6 +226,7 @@ const buildStorageDiskPayload = (storageConfig, systemDisks, programStorageRoot)
         path: resolvedPath,
         enabled: item.enabled === undefined ? true : Boolean(item.enabled),
         source: "nfs",
+        fsType: String(item.fsType || matchedSystemDisk && matchedSystemDisk.fsType || ""),
         remotePath: String(item.remotePath || resolvedPath),
         mountMode: String(item.mountMode || "").trim().toLowerCase() === "auto" ? "auto" : "direct",
         isProgramDisk: false,
@@ -470,6 +476,11 @@ module.exports = (app, deps) => {
         .filter((item) => item && typeof item === "object" && String(item.source || "").trim().toLowerCase() === "nfs");
       const nfsDisksToSave = [];
       const seenDiskIds = new Set(systemDisksToSave.map((item) => item.id));
+      const currentNfsDiskMap = new Map(
+        mergedConfig.disks
+          .filter((item) => String(item && item.source || "").trim().toLowerCase() === "nfs")
+          .map((item) => [String(item && item.id || ""), item && typeof item === "object" ? item : {}])
+      );
       for (const item of nfsDiskInputList) {
         const validated = validateNfsStoragePathAccess(String(item.path || "").trim(), {
           keepMounted: true,
@@ -478,7 +489,9 @@ module.exports = (app, deps) => {
         if (validated.error) {
           return res.status(400).json({ message: validated.error });
         }
-        const diskId = buildNfsDiskId(validated.remotePath || validated.path);
+        const currentDiskId = String(item.id || "").trim();
+        const existingDisk = currentNfsDiskMap.get(currentDiskId);
+        const diskId = existingDisk ? currentDiskId : buildNfsDiskId(validated.remotePath || validated.path);
         if (!diskId || seenDiskIds.has(diskId)) {
           return res.status(400).json({ message: "NFS 挂载目录配置重复" });
         }

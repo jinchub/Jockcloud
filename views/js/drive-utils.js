@@ -111,6 +111,7 @@ const normalizeUploadAllowedExtSet = (rules) => {
 const getPublicUploadRuntimeConfig = (settings) => {
   const source = settings && typeof settings === "object" ? settings : {};
   const system = source.system && typeof source.system === "object" ? source.system : source;
+  const file = source.file && typeof source.file === "object" ? source.file : {};
   const maxUploadFileCount = Math.max(1, Math.min(1000, Math.floor(Number(system.maxUploadFileCount) || state.maxUploadFileCount || 100)));
   const maxConcurrentUploadCount = Math.max(1, Math.min(20, Math.floor(Number(system.maxConcurrentUploadCount) || state.maxConcurrentUploadCount || 3)));
   const chunkUploadThresholdMb = Math.max(1, Math.min(102400, Math.floor(Number(system.chunkUploadThresholdMb) || state.chunkUploadThresholdMb || DEFAULT_CHUNK_UPLOAD_THRESHOLD_MB)));
@@ -121,7 +122,8 @@ const getPublicUploadRuntimeConfig = (settings) => {
     chunkUploadThresholdMb,
     chunkUploadThresholdBytes: chunkUploadThresholdMb * 1024 * 1024,
     uploadFormatUnlimited,
-    uploadAllowedExtSet: uploadFormatUnlimited ? null : normalizeUploadAllowedExtSet(system.uploadCategoryRules)
+    uploadAllowedExtSet: uploadFormatUnlimited ? null : normalizeUploadAllowedExtSet(system.uploadCategoryRules),
+    renameCanModifyExt: file.renameCanModifyExt !== undefined ? Boolean(file.renameCanModifyExt) : state.renameCanModifyExt !== false
   };
 };
 
@@ -133,6 +135,7 @@ const applyPublicUploadRuntimeConfig = (settings) => {
   state.chunkUploadThresholdBytes = config.chunkUploadThresholdBytes;
   state.uploadFormatUnlimited = config.uploadFormatUnlimited;
   state.uploadAllowedExtSet = config.uploadAllowedExtSet;
+  state.renameCanModifyExt = config.renameCanModifyExt;
   return config;
 };
 
