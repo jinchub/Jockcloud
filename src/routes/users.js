@@ -1,6 +1,6 @@
 const os = require("os");
 const path = require("path");
-const { execSync } = require("child_process");
+const { execSync, spawn, spawnSync } = require("child_process");
 
 const formatBytes = (bytes) => {
   const numericBytes = Number(bytes);
@@ -96,6 +96,7 @@ module.exports = (app, deps) => {
   } = deps;
   const HIDDEN_SPACE_DISK_TOKEN = "__hidden__";
   const STORAGE_DISK_PREFIX_SEPARATOR = "|";
+  let rsyncAvailabilityCache = null;
 
   const normalizeStorageDiskId = (value) => String(value || "").trim().toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 48);
   const normalizeStorageRelativePath = (value) => String(value || "")
@@ -139,11 +140,252 @@ module.exports = (app, deps) => {
       || ""
     );
   };
+  const getStorageDiskDisplayMountPath = (disk, fallbackMount = "") => {
+    if (!disk || typeof disk !== "object") return String(fallbackMount || "");
+    const diskPath = String(disk.path || "").trim();
+    if (diskPath) {
+      const storageStats = getStorageStatsByPath(diskPath);
+      if (storageStats && storageStats.key) {
+        return String(storageStats.key);
+      }
+    }
+    const diskSource = String(disk.source || "").trim().toLowerCase();
+    if (diskSource === "system" && diskPath) {
+      const parsedRoot = path.parse(path.resolve(diskPath)).root;
+      if (parsedRoot) return parsedRoot;
+    }
+    return getStorageDiskMountPath(disk, fallbackMount);
+  };
+  const getStorageDiskMountKeys = (disk, fallbackMount = "") => {
+    const mountKeys = new Set();
+    const pushMountKey = (value) => {
+      const normalizedValue = normalizeStorageMountKey(value);
+      if (normalizedValue) {
+        mountKeys.add(normalizedValue);
+      }
+    };
+    const diskPath = String(disk && disk.path || "").trim();
+    const diskSource = String(disk && disk.source || "").trim().toLowerCase();
+    pushMountKey(getStorageDiskMountPath(disk, fallbackMount));
+    pushMountKey(diskPath);
+    if (diskPath) {
+      const storageStats = getStorageStatsByPath(diskPath);
+      if (storageStats && storageStats.key) {
+        pushMountKey(storageStats.key);
+      }
+    }
+    if (diskPath) {
+      pushMountKey(path.parse(path.resolve(diskPath)).root);
+    }
+    if (diskSource === "nfs") {
+      pushMountKey(disk && disk.remotePath);
+      if (diskPath) {
+        pushMountKey(path.dirname(path.resolve(diskPath)));
+      }
+    }
+    return mountKeys;
+  };
+  const normalizeStorageDirPath = (value) => {
+    const trimmed = String(value || "").trim();
+    if (!trimmed) return "";
+    try {
+      return path.resolve(trimmed).replace(/[\\\/]+$/, "").toLowerCase();
+    } catch (error) {
+      return "";
+    }
+  };
+  const safeStatPath = (targetPath) => {
+    try {
+      return fs.statSync(targetPath);
+    } catch (error) {
+      return null;
+    }
+  };
+  const applyPathTimes = (targetPath, stats) => {
+    if (!targetPath || !stats) return;
+    try {
+      fs.utimesSync(targetPath, stats.atime, stats.mtime);
+    } catch (error) {}
+  };
+  const getStorageRootDirFromAbsolutePath = (absolutePath, relativePath) => {
+    const normalizedRelativePath = normalizeStorageRelativePath(relativePath);
+    if (!absolutePath || !normalizedRelativePath) return "";
+    const segments = normalizedRelativePath.split("/").filter(Boolean);
+    if (!segments.length) return "";
+    let currentPath = path.resolve(String(absolutePath));
+    segments.forEach(() => {
+      currentPath = path.dirname(currentPath);
+    });
+    return currentPath;
+  };
+  const collectDirectoryTimesFromRelativePath = (relativePath, sourceRootDir, targetRootDir, dirTimeMap) => {
+    if (!dirTimeMap || !sourceRootDir || !targetRootDir) return;
+    const normalizedRelativePath = normalizeStorageRelativePath(relativePath);
+    if (!normalizedRelativePath) return;
+    const relativeDirPath = path.posix.dirname(normalizedRelativePath);
+    if (!relativeDirPath || relativeDirPath === ".") return;
+    const dirSegments = relativeDirPath.split("/").filter(Boolean);
+    let currentRelativeDir = "";
+    dirSegments.forEach((segment) => {
+      currentRelativeDir = currentRelativeDir ? `${currentRelativeDir}/${segment}` : segment;
+      const targetDirPath = path.resolve(String(targetRootDir), currentRelativeDir);
+      if (dirTimeMap.has(targetDirPath)) return;
+      const sourceDirPath = path.resolve(String(sourceRootDir), currentRelativeDir);
+      const sourceDirStats = safeStatPath(sourceDirPath);
+      if (!sourceDirStats || !sourceDirStats.isDirectory()) return;
+      dirTimeMap.set(targetDirPath, sourceDirStats);
+    });
+  };
+  const applyDirectoryTimesMap = (dirTimeMap) => {
+    Array.from((dirTimeMap || new Map()).entries())
+      .sort((left, right) => String(right[0] || "").length - String(left[0] || "").length)
+      .forEach(([targetDirPath, sourceDirStats]) => {
+        applyPathTimes(targetDirPath, sourceDirStats);
+      });
+  };
   const moveFileToPath = (sourcePath, targetPath) => {
+    const sourceStats = safeStatPath(sourcePath);
     fs.mkdirSync(path.dirname(targetPath), { recursive: true });
     fs.copyFileSync(sourcePath, targetPath);
+    applyPathTimes(targetPath, sourceStats);
     fs.unlinkSync(sourcePath);
   };
+  const isRsyncAvailable = () => {
+    if (rsyncAvailabilityCache !== null) return rsyncAvailabilityCache;
+    if (os.platform() === "win32") {
+      rsyncAvailabilityCache = false;
+      return rsyncAvailabilityCache;
+    }
+    try {
+      const result = spawnSync("rsync", ["--version"], { stdio: "ignore" });
+      rsyncAvailabilityCache = result && result.status === 0;
+    } catch (error) {
+      rsyncAvailabilityCache = false;
+    }
+    return rsyncAvailabilityCache;
+  };
+  const moveFileToPathWithRsyncProgress = (sourcePath, targetPath, onProgress) => new Promise((resolve, reject) => {
+    const sourceStats = safeStatPath(sourcePath);
+    if (!sourceStats || !sourceStats.isFile()) {
+      reject(new Error(`文件不存在，无法迁移：${path.basename(sourcePath || "")}`));
+      return;
+    }
+    try {
+      fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+    } catch (error) {
+      reject(error);
+      return;
+    }
+    let finished = false;
+    let stderrText = "";
+    let stdoutText = "";
+    let lastCopiedBytes = 0;
+    const tryUpdateProgress = (chunkText) => {
+      const matches = String(chunkText || "").match(/(\d[\d,]*)\s+(\d+)%/g);
+      if (!matches || !matches.length) return;
+      const latestMatch = matches[matches.length - 1].match(/(\d[\d,]*)\s+(\d+)%/);
+      if (!latestMatch) return;
+      const copiedBytes = Number(String(latestMatch[1] || "").replace(/,/g, ""));
+      if (!Number.isFinite(copiedBytes) || copiedBytes < 0) return;
+      lastCopiedBytes = copiedBytes;
+      if (typeof onProgress === "function") {
+        onProgress(copiedBytes);
+      }
+    };
+    const child = spawn("rsync", ["-a", "--info=progress2", sourcePath, targetPath], {
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+    const finishWithError = (error) => {
+      if (finished) return;
+      finished = true;
+      try {
+        child.kill("SIGKILL");
+      } catch (e) {}
+      try {
+        if (fs.existsSync(targetPath)) {
+          fs.unlinkSync(targetPath);
+        }
+      } catch (e) {}
+      reject(error);
+    };
+    child.stdout.on("data", (chunk) => {
+      const text = String(chunk || "");
+      stdoutText += text;
+      tryUpdateProgress(text);
+    });
+    child.stderr.on("data", (chunk) => {
+      const text = String(chunk || "");
+      stderrText += text;
+      tryUpdateProgress(text);
+    });
+    child.on("error", (error) => {
+      finishWithError(error);
+    });
+    child.on("close", (code) => {
+      if (finished) return;
+      if (code !== 0) {
+        finishWithError(new Error(String(stderrText || stdoutText || `rsync 退出码 ${code}`)));
+        return;
+      }
+      finished = true;
+      try {
+        fs.unlinkSync(sourcePath);
+        resolve(Math.max(lastCopiedBytes, Number(sourceStats.size || 0)));
+      } catch (error) {
+        reject(error);
+      }
+    });
+  });
+  const moveFileToPathWithProgress = (sourcePath, targetPath, onProgress) => new Promise((resolve, reject) => {
+    let sourceStream = null;
+    let targetStream = null;
+    let settled = false;
+    let copiedBytes = 0;
+    const sourceStats = safeStatPath(sourcePath);
+    const finishWithError = (error) => {
+      if (settled) return;
+      settled = true;
+      try {
+        if (sourceStream) sourceStream.destroy();
+      } catch (e) {}
+      try {
+        if (targetStream) targetStream.destroy();
+      } catch (e) {}
+      try {
+        if (fs.existsSync(targetPath)) {
+          fs.unlinkSync(targetPath);
+        }
+      } catch (e) {}
+      reject(error);
+    };
+    try {
+      fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+      sourceStream = fs.createReadStream(sourcePath);
+      targetStream = fs.createWriteStream(targetPath);
+      sourceStream.on("data", (chunk) => {
+        copiedBytes += Math.max(0, Number(chunk && chunk.length || 0));
+        if (typeof onProgress === "function") {
+          onProgress(copiedBytes);
+        }
+      });
+      sourceStream.on("error", finishWithError);
+      targetStream.on("error", finishWithError);
+      targetStream.on("finish", () => {
+        if (settled) return;
+        settled = true;
+        try {
+          applyPathTimes(targetPath, sourceStats);
+          fs.unlinkSync(sourcePath);
+          resolve(copiedBytes);
+        } catch (error) {
+          reject(error);
+        }
+      });
+      sourceStream.pipe(targetStream);
+    } catch (error) {
+      finishWithError(error);
+    }
+  });
   const rollbackMovedFiles = (movedFiles) => {
     movedFiles.slice().reverse().forEach((item) => {
       try {
@@ -179,6 +421,339 @@ module.exports = (app, deps) => {
     });
     if (!uniqueStats.size) return null;
     return Array.from(uniqueStats.values()).reduce((total, item) => total + item, 0);
+  };
+  const findExistingStorageDiskByRelativePath = (relativePath, storageDisks = []) => {
+    const normalizedRelativePath = normalizeStorageRelativePath(relativePath);
+    if (!normalizedRelativePath) return null;
+    const candidates = (Array.isArray(storageDisks) ? storageDisks : [])
+      .filter((item) => item && item.enabled !== false && item.path)
+      .map((item) => {
+        const candidatePath = path.resolve(String(item.path), normalizedRelativePath);
+        return fs.existsSync(candidatePath) ? { disk: item, absolutePath: candidatePath } : null;
+      })
+      .filter(Boolean);
+    return candidates.length === 1 ? candidates[0] : null;
+  };
+  const repairUserStorageRecordsByExistingFiles = async (userId, storageDisks = []) => {
+    const normalizedUserId = Number(userId) || 0;
+    if (!normalizedUserId) return 0;
+    const enabledStorageDisks = (Array.isArray(storageDisks) ? storageDisks : []).filter((item) => item && item.enabled !== false && item.path);
+    if (!enabledStorageDisks.length) return 0;
+    const [rows] = await pool.query(
+      `SELECT
+         id,
+         storage_name AS storageName,
+         thumbnail_storage_name AS thumbnailStorageName
+       FROM files
+       WHERE user_id = ? AND space_type = 'normal' AND deleted_at IS NULL`,
+      [normalizedUserId]
+    );
+    let repairedCount = 0;
+    for (const row of rows) {
+      const parsedStorage = parseStoredStorageNameLocal(row.storageName);
+      const currentAbsolutePath = resolveAbsoluteStoragePath(row.storageName, "normal");
+      let nextStorageName = row.storageName;
+      let nextThumbnailStorageName = row.thumbnailStorageName;
+      let hasChange = false;
+      if (parsedStorage.relativePath && (!currentAbsolutePath || !fs.existsSync(currentAbsolutePath))) {
+        const matchedStorage = findExistingStorageDiskByRelativePath(parsedStorage.relativePath, enabledStorageDisks);
+        if (matchedStorage && matchedStorage.disk) {
+          nextStorageName = resolveStorageNameFromPath(
+            matchedStorage.absolutePath,
+            parsedStorage.relativePath,
+            String(matchedStorage.disk.path),
+            String(matchedStorage.disk.id || "")
+          ) || row.storageName;
+          hasChange = nextStorageName !== row.storageName;
+        }
+      }
+      if (row.thumbnailStorageName) {
+        const parsedThumbnail = parseStoredStorageNameLocal(row.thumbnailStorageName);
+        const currentThumbnailPath = resolveAbsoluteStoragePath(row.thumbnailStorageName, "normal");
+        if (parsedThumbnail.relativePath && (!currentThumbnailPath || !fs.existsSync(currentThumbnailPath))) {
+          const matchedThumbnail = findExistingStorageDiskByRelativePath(parsedThumbnail.relativePath, enabledStorageDisks);
+          if (matchedThumbnail && matchedThumbnail.disk) {
+            nextThumbnailStorageName = resolveStorageNameFromPath(
+              matchedThumbnail.absolutePath,
+              parsedThumbnail.relativePath,
+              String(matchedThumbnail.disk.path),
+              String(matchedThumbnail.disk.id || "")
+            ) || row.thumbnailStorageName;
+            hasChange = hasChange || nextThumbnailStorageName !== row.thumbnailStorageName;
+          }
+        }
+      }
+      if (!hasChange) continue;
+      await pool.query(
+        "UPDATE files SET storage_name = ?, thumbnail_storage_name = ? WHERE id = ?",
+        [nextStorageName, nextThumbnailStorageName || null, Number(row.id)]
+      );
+      repairedCount += 1;
+    }
+    return repairedCount;
+  };
+  const createUserStorageMigrationTaskId = (userId) => `storage-migrate-${Number(userId) || 0}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+  const mapUserStorageMigrationTaskRow = (row) => {
+    if (!row) return null;
+    return {
+      userId: Number(row.userId || 0),
+      taskId: String(row.taskId || ""),
+      status: String(row.status || "idle"),
+      progress: Number(row.progress || 0),
+      movedCount: Number(row.movedCount || 0),
+      totalCount: Number(row.totalCount || 0),
+      movedBytes: Number(row.movedBytes || 0),
+      totalBytes: Number(row.totalBytes || 0),
+      targetMountPath: String(row.targetMountPath || ""),
+      targetStoragePath: String(row.targetStoragePath || ""),
+      message: String(row.message || ""),
+      startedAt: row.startedAt || null,
+      finishedAt: row.finishedAt || null,
+      updatedAt: row.updatedAt || null
+    };
+  };
+  const getUserStorageMigrationTaskState = async (userId, connection = pool) => {
+    const normalizedUserId = Number(userId) || 0;
+    if (!normalizedUserId) return null;
+    const [rows] = await connection.query(
+      `SELECT
+         user_id AS userId,
+         task_id AS taskId,
+         status,
+         progress,
+         moved_count AS movedCount,
+         total_count AS totalCount,
+         moved_bytes AS movedBytes,
+         total_bytes AS totalBytes,
+         target_mount_path AS targetMountPath,
+         target_storage_path AS targetStoragePath,
+         message,
+         started_at AS startedAt,
+         finished_at AS finishedAt,
+         updated_at AS updatedAt
+       FROM user_storage_migration_tasks
+       WHERE user_id = ?
+       LIMIT 1`,
+      [normalizedUserId]
+    );
+    return mapUserStorageMigrationTaskRow(rows[0] || null);
+  };
+  const setUserStorageMigrationTaskState = async (userId, patch, connection = pool) => {
+    const normalizedUserId = Number(userId) || 0;
+    if (!normalizedUserId) return null;
+    const current = await getUserStorageMigrationTaskState(normalizedUserId, connection);
+    const nextStatus = patch && patch.status !== undefined
+      ? String(patch.status || "idle")
+      : String(current && current.status || "idle");
+    const next = {
+      userId: normalizedUserId,
+      taskId: String((patch && patch.taskId !== undefined ? patch.taskId : (current && current.taskId)) || ""),
+      status: nextStatus,
+      progress: Math.max(0, Math.min(100, Number((patch && patch.progress !== undefined ? patch.progress : (current && current.progress)) || 0))),
+      movedCount: Math.max(0, Number((patch && patch.movedCount !== undefined ? patch.movedCount : (current && current.movedCount)) || 0)),
+      totalCount: Math.max(0, Number((patch && patch.totalCount !== undefined ? patch.totalCount : (current && current.totalCount)) || 0)),
+      movedBytes: Math.max(0, Number((patch && patch.movedBytes !== undefined ? patch.movedBytes : (current && current.movedBytes)) || 0)),
+      totalBytes: Math.max(0, Number((patch && patch.totalBytes !== undefined ? patch.totalBytes : (current && current.totalBytes)) || 0)),
+      targetMountPath: String((patch && patch.targetMountPath !== undefined ? patch.targetMountPath : (current && current.targetMountPath)) || ""),
+      targetStoragePath: String((patch && patch.targetStoragePath !== undefined ? patch.targetStoragePath : (current && current.targetStoragePath)) || ""),
+      message: String((patch && patch.message !== undefined ? patch.message : (current && current.message)) || ""),
+      startedAt: patch && Object.prototype.hasOwnProperty.call(patch, "startedAt")
+        ? patch.startedAt
+        : (current && current.startedAt) || (nextStatus === "running" ? new Date() : null),
+      finishedAt: patch && Object.prototype.hasOwnProperty.call(patch, "finishedAt")
+        ? patch.finishedAt
+        : (nextStatus === "completed" || nextStatus === "failed" ? new Date() : null)
+    };
+    await connection.query(
+      `INSERT INTO user_storage_migration_tasks
+        (user_id, task_id, status, progress, moved_count, total_count, moved_bytes, total_bytes, target_mount_path, target_storage_path, message, started_at, finished_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+        task_id = VALUES(task_id),
+        status = VALUES(status),
+        progress = VALUES(progress),
+        moved_count = VALUES(moved_count),
+        total_count = VALUES(total_count),
+        moved_bytes = VALUES(moved_bytes),
+        total_bytes = VALUES(total_bytes),
+        target_mount_path = VALUES(target_mount_path),
+        target_storage_path = VALUES(target_storage_path),
+        message = VALUES(message),
+        started_at = VALUES(started_at),
+        finished_at = VALUES(finished_at)`,
+      [
+        next.userId,
+        next.taskId,
+        next.status,
+        next.progress,
+        next.movedCount,
+        next.totalCount,
+        next.movedBytes,
+        next.totalBytes,
+        next.targetMountPath,
+        next.targetStoragePath,
+        next.message,
+        next.startedAt,
+        next.finishedAt
+      ]
+    );
+    return await getUserStorageMigrationTaskState(normalizedUserId, connection);
+  };
+  const executeUserStorageMigrationTask = async ({
+    userId,
+    taskId,
+    movePlans,
+    totalMoveBytes,
+    targetDisk,
+    targetMountPath,
+    targetStoragePath,
+    programStorageMount
+  }) => {
+    let connection;
+    const movedFiles = [];
+    const targetDirectoryTimeMap = new Map();
+    let useRsyncExecutor = isRsyncAvailable();
+    let rsyncUsedCount = 0;
+    let nodeUsedCount = 0;
+    let movedCount = 0;
+    let committedBytes = 0;
+    const totalBaseBytes = totalMoveBytes > 0 ? totalMoveBytes : movePlans.length;
+    let lastPersistAt = 0;
+    let persistChain = Promise.resolve();
+    const queuePersistTaskState = (patch, force = false) => {
+      const now = Date.now();
+      if (!force && now - lastPersistAt < 400) {
+        return persistChain;
+      }
+      lastPersistAt = now;
+      persistChain = persistChain
+        .then(() => setUserStorageMigrationTaskState(userId, patch))
+        .catch(() => {});
+      return persistChain;
+    };
+    const updateRunningProgress = (currentBytes = committedBytes, message = "", force = false) => {
+      const progress = totalBaseBytes > 0
+        ? Math.max(0, Math.min(99, Math.round((currentBytes / totalBaseBytes) * 100)))
+        : 0;
+      queuePersistTaskState({
+        taskId,
+        status: "running",
+        progress,
+        movedCount,
+        totalCount: movePlans.length,
+        movedBytes: Math.max(committedBytes, currentBytes),
+        totalBytes: totalMoveBytes,
+        targetMountPath,
+        targetStoragePath,
+        message: message || `正在迁移 ${movedCount}/${movePlans.length}`
+      }, force);
+    };
+    const moveSinglePlanWithPreferredExecutor = async (plan) => {
+      const executorLabel = useRsyncExecutor ? "rsync" : "node";
+      updateRunningProgress(
+        committedBytes,
+        `正在迁移 ${movedCount + 1}/${movePlans.length}：${path.basename(plan.sourcePath)} (${executorLabel})`,
+        true
+      );
+      if (useRsyncExecutor) {
+        try {
+          let currentFileCopiedBytes = 0;
+          await moveFileToPathWithRsyncProgress(plan.sourcePath, plan.targetPath, (copiedBytes) => {
+            currentFileCopiedBytes = Math.min(Math.max(0, Number(plan.size || 0)), Math.max(0, Number(copiedBytes || 0)));
+            updateRunningProgress(
+              committedBytes + currentFileCopiedBytes,
+              `正在迁移 ${movedCount + 1}/${movePlans.length}：${path.basename(plan.sourcePath)} (rsync)`
+            );
+          });
+          movedFiles.push({ sourcePath: plan.sourcePath, targetPath: plan.targetPath });
+          if (plan.sourceThumbnailPath && plan.targetThumbnailPath) {
+            await moveFileToPathWithRsyncProgress(plan.sourceThumbnailPath, plan.targetThumbnailPath);
+            movedFiles.push({ sourcePath: plan.sourceThumbnailPath, targetPath: plan.targetThumbnailPath });
+          }
+          rsyncUsedCount += 1;
+          return "rsync";
+        } catch (error) {
+          useRsyncExecutor = false;
+          updateRunningProgress(
+            committedBytes,
+            `rsync 失败，切换 Node 迁移：${error && error.message ? error.message : "未知错误"}`,
+            true
+          );
+        }
+      }
+      let currentFileCopiedBytes = 0;
+      await moveFileToPathWithProgress(plan.sourcePath, plan.targetPath, (copiedBytes) => {
+        currentFileCopiedBytes = Math.min(Math.max(0, Number(plan.size || 0)), Math.max(0, Number(copiedBytes || 0)));
+        updateRunningProgress(
+          committedBytes + currentFileCopiedBytes,
+          `正在迁移 ${movedCount + 1}/${movePlans.length}：${path.basename(plan.sourcePath)} (node)`
+        );
+      });
+      movedFiles.push({ sourcePath: plan.sourcePath, targetPath: plan.targetPath });
+      if (plan.sourceThumbnailPath && plan.targetThumbnailPath) {
+        await moveFileToPathWithProgress(plan.sourceThumbnailPath, plan.targetThumbnailPath);
+        movedFiles.push({ sourcePath: plan.sourceThumbnailPath, targetPath: plan.targetThumbnailPath });
+      }
+      nodeUsedCount += 1;
+      return "node";
+    };
+    try {
+      connection = await pool.getConnection();
+      await connection.beginTransaction();
+      for (const plan of movePlans) {
+        collectDirectoryTimesFromRelativePath(plan.relativePath, plan.sourceRootDir, targetDisk.path, targetDirectoryTimeMap);
+        if (plan.thumbnailRelativePath && plan.thumbnailSourceRootDir) {
+          collectDirectoryTimesFromRelativePath(plan.thumbnailRelativePath, plan.thumbnailSourceRootDir, targetDisk.path, targetDirectoryTimeMap);
+        }
+        const executorUsed = await moveSinglePlanWithPreferredExecutor(plan);
+        await connection.query(
+          "UPDATE files SET storage_name = ?, thumbnail_storage_name = ? WHERE id = ?",
+          [plan.nextStorageName, plan.nextThumbnailStorageName, plan.id]
+        );
+        movedCount += 1;
+        committedBytes += Math.max(0, Number(plan.size || 0));
+        updateRunningProgress(committedBytes, `正在迁移 ${movedCount}/${movePlans.length} (${executorUsed})`, true);
+      }
+      applyDirectoryTimesMap(targetDirectoryTimeMap);
+      await connection.commit();
+      await queuePersistTaskState({}, true);
+      const executorSummary = rsyncUsedCount > 0 && nodeUsedCount > 0
+        ? "（rsync + Node 回退）"
+        : rsyncUsedCount > 0
+          ? "（rsync）"
+          : "（Node）";
+      await setUserStorageMigrationTaskState(userId, {
+        taskId,
+        status: "completed",
+        progress: 100,
+        movedCount,
+        totalCount: movePlans.length,
+        movedBytes: committedBytes,
+        totalBytes: totalMoveBytes,
+        targetMountPath,
+        targetStoragePath,
+        message: `已将 ${movePlans.length} 个文件迁移到 ${getStorageDiskMountPath(targetDisk, programStorageMount) || targetMountPath}${executorSummary}`
+      });
+    } catch (error) {
+      if (connection) {
+        try {
+          await connection.rollback();
+        } catch (e) {}
+      }
+      rollbackMovedFiles(movedFiles);
+      await queuePersistTaskState({}, true);
+      await setUserStorageMigrationTaskState(userId, {
+        taskId,
+        status: "failed",
+        targetMountPath,
+        targetStoragePath,
+        message: error && error.message ? error.message : "迁移失败"
+      });
+    } finally {
+      if (connection) {
+        connection.release();
+      }
+    }
   };
 
   const validateQuotaLimit = async (connection, quotaBytes, userId = null) => {
@@ -244,7 +819,7 @@ module.exports = (app, deps) => {
       const storageDiskLabelMap = new Map(
         configuredStorageDisks.map((item) => [
           String(item.id || ""),
-          getStorageDiskMountPath(item, programStorageMount) || "默认盘"
+          getStorageDiskDisplayMountPath(item, programStorageMount) || "默认盘"
         ])
       );
       if (programStorageDiskId) {
@@ -253,11 +828,28 @@ module.exports = (app, deps) => {
       storageDiskLabelMap.set(
         "",
         defaultStorageDisk
-          ? getStorageDiskMountPath(defaultStorageDisk, programStorageMount)
+          ? getStorageDiskDisplayMountPath(defaultStorageDisk, programStorageMount)
           : (programStorageMount || "默认盘")
       );
       storageDiskLabelMap.set(HIDDEN_SPACE_DISK_TOKEN, "私密空间");
       const userIds = users.map((item) => Number(item.id)).filter((item) => item > 0);
+      if (userIds.length > 0) {
+        const placeholders = userIds.map(() => "?").join(", ");
+        const [migrationTaskUsers] = await pool.query(
+          `SELECT user_id AS userId
+           FROM user_storage_migration_tasks
+           WHERE user_id IN (${placeholders})
+             AND status IN ('completed', 'failed', 'interrupted')
+             AND target_storage_path <> ''`,
+          userIds
+        );
+        const taskUserIds = migrationTaskUsers
+          .map((item) => Number(item.userId || 0))
+          .filter((item, index, list) => item > 0 && list.indexOf(item) === index);
+        for (const taskUserId of taskUserIds) {
+          await repairUserStorageRecordsByExistingFiles(taskUserId, configuredStorageDisks);
+        }
+      }
       const storageDiskMap = new Map();
       const currentNormalStorageDiskIdsMap = new Map();
       const currentNormalStorageMountsMap = new Map();
@@ -356,14 +948,39 @@ module.exports = (app, deps) => {
     }
   });
 
+  app.get("/api/users/:id/storage-disk-progress", authRequired, adminRequired, async (req, res) => {
+    const userId = Number(req.params.id);
+    if (!userId) {
+      return res.status(400).json({ message: "用户 ID 不合法" });
+    }
+    const taskState = await getUserStorageMigrationTaskState(userId);
+    if (!taskState) {
+      return res.json({
+        userId,
+        status: "idle",
+        progress: 0,
+        movedCount: 0,
+        totalCount: 0,
+        movedBytes: 0,
+        totalBytes: 0,
+        message: ""
+      });
+    }
+    res.json(taskState);
+  });
+
   app.put("/api/users/:id/storage-disk", authRequired, adminRequired, async (req, res) => {
     const userId = Number(req.params.id);
     const targetMountPath = String(req.body && req.body.targetMountPath || "").trim();
+    const targetStoragePath = String(req.body && req.body.targetStoragePath || "").trim();
     if (!userId) {
       return res.status(400).json({ message: "用户 ID 不合法" });
     }
     if (!targetMountPath) {
       return res.status(400).json({ message: "请选择目标挂载点" });
+    }
+    if (!targetStoragePath) {
+      return res.status(400).json({ message: "请选择目标存储目录" });
     }
 
     const currentStorageConfig = typeof getStorageDiskConfig === "function"
@@ -375,12 +992,19 @@ module.exports = (app, deps) => {
     const programStorageRoot = resolveStorageRootDir("normal");
     const programStorageMount = getProgramStorageMount(programStorageRoot);
     const targetMountKey = normalizeStorageMountKey(targetMountPath);
+    const targetStoragePathKey = normalizeStorageDirPath(targetStoragePath);
+    const currentTaskState = await getUserStorageMigrationTaskState(userId);
+    if (currentTaskState && currentTaskState.status === "running") {
+      return res.status(409).json({ message: "该用户已有迁移任务正在执行" });
+    }
     const targetDisk = storageDisks.find((item) => {
       if (!item || item.enabled === false) return false;
-      return normalizeStorageMountKey(getStorageDiskMountPath(item, programStorageMount)) === targetMountKey;
+      const mountMatched = getStorageDiskMountKeys(item, programStorageMount).has(targetMountKey);
+      const pathMatched = normalizeStorageDirPath(item.path) === targetStoragePathKey;
+      return mountMatched && pathMatched;
     });
     if (!targetDisk || !targetDisk.path) {
-      return res.status(400).json({ message: "目标挂载点不存在或未启用" });
+      return res.status(400).json({ message: "目标挂载点与存储目录不匹配，或存储盘未启用" });
     }
 
     const programDiskId = getProgramStorageDiskId(storageDisks, programStorageRoot);
@@ -413,6 +1037,7 @@ module.exports = (app, deps) => {
         if (!sourcePath || !fs.existsSync(sourcePath)) {
           return res.status(400).json({ message: `文件 ${row.id} 不存在，无法迁移` });
         }
+        const sourceRootDir = getStorageRootDirFromAbsolutePath(sourcePath, relativePath);
 
         const targetPath = path.resolve(String(targetDisk.path), relativePath);
         const nextStorageName = resolveStorageNameFromPath(targetPath, relativePath, String(targetDisk.path), String(targetDisk.id || ""));
@@ -427,12 +1052,16 @@ module.exports = (app, deps) => {
         let sourceThumbnailPath = "";
         let targetThumbnailPath = "";
         let nextThumbnailStorageName = null;
+        let thumbnailRelativePath = "";
+        let thumbnailSourceRootDir = "";
         if (row.thumbnailStorageName) {
           const parsedThumbnail = parseStoredStorageNameLocal(row.thumbnailStorageName);
           if (parsedThumbnail.relativePath) {
             const resolvedThumbnailSource = resolveAbsoluteStoragePath(row.thumbnailStorageName, "normal");
             if (resolvedThumbnailSource && fs.existsSync(resolvedThumbnailSource)) {
               sourceThumbnailPath = resolvedThumbnailSource;
+              thumbnailRelativePath = parsedThumbnail.relativePath;
+              thumbnailSourceRootDir = getStorageRootDirFromAbsolutePath(resolvedThumbnailSource, parsedThumbnail.relativePath);
               targetThumbnailPath = path.resolve(String(targetDisk.path), parsedThumbnail.relativePath);
               nextThumbnailStorageName = resolveStorageNameFromPath(
                 targetThumbnailPath,
@@ -450,10 +1079,15 @@ module.exports = (app, deps) => {
         totalMoveBytes += Math.max(0, Number(row.size || 0));
         movePlans.push({
           id: Number(row.id),
+          size: Math.max(0, Number(row.size || 0)),
+          relativePath,
+          sourceRootDir,
           sourcePath,
           targetPath,
           nextStorageName,
           sourceThumbnailPath,
+          thumbnailRelativePath,
+          thumbnailSourceRootDir,
           targetThumbnailPath,
           nextThumbnailStorageName
         });
@@ -467,42 +1101,34 @@ module.exports = (app, deps) => {
       if (Number.isFinite(freeBytes) && freeBytes >= 0 && freeBytes < totalMoveBytes) {
         return res.status(400).json({ message: "目标储存盘可用空间不足" });
       }
-
-      let connection;
-      const movedFiles = [];
-      try {
-        connection = await pool.getConnection();
-        await connection.beginTransaction();
-        for (const plan of movePlans) {
-          moveFileToPath(plan.sourcePath, plan.targetPath);
-          movedFiles.push({ sourcePath: plan.sourcePath, targetPath: plan.targetPath });
-          if (plan.sourceThumbnailPath && plan.targetThumbnailPath) {
-            moveFileToPath(plan.sourceThumbnailPath, plan.targetThumbnailPath);
-            movedFiles.push({ sourcePath: plan.sourceThumbnailPath, targetPath: plan.targetThumbnailPath });
-          }
-          await connection.query(
-            "UPDATE files SET storage_name = ?, thumbnail_storage_name = ? WHERE id = ?",
-            [plan.nextStorageName, plan.nextThumbnailStorageName, plan.id]
-          );
-        }
-        await connection.commit();
-      } catch (error) {
-        if (connection) {
-          try {
-            await connection.rollback();
-          } catch (e) {}
-        }
-        rollbackMovedFiles(movedFiles);
-        throw error;
-      } finally {
-        if (connection) {
-          connection.release();
-        }
-      }
-
-      res.json({
-        message: `已将 ${movePlans.length} 个文件迁移到 ${getStorageDiskMountPath(targetDisk, programStorageMount) || targetMountPath}`,
-        movedCount: movePlans.length
+      const taskId = createUserStorageMigrationTaskId(userId);
+      await setUserStorageMigrationTaskState(userId, {
+        taskId,
+        status: "running",
+        progress: 0,
+        movedCount: 0,
+        totalCount: movePlans.length,
+        movedBytes: 0,
+        totalBytes: totalMoveBytes,
+        targetMountPath,
+        targetStoragePath,
+        message: `正在迁移 0/${movePlans.length}`
+      });
+      Promise.resolve().then(() => executeUserStorageMigrationTask({
+        userId,
+        taskId,
+        movePlans,
+        totalMoveBytes,
+        targetDisk,
+        targetMountPath,
+        targetStoragePath,
+        programStorageMount
+      }));
+      res.status(202).json({
+        started: true,
+        taskId,
+        progress: 0,
+        message: `开始迁移，目标盘 ${getStorageDiskMountPath(targetDisk, programStorageMount) || targetMountPath}`
       });
     } catch (error) {
       sendDbError(res, error);

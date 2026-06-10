@@ -13,7 +13,7 @@ let storageDiskConfig = {
   defaultDiskId: "",
   disks: []
 };
-const getStorageReserveErrorMessage = () => "存储空间不足，系统会为每个存储盘保留 2GB 空间";
+const getStorageReserveErrorMessage = () => "云盘空间存储不足";
 const isRawNfsRemotePath = (value) => RAW_NFS_REMOTE_PATH_PATTERN.test(String(value || "").trim());
 const shellQuote = (value) => `'${String(value || "").replace(/'/g, `'\\''`)}'`;
 const isMountedNfsPathSync = (targetPath) => {

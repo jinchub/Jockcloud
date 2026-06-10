@@ -121,6 +121,40 @@ const initDatabase = async () => {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS user_storage_migration_tasks (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      user_id INT NOT NULL,
+      task_id VARCHAR(128) NOT NULL,
+      status VARCHAR(20) NOT NULL DEFAULT 'idle',
+      progress TINYINT UNSIGNED NOT NULL DEFAULT 0,
+      moved_count INT UNSIGNED NOT NULL DEFAULT 0,
+      total_count INT UNSIGNED NOT NULL DEFAULT 0,
+      moved_bytes BIGINT NOT NULL DEFAULT 0,
+      total_bytes BIGINT NOT NULL DEFAULT 0,
+      target_mount_path VARCHAR(512) NOT NULL DEFAULT '',
+      target_storage_path VARCHAR(1024) NOT NULL DEFAULT '',
+      message TEXT NULL,
+      started_at DATETIME NULL,
+      finished_at DATETIME NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_user_storage_migration_user (user_id),
+      INDEX idx_user_storage_migration_status (status),
+      INDEX idx_user_storage_migration_updated (updated_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+  await pool.query(`
+    UPDATE user_storage_migration_tasks
+    SET status = 'interrupted',
+        message = CASE
+          WHEN message IS NULL OR message = '' THEN '服务重启，迁移任务已中断'
+          ELSE CONCAT(message, '（服务重启后已中断）')
+        END,
+        finished_at = NOW(),
+        updated_at = NOW()
+    WHERE status = 'running'
+  `);
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS quick_access (
       id INT PRIMARY KEY AUTO_INCREMENT,
       user_id INT NOT NULL,

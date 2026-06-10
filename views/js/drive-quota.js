@@ -575,8 +575,277 @@ const loadQuotaUsers = async () => {
     const res = await request(url);
     const users = await res.json();
     usersData = users;
+    await syncQuotaStorageMigrationProgressForUsers(usersData);
   } catch(e) {
     console.error("Failed to load quota users", e);
+  }
+};
+
+const getQuotaStorageDiskMountText = (disk) => {
+  if (!disk || typeof disk !== "object") return "";
+  return String(disk.systemDiskMount || disk.mount || disk.path || disk.name || disk.id || "").trim();
+};
+
+const quotaStorageMigrationProgressMap = new Map();
+let quotaStorageMigrationPollTimer = null;
+let quotaStorageMigrationPollInFlight = false;
+
+const getQuotaStorageMigrationProgress = (userId) => quotaStorageMigrationProgressMap.get(Number(userId)) || null;
+
+const setQuotaStorageMigrationProgress = (userId, patch) => {
+  const normalizedUserId = Number(userId) || 0;
+  const current = getQuotaStorageMigrationProgress(normalizedUserId) || {
+    userId: normalizedUserId,
+    status: "idle",
+    progress: 0,
+    message: "",
+    handled: false
+  };
+  const next = {
+    ...current,
+    ...(patch && typeof patch === "object" ? patch : {}),
+    userId: normalizedUserId
+  };
+  quotaStorageMigrationProgressMap.set(normalizedUserId, next);
+  return next;
+};
+
+const clearQuotaStorageMigrationProgress = (userId) => {
+  quotaStorageMigrationProgressMap.delete(Number(userId));
+};
+
+const stopQuotaStorageMigrationPoller = () => {
+  if (!quotaStorageMigrationPollTimer) return;
+  clearInterval(quotaStorageMigrationPollTimer);
+  quotaStorageMigrationPollTimer = null;
+};
+
+const syncQuotaStorageMigrationProgressForUsers = async (users = []) => {
+  const userIds = (Array.isArray(users) ? users : [])
+    .map((item) => Number(item && item.id))
+    .filter((item, index, list) => item > 0 && list.indexOf(item) === index);
+  if (!userIds.length) {
+    stopQuotaStorageMigrationPoller();
+    return;
+  }
+  try {
+    const progressResponses = await Promise.all(
+      userIds.map(async (userId) => {
+        try {
+          const res = await request(`/api/users/${userId}/storage-disk-progress`);
+          if (!res.ok) return null;
+          const data = await res.json().catch(() => null);
+          return data && Number(data.userId || userId) > 0 ? data : null;
+        } catch (error) {
+          return null;
+        }
+      })
+    );
+    let hasRunningTask = false;
+    userIds.forEach((userId) => {
+      clearQuotaStorageMigrationProgress(userId);
+    });
+    progressResponses.forEach((item) => {
+      if (!item || ["idle", "completed"].includes(String(item.status || ""))) return;
+      if (item.status === "running") hasRunningTask = true;
+      setQuotaStorageMigrationProgress(item.userId, {
+        ...item,
+        handled: false
+      });
+    });
+    if (hasRunningTask) {
+      ensureQuotaStorageMigrationPoller();
+    } else {
+      stopQuotaStorageMigrationPoller();
+    }
+  } catch (error) {
+  }
+};
+
+const renderQuotaStorageDiskCell = (user) => {
+  const storageText = escapeHtml(user && user.storageDiskDisplay || "-");
+  const progressState = getQuotaStorageMigrationProgress(user && user.id);
+  if (!progressState) {
+    return `<td>${storageText}</td>`;
+  }
+  const progress = Math.max(0, Math.min(100, Number(progressState.progress || 0)));
+  const isFailed = ["failed", "interrupted"].includes(String(progressState.status || ""));
+  const isRunning = progressState.status === "running";
+  const barColor = isFailed ? "rgba(245, 63, 63, 0.18)" : "rgba(22, 93, 255, 0.18)";
+  const statusText = isRunning
+    ? `迁移中 ${progress}%`
+    : progressState.status === "completed"
+      ? "迁移完成"
+      : progressState.status === "interrupted"
+        ? "迁移中断"
+      : progressState.status === "failed"
+        ? "迁移失败"
+        : "";
+  return `
+    <td style="background:linear-gradient(90deg, ${barColor} ${progress}%, transparent ${progress}%); transition:background .2s ease;" title="${escapeHtml(progressState.message || "")}">
+      <div>${storageText}</div>
+      ${statusText ? `<div style="font-size:12px; color:${isFailed ? "#f53f3f" : "#666"}; margin-top:2px;">${escapeHtml(statusText)}</div>` : ""}
+    </td>
+  `;
+};
+
+const pollQuotaStorageMigrationProgress = async () => {
+  const runningUserIds = Array.from(quotaStorageMigrationProgressMap.values())
+    .filter((item) => item && item.status === "running" && Number(item.userId) > 0)
+    .map((item) => Number(item.userId));
+  if (!runningUserIds.length) {
+    stopQuotaStorageMigrationPoller();
+    return;
+  }
+  if (quotaStorageMigrationPollInFlight) return;
+  quotaStorageMigrationPollInFlight = true;
+  try {
+    for (const userId of runningUserIds) {
+      const res = await request(`/api/users/${userId}/storage-disk-progress`);
+      if (!res.ok) continue;
+      const data = await res.json().catch(() => null);
+      if (!data || Number(data.userId || userId) <= 0) continue;
+      const nextState = setQuotaStorageMigrationProgress(userId, data);
+      renderQuotaTable();
+      if (nextState.status === "completed" && !nextState.handled) {
+        setQuotaStorageMigrationProgress(userId, { handled: true });
+        await loadQuotaUsers();
+        clearQuotaStorageMigrationProgress(userId);
+        renderQuotaTable();
+        if (typeof window.showAppNotice === "function") {
+          await window.showAppNotice({ title: "提示", message: data.message || "迁移完成" });
+        }
+      } else if (["failed", "interrupted"].includes(String(nextState.status || "")) && !nextState.handled) {
+        setQuotaStorageMigrationProgress(userId, { handled: true });
+        if (typeof window.showAppNotice === "function") {
+          await window.showAppNotice({ title: "提示", message: data.message || (nextState.status === "interrupted" ? "迁移中断" : "迁移失败"), isError: true });
+        } else {
+          alert(data.message || (nextState.status === "interrupted" ? "迁移中断" : "迁移失败"));
+        }
+        clearQuotaStorageMigrationProgress(userId);
+        renderQuotaTable();
+      }
+    }
+  } catch (error) {
+  } finally {
+    quotaStorageMigrationPollInFlight = false;
+  }
+};
+
+const ensureQuotaStorageMigrationPoller = () => {
+  if (quotaStorageMigrationPollTimer) return;
+  quotaStorageMigrationPollTimer = setInterval(() => {
+    pollQuotaStorageMigrationProgress();
+  }, 800);
+};
+
+const getQuotaStorageAdjustOptions = (user) => {
+  const storageConfig = storageDiskPageData.storageConfig && typeof storageDiskPageData.storageConfig === "object"
+    ? storageDiskPageData.storageConfig
+    : { disks: [] };
+  const disks = Array.isArray(storageConfig.disks) ? storageConfig.disks : [];
+  const currentMounts = Array.isArray(user && user.currentNormalStorageMounts)
+    ? user.currentNormalStorageMounts.map((item) => String(item || "").trim()).filter(Boolean)
+    : [];
+  return disks
+    .filter((item) => item && item.enabled !== false && item.path)
+    .map((item) => {
+      const mountText = getQuotaStorageDiskMountText(item);
+      const diskName = String(item.name || mountText || "目标盘").trim();
+      const label = currentMounts.includes(mountText)
+        ? `${diskName} (${mountText}) [当前]`
+        : `${diskName} (${mountText})`;
+      return {
+        value: mountText,
+        label,
+        storagePath: String(item.path || "").trim()
+      };
+    })
+    .filter((item) => item.value);
+};
+
+window.adjustQuotaStorageDisk = async (userId) => {
+  const user = usersData.find((item) => Number(item.id) === Number(userId));
+  if (!user) {
+    alert("用户不存在");
+    return;
+  }
+  const options = getQuotaStorageAdjustOptions(user);
+  if (!options.length) {
+    const message = "暂无可用目标储存盘";
+    if (typeof window.showAppNotice === "function") {
+      await window.showAppNotice({ title: "提示", message, isError: true });
+    } else {
+      alert(message);
+    }
+    return;
+  }
+  const defaultValue = options[0] ? String(options[0].value) : "";
+  const targetMountPath = await showAppSelect({
+    title: `调整 ${user.username || `用户${user.id}`} 的储存盘`,
+    options,
+    defaultValue
+  });
+  if (targetMountPath === null) return;
+  const selectedOption = options.find((item) => String(item.value) === String(targetMountPath));
+  const targetStoragePath = String(selectedOption && selectedOption.storagePath || "").trim();
+  if (!targetStoragePath) {
+    const message = "目标存储目录不存在";
+    if (typeof window.showAppNotice === "function") {
+      await window.showAppNotice({ title: "提示", message, isError: true });
+    } else {
+      alert(message);
+    }
+    return;
+  }
+  try {
+    const res = await request(`/api/users/${user.id}/storage-disk`, {
+      method: "PUT",
+      keepalive: true,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ targetMountPath, targetStoragePath })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const message = data.message || "迁移失败";
+      if (typeof window.showAppNotice === "function") {
+        await window.showAppNotice({ title: "提示", message, isError: true });
+      } else {
+        alert(message);
+      }
+      return;
+    }
+    setQuotaStorageMigrationProgress(user.id, {
+      userId: user.id,
+      taskId: data.taskId || "",
+      status: data.started ? "running" : "completed",
+      progress: Number(data.progress || 0),
+      message: data.message || "开始迁移",
+      handled: false
+    });
+    renderQuotaTable();
+    if (data.started) {
+      ensureQuotaStorageMigrationPoller();
+      await pollQuotaStorageMigrationProgress();
+      return;
+    }
+    await loadQuota();
+    clearQuotaStorageMigrationProgress(user.id);
+    renderQuotaTable();
+    const message = data.message || "迁移成功";
+    if (typeof window.showAppNotice === "function") {
+      await window.showAppNotice({ title: "提示", message });
+    } else {
+      alert(message);
+    }
+  } catch (error) {
+    clearQuotaStorageMigrationProgress(user.id);
+    renderQuotaTable();
+    if (typeof window.showAppNotice === "function") {
+      await window.showAppNotice({ title: "提示", message: "迁移失败", isError: true });
+    } else {
+      alert("迁移失败");
+    }
   }
 };
 
@@ -596,6 +865,8 @@ const renderQuotaTable = () => {
   });
   state.quotaPage = quotaPagination.page;
   tbody.innerHTML = usersData.slice(quotaPagination.startIndex, quotaPagination.endIndex).map(u => {
+    const storageMigrationState = getQuotaStorageMigrationProgress(u.id);
+    const isStorageMigrating = storageMigrationState && storageMigrationState.status === "running";
     const used = u.used || 0;
     const effectiveQuota = u.effectiveQuota !== undefined ? u.effectiveQuota : -1;
     const total = effectiveQuota === -1 ? 0 : effectiveQuota;
@@ -607,7 +878,7 @@ const renderQuotaTable = () => {
       <tr>
         <td>${u.id}</td>
         <td>${u.username} (${u.name || "-"})</td>
-        <td>${escapeHtml(u.storageDiskDisplay || "-")}</td>
+        ${renderQuotaStorageDiskCell(u)}
         <td>${formatSize(used)}${percent === "-" ? "" : ` (${percent})`}</td>
         <td>${effectiveQuota === -1 ? "无限制" : formatSize(effectiveQuota)}</td>
         <td>
@@ -619,6 +890,7 @@ const renderQuotaTable = () => {
           </div>
         </td>
         <td>${u.fileCount || 0}</td>
+        <td><button type="button" class="btn-sm" onclick="adjustQuotaStorageDisk(${u.id})" ${isStorageMigrating ? "disabled" : ""}>${isStorageMigrating ? `迁移中 ${Math.max(0, Math.min(100, Number(storageMigrationState.progress || 0)))}%` : "调整"}</button></td>
       </tr>
     `;
   }).join("");
