@@ -33,6 +33,7 @@ const DEFAULT_SETTINGS = {
   login: {
     loginCaptchaEnabled: false,
     smsLoginEnabled: false,
+    allowMultipleLogin: true,
     loginSessionMinutes: DEFAULT_LOGIN_SESSION_MINUTES,
     hiddenSpaceAutoExitMinutes: 10,
     smsSendIntervalSeconds: 60,

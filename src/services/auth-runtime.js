@@ -4,6 +4,7 @@ const createAuthRuntime = ({
   pool,
   readSettings,
   makeToken,
+  markSessionInvalidated = () => {},
   SESSION_COOKIE,
   crypto,
   LOGIN_PASSWORD_KEY_PAIR,
@@ -155,6 +156,16 @@ const createAuthRuntime = ({
     const settings = await readSettings();
     const loginSessionMinutes = settings.login.loginSessionMinutes;
     await pool.query("DELETE FROM sessions WHERE expires_at <= NOW()");
+    if (!settings.login.allowMultipleLogin) {
+      const [existingSessions] = await pool.query(
+        "SELECT token, expires_at AS expiresAt FROM sessions WHERE user_id = ?",
+        [userId]
+      );
+      await pool.query("DELETE FROM sessions WHERE user_id = ?", [userId]);
+      existingSessions.forEach((session) => {
+        markSessionInvalidated(session.token, "SESSION_REPLACED", session.expiresAt);
+      });
+    }
     const token = makeToken();
     const loginIp = String((req && req.ip) || "").trim().slice(0, 64) || null;
     await pool.query(

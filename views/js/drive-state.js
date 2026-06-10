@@ -68,6 +68,40 @@ const state = {
     : 10
 };
 
+const LOGOUT_REASON_STORAGE_KEY = "jc_logout_reason";
+
+const normalizeLogoutReason = (reason) => {
+  const normalized = String(reason || "").trim().toUpperCase();
+  if (normalized === "SESSION_REPLACED") return "SESSION_REPLACED";
+  if (normalized === "SESSION_EXPIRED") return "SESSION_EXPIRED";
+  return "";
+};
+
+const setPendingLogoutReason = (reason) => {
+  const normalized = normalizeLogoutReason(reason);
+  try {
+    if (!normalized) {
+      sessionStorage.removeItem(LOGOUT_REASON_STORAGE_KEY);
+      return;
+    }
+    sessionStorage.setItem(LOGOUT_REASON_STORAGE_KEY, normalized);
+  } catch (_error) {}
+};
+
+const consumePendingLogoutReason = () => {
+  try {
+    const reason = sessionStorage.getItem(LOGOUT_REASON_STORAGE_KEY);
+    sessionStorage.removeItem(LOGOUT_REASON_STORAGE_KEY);
+    return normalizeLogoutReason(reason);
+  } catch (_error) {
+    return "";
+  }
+};
+
+const resolveLogoutReasonFromResponsePayload = (payload = {}) => {
+  return normalizeLogoutReason(payload && payload.code);
+};
+
 if (hiddenSpaceManager && typeof hiddenSpaceManager.syncAutoExit === "function") {
   hiddenSpaceManager.syncAutoExit(state, { closeBtn: closeHiddenSpaceBtn, dot: hiddenSpaceDot, resetBtn: resetHiddenSpacePwdBtn, autoExitTip: hiddenSpaceAutoExitTip, unlockedIcon: hiddenSpaceUnlockedIcon });
 }
@@ -80,6 +114,15 @@ const clearLoginSessionStorage = () => {
   if (hiddenSpaceManager) {
     hiddenSpaceManager.clearUnlockedStorage();
   }
+};
+
+const redirectToLogin = (reason = "") => {
+  const normalizedReason = normalizeLogoutReason(reason);
+  if (normalizedReason) {
+    setPendingLogoutReason(normalizedReason);
+  }
+  clearLoginSessionStorage();
+  window.location.href = "/";
 };
 
 const getRootLabelBySpace = () => {
@@ -198,8 +241,7 @@ const scheduleAutoLogout = (remainMs) => {
     state.sessionExpireTimer = null;
   }
   if (remainMs <= 0) {
-    clearLoginSessionStorage();
-    window.location.href = "/";
+    redirectToLogin("SESSION_EXPIRED");
     return;
   }
   const waitMs = Math.min(remainMs, MAX_TIMEOUT_MS);

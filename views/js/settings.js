@@ -69,6 +69,7 @@
     login: {
       loginCaptchaEnabled: false,
       smsLoginEnabled: false,
+      allowMultipleLogin: true,
       loginSessionMinutes: 10080,
       hiddenSpaceAutoExitMinutes: 10,
       smsSendIntervalSeconds: 60,
@@ -357,6 +358,7 @@
       login: {
         loginCaptchaEnabled: Boolean(login.loginCaptchaEnabled),
         smsLoginEnabled: Boolean(login.smsLoginEnabled),
+        allowMultipleLogin: login.allowMultipleLogin !== undefined ? Boolean(login.allowMultipleLogin) : DEFAULT_SETTINGS.login.allowMultipleLogin,
         loginSessionMinutes: Math.max(1, Math.min(43200, Math.floor(toNumber(login.loginSessionMinutes, DEFAULT_SETTINGS.login.loginSessionMinutes)))),
         hiddenSpaceAutoExitMinutes: Math.max(1, Math.min(1440, Math.floor(toNumber(login.hiddenSpaceAutoExitMinutes, DEFAULT_SETTINGS.login.hiddenSpaceAutoExitMinutes)))),
         smsSendIntervalSeconds: Math.max(1, Math.min(3600, Math.floor(toNumber(login.smsSendIntervalSeconds, DEFAULT_SETTINGS.login.smsSendIntervalSeconds)))),
@@ -424,6 +426,7 @@
     const settingsPreviewDocExts = document.getElementById("settingsPreviewDocExts");
     const settingsLoginCaptchaEnabled = document.getElementById("settingsLoginCaptchaEnabled");
     const settingsSmsLoginEnabled = document.getElementById("settingsSmsLoginEnabled");
+    const settingsAllowMultipleLogin = document.getElementById("settingsAllowMultipleLogin");
     const settingsLoginSessionMinutes = document.getElementById("settingsLoginSessionMinutes");
     const settingsHiddenSpaceAutoExitMinutes = document.getElementById("settingsHiddenSpaceAutoExitMinutes");
     const smsEnvConfigTip = document.getElementById("smsEnvConfigTip");
@@ -468,7 +471,7 @@
       return current && current.formats;
     });
     const hasUploadSettingsInputs = Object.values(uploadSettingsInputs).every(Boolean);
-    if (!settingsSidebar || !settingsAsideList || !toggleSettingsSidebarBtn || !settingsPanelTitle || !settingsPanelMeta || !saveSettingsBtn || !systemSettingsForm || !uploadSettingsForm || !loginSettingsForm || !hasUploadSettingsInputs || !hasUploadRuleInputs || !settingsSiteTitle || !settingsLoginTitle || !settingsSiteDescription || !settingsLoginCaptchaEnabled || !settingsSmsLoginEnabled || !settingsLoginSessionMinutes || !settingsHiddenSpaceAutoExitMinutes || !smsEnvConfigTip || !settingsSmsSendIntervalSeconds || !settingsSmsIpLimitWindowMinutes || !settingsSmsIpLimitMaxCount || !smsSendIntervalRow || !smsIpLimitWindowRow || !smsIpLimitCountRow || !menuSettingsForm || !downloadSettingsForm || !settingsDownloadGlobalSpeedLimit || !settingsDownloadGlobalSpeedUnit || !settingsDownloadShareSpeedLimit || !settingsDownloadShareSpeedUnit || !downloadGroupSpeedLimitsList || !settingsMenuPermissionsList || !settingsMenuUserEmptyTip || !settingsPreviewImageExts || !settingsPreviewVideoExts || !settingsPreviewAudioExts || !settingsPreviewTextExts || !settingsPreviewDocExts) {
+    if (!settingsSidebar || !settingsAsideList || !toggleSettingsSidebarBtn || !settingsPanelTitle || !settingsPanelMeta || !saveSettingsBtn || !systemSettingsForm || !uploadSettingsForm || !loginSettingsForm || !hasUploadSettingsInputs || !hasUploadRuleInputs || !settingsSiteTitle || !settingsLoginTitle || !settingsSiteDescription || !settingsLoginCaptchaEnabled || !settingsSmsLoginEnabled || !settingsAllowMultipleLogin || !settingsLoginSessionMinutes || !settingsHiddenSpaceAutoExitMinutes || !smsEnvConfigTip || !settingsSmsSendIntervalSeconds || !settingsSmsIpLimitWindowMinutes || !settingsSmsIpLimitMaxCount || !smsSendIntervalRow || !smsIpLimitWindowRow || !smsIpLimitCountRow || !menuSettingsForm || !downloadSettingsForm || !settingsDownloadGlobalSpeedLimit || !settingsDownloadGlobalSpeedUnit || !settingsDownloadShareSpeedLimit || !settingsDownloadShareSpeedUnit || !downloadGroupSpeedLimitsList || !settingsMenuPermissionsList || !settingsMenuUserEmptyTip || !settingsPreviewImageExts || !settingsPreviewVideoExts || !settingsPreviewAudioExts || !settingsPreviewTextExts || !settingsPreviewDocExts) {
       return {
         onEnterView: async () => {}
       };
@@ -959,6 +962,7 @@
       settingsPreviewDocExts.value = runtime.settings.system.previewConfig.docExts.join(",");
       settingsLoginCaptchaEnabled.checked = runtime.settings.login.loginCaptchaEnabled;
       settingsSmsLoginEnabled.checked = runtime.settings.login.smsLoginEnabled;
+      settingsAllowMultipleLogin.checked = runtime.settings.login.allowMultipleLogin;
       settingsLoginSessionMinutes.value = String(runtime.settings.login.loginSessionMinutes);
       settingsHiddenSpaceAutoExitMinutes.value = String(runtime.settings.login.hiddenSpaceAutoExitMinutes);
       settingsSmsSendIntervalSeconds.value = String(runtime.settings.login.smsSendIntervalSeconds);
@@ -1088,6 +1092,7 @@
           login: {
             loginCaptchaEnabled: settingsLoginCaptchaEnabled.checked,
             smsLoginEnabled: settingsSmsLoginEnabled.checked,
+            allowMultipleLogin: settingsAllowMultipleLogin.checked,
             loginSessionMinutes: settingsLoginSessionMinutes.value,
             hiddenSpaceAutoExitMinutes: settingsHiddenSpaceAutoExitMinutes.value,
             smsSendIntervalSeconds: settingsSmsSendIntervalSeconds.value,

@@ -23,6 +23,7 @@ const resetSendCodeBtn = document.getElementById("resetSendCodeBtn");
 const forgotPasswordBtn = document.getElementById("forgotPasswordBtn");
 const backToLoginBtn = document.getElementById("backToLoginBtn");
 const resetSuccessModal = document.getElementById("resetSuccessModal");
+const resetSuccessTitle = resetSuccessModal ? resetSuccessModal.querySelector(".dialog-title") : null;
 const resetSuccessMessage = document.getElementById("resetSuccessMessage");
 const resetSuccessGoLoginBtn = document.getElementById("resetSuccessGoLoginBtn");
 
@@ -39,8 +40,11 @@ const runtime = {
   captchaId: "",
   activeMode: "account",
   loginEncryptKeyId: "",
-  loginEncryptKey: null
+  loginEncryptKey: null,
+  dialogConfirmHandler: null
 };
+
+const LOGOUT_REASON_STORAGE_KEY = "jc_logout_reason";
 
 const LOGIN_CAPTCHA_LENGTH = 4;
 
@@ -49,21 +53,70 @@ const setStatus = (text, isError = false) => {
   statusEl.style.color = isError ? "#f53f3f" : "#059669";
 };
 
+const consumePendingLogoutReason = () => {
+  try {
+    const reason = String(sessionStorage.getItem(LOGOUT_REASON_STORAGE_KEY) || "").trim().toUpperCase();
+    sessionStorage.removeItem(LOGOUT_REASON_STORAGE_KEY);
+    return reason;
+  } catch (_error) {
+    return "";
+  }
+};
+
+const applyLogoutReason = (reason = "") => {
+  if (reason === "SESSION_REPLACED") {
+    setStatus("账号已在其他地方登录，如非本人操作请立即修改密码", true);
+    showDialog("下线提醒", "账号已在其他地方登录，如非本人操作请立即修改密码");
+    return true;
+  }
+  if (reason === "SESSION_EXPIRED") {
+    setStatus("登录已过期，请重新登录", true);
+    return true;
+  }
+  return false;
+};
+
+const clearStoredLoginSession = () => {
+  localStorage.removeItem("jc_login_at");
+  localStorage.removeItem("jc_login_session_minutes");
+  localStorage.removeItem("drive_allowed_menus_cache_v1");
+  localStorage.removeItem("drive_mobile_visible_menus_cache_v1");
+};
+
+const applyPendingLogoutReason = () => {
+  const reason = consumePendingLogoutReason();
+  return applyLogoutReason(reason);
+};
+
 const normalizeCaptchaCode = (value) => String(value || "").trim().toUpperCase().slice(0, LOGIN_CAPTCHA_LENGTH);
 
 const hideResetSuccessDialog = () => {
   if (resetSuccessModal) {
     resetSuccessModal.style.display = "none";
   }
+  runtime.dialogConfirmHandler = null;
 };
 
-const showResetSuccessDialog = (message = "") => {
-  if (resetSuccessMessage) {
-    resetSuccessMessage.textContent = String(message || "").trim() || "密码重置成功，请重新登录";
+const showDialog = (title = "", message = "", buttonText = "知道了", onConfirm = null) => {
+  if (resetSuccessTitle) {
+    resetSuccessTitle.textContent = String(title || "").trim() || "提示";
   }
+  if (resetSuccessMessage) {
+    resetSuccessMessage.textContent = String(message || "").trim() || "操作完成";
+  }
+  if (resetSuccessGoLoginBtn) {
+    resetSuccessGoLoginBtn.textContent = String(buttonText || "").trim() || "知道了";
+  }
+  runtime.dialogConfirmHandler = typeof onConfirm === "function" ? onConfirm : null;
   if (resetSuccessModal) {
     resetSuccessModal.style.display = "flex";
   }
+};
+
+const showResetSuccessDialog = (message = "") => {
+  showDialog("重置成功", String(message || "").trim() || "密码重置成功，请重新登录", "去登录", () => {
+    switchToAccount();
+  });
 };
 
 const hasValidStoredSession = () => {
@@ -78,8 +131,20 @@ const hasValidStoredSession = () => {
 };
 
 const checkLoggedIn = async () => {
-  if (hasValidStoredSession()) {
-    window.location.href = "/drive.html";
+  if (!hasValidStoredSession()) {
+    return;
+  }
+  try {
+    const res = await fetch("/api/auth/me");
+    if (res.ok) {
+      window.location.href = "/drive.html";
+      return;
+    }
+    const data = await res.json().catch(() => ({}));
+    clearStoredLoginSession();
+    applyLogoutReason(String(data && data.code ? data.code : "").trim().toUpperCase());
+  } catch (_error) {
+    clearStoredLoginSession();
   }
 };
 
@@ -308,8 +373,11 @@ if (backToLoginBtn) {
 
 if (resetSuccessGoLoginBtn) {
   resetSuccessGoLoginBtn.addEventListener("click", () => {
+    const confirmHandler = runtime.dialogConfirmHandler;
     hideResetSuccessDialog();
-    switchToAccount();
+    if (confirmHandler) {
+      confirmHandler();
+    }
   });
 }
 
@@ -580,5 +648,8 @@ if (resetForm) {
 
 (async () => {
   await loadPublicSettings();
-  await checkLoggedIn();
+  const hasPendingLogoutReason = applyPendingLogoutReason();
+  if (!hasPendingLogoutReason) {
+    await checkLoggedIn();
+  }
 })();

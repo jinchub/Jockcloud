@@ -21,12 +21,13 @@ const createAuthMiddlewares = ({
   parsePermissionList,
   resolveGroupUploadMaxSizeMb,
   resolveGroupUploadMaxFileCount,
+  getInvalidatedSessionInfo = () => null,
   sendDbError
 }) => {
   const authRequired = async (req, res, next) => {
     const token = parseCookies(req)[SESSION_COOKIE];
     if (!token) {
-      res.status(401).json({ message: "未登录" });
+      res.status(401).json({ message: "未登录", code: "NO_SESSION" });
       return;
     }
     try {
@@ -35,7 +36,12 @@ const createAuthMiddlewares = ({
         [token]
       );
       if (rows.length === 0) {
-        res.status(401).json({ message: "登录已过期" });
+        const invalidatedSession = getInvalidatedSessionInfo(token);
+        if (invalidatedSession && invalidatedSession.reason === "SESSION_REPLACED") {
+          res.status(401).json({ message: "账号已在其他地方登录", code: "SESSION_REPLACED" });
+          return;
+        }
+        res.status(401).json({ message: "登录已过期", code: "SESSION_EXPIRED" });
         return;
       }
       const row = rows[0];

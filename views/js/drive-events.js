@@ -61,9 +61,9 @@ const uploadLargeFileByChunks = async ({ taskId, uploadItem, thumbnailDataUrl, a
       signal: abortController.signal
     });
     if (chunkRes.status === 401) {
-      clearLoginSessionStorage();
-      window.location.href = "/";
-      throw new Error("未登录");
+      const chunkData = await chunkRes.json().catch(() => ({}));
+      redirectToLogin(resolveLogoutReasonFromResponsePayload(chunkData));
+      throw new Error(String(chunkData && chunkData.message ? chunkData.message : "未登录"));
     }
     if (!chunkRes.ok) {
       const chunkData = await chunkRes.json().catch(() => ({}));
@@ -272,9 +272,12 @@ const runUploadTask = (taskId, uploadItem, batchMeta = null) => new Promise((res
         };
         xhr.onload = async () => {
           if (xhr.status === 401) {
-            clearLoginSessionStorage();
-            window.location.href = "/";
-            uploadReject(new Error("未登录"));
+            let responseData = {};
+            try {
+              responseData = JSON.parse(xhr.responseText || "{}");
+            } catch (_error) {}
+            redirectToLogin(resolveLogoutReasonFromResponsePayload(responseData));
+            uploadReject(new Error(String(responseData && responseData.message ? responseData.message : "未登录")));
             return;
           }
           

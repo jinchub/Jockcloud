@@ -2947,9 +2947,9 @@ const request = async (url, options = {}) => {
   const targetUrl = appendFileSpaceToUrl(url);
   const response = await fetch(targetUrl, options);
   if (response.status === 401) {
-    clearLoginSessionStorage();
-    window.location.href = "/";
-    throw new Error("未登录");
+    const data = await response.json().catch(() => ({}));
+    redirectToLogin(resolveLogoutReasonFromResponsePayload(data));
+    throw new Error(String(data && data.message ? data.message : "未登录"));
   }
   return response;
 };

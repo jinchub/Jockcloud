@@ -448,6 +448,7 @@ const normalizeSettings = (payload = {}) => {
     login: {
       loginCaptchaEnabled: Boolean(login.loginCaptchaEnabled),
       smsLoginEnabled: Boolean(login.smsLoginEnabled),
+      allowMultipleLogin: normalizeBooleanFlag(login.allowMultipleLogin, DEFAULT_SETTINGS.login.allowMultipleLogin),
       loginSessionMinutes: Math.max(1, Math.min(43200, Math.floor(toNumber(login.loginSessionMinutes, DEFAULT_SETTINGS.login.loginSessionMinutes)))),
       hiddenSpaceAutoExitMinutes: Math.max(1, Math.min(1440, Math.floor(toNumber(login.hiddenSpaceAutoExitMinutes, DEFAULT_SETTINGS.login.hiddenSpaceAutoExitMinutes)))),
       smsSendIntervalSeconds: Math.max(1, Math.min(3600, Math.floor(toNumber(login.smsSendIntervalSeconds, DEFAULT_SETTINGS.login.smsSendIntervalSeconds)))),
@@ -477,6 +478,52 @@ const normalizeSettings = (payload = {}) => {
 
 setNormalizeSettingsFunction(normalizeSettings);
 
+const invalidatedSessionStore = new Map();
+
+const normalizeSessionExpireAt = (value) => {
+  if (value instanceof Date) return value.getTime();
+  const time = new Date(value).getTime();
+  return Number.isFinite(time) ? time : 0;
+};
+
+const cleanupInvalidatedSessionStore = () => {
+  const now = Date.now();
+  invalidatedSessionStore.forEach((item, token) => {
+    if (!item || !Number.isFinite(item.expireAt) || item.expireAt <= now) {
+      invalidatedSessionStore.delete(token);
+    }
+  });
+};
+
+const markSessionInvalidated = (token, reason, expireAt) => {
+  const normalizedToken = String(token || "").trim();
+  const normalizedReason = String(reason || "").trim();
+  const normalizedExpireAt = normalizeSessionExpireAt(expireAt);
+  if (!normalizedToken || !normalizedReason || !Number.isFinite(normalizedExpireAt) || normalizedExpireAt <= Date.now()) {
+    invalidatedSessionStore.delete(normalizedToken);
+    return;
+  }
+  invalidatedSessionStore.set(normalizedToken, {
+    reason: normalizedReason,
+    expireAt: normalizedExpireAt
+  });
+  if (invalidatedSessionStore.size > 1000) {
+    cleanupInvalidatedSessionStore();
+  }
+};
+
+const getInvalidatedSessionInfo = (token) => {
+  const normalizedToken = String(token || "").trim();
+  if (!normalizedToken) return null;
+  const item = invalidatedSessionStore.get(normalizedToken);
+  if (!item) return null;
+  if (!Number.isFinite(item.expireAt) || item.expireAt <= Date.now()) {
+    invalidatedSessionStore.delete(normalizedToken);
+    return null;
+  }
+  return item;
+};
+
 
 
 const {
@@ -497,6 +544,7 @@ const {
   pool,
   readSettings,
   makeToken,
+  markSessionInvalidated,
   SESSION_COOKIE,
   crypto,
   LOGIN_PASSWORD_KEY_PAIR,
@@ -632,6 +680,7 @@ const { authRequired, adminRequired } = createAuthMiddlewares({
   parsePermissionList,
   resolveGroupUploadMaxSizeMb,
   resolveGroupUploadMaxFileCount,
+  getInvalidatedSessionInfo,
   sendDbError
 });
 
