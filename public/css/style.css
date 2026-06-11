@@ -4793,6 +4793,10 @@ html {
   backdrop-filter: blur(12px);
 }
 
+#profileCenterModal #profileLogoutBtn {
+  display: none;
+}
+
 [data-theme="dark"] .profile-modal-close {
   color: var(--text-primary);
   background: rgba(15, 23, 42, 0.38);

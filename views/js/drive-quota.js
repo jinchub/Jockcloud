@@ -947,7 +947,10 @@ const renderLogoBox = (user) => {
     const firstChar = (user.username || "U").charAt(0).toUpperCase();
     avatarContentHtml = `<div class="user-avatar-default">${firstChar}</div>`;
   }
-  const avatarHtml = `<div class="logo-box-avatar-shell"><i class="fa-solid fa-user user-avatar-nav-icon" aria-hidden="true"></i>${avatarContentHtml}</div><span class="logo-box-label">我的</span>`;
+  const isMobileNav = window.matchMedia("(max-width: 768px)").matches;
+  const navIconHtml = isMobileNav ? `<i class="fa-solid fa-user user-avatar-nav-icon" aria-hidden="true"></i>` : "";
+  const labelHtml = isMobileNav ? `<span class="logo-box-label">我的</span>` : "";
+  const avatarHtml = `<div class="logo-box-avatar-shell">${navIconHtml}${avatarContentHtml}</div>${labelHtml}`;
   
   let groupsHtml = "";
   if (user.groupNames && Array.isArray(user.groupNames) && user.groupNames.length > 0) {
