@@ -562,6 +562,10 @@ a {
   border-radius: 14px;
 }
 
+#profileCenterModal #profileLogoutBtn {
+  display: block;
+}
+
 #avatarUpdateModal .avatar-update-modal {
   width: min(100vw - 24px, 520px);
   max-height: calc(100dvh - 24px);
