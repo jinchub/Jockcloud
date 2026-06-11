@@ -8,7 +8,7 @@ const renderGroupBadge = (groupName, clickable = false) => {
   } else if (lowerName === "vip") {
     return `<span class="profile-group-badge vip-badge${clickable ? " clickable-badge" : ""}"${clickable ? ' onclick="event.stopPropagation(); showPlanComparison()"' : ''}><span class="badge-icon-v">V</span><span class="badge-text">VIP</span></span>`;
   } else {
-    return `<span class="profile-group-badge user-badge${clickable ? " clickable-badge" : ""}"${clickable ? ' onclick="event.stopPropagation(); showPlanComparison()"' : ''}><span class="badge-text">普通用户</span></span>`;
+    return `<span class="profile-group-badge user-badge${clickable ? " clickable-badge" : ""}"${clickable ? ' onclick="event.stopPropagation(); showPlanComparison()"' : ''}><span class="badge-icon-u">U</span><span class="badge-text">USER</span></span>`;
   }
 };
 
@@ -960,6 +960,28 @@ const renderLogoBox = (user) => {
   logoBox.innerHTML = avatarHtml + groupsHtml;
 };
 
+// 监听窗口大小变化，自动重新渲染 logo-box
+let logoBoxResizeListenerBound = false;
+const bindLogoBoxResponsive = () => {
+  if (logoBoxResizeListenerBound) return;
+  logoBoxResizeListenerBound = true;
+  
+  const mediaQuery = window.matchMedia("(max-width: 768px)");
+  const handleChange = () => {
+    if (state.currentUser) {
+      renderLogoBox(state.currentUser);
+    }
+  };
+  
+  // 使用 addEventListener 监听变化
+  if (mediaQuery.addEventListener) {
+    mediaQuery.addEventListener("change", handleChange);
+  } else if (mediaQuery.addListener) {
+    // 兼容旧版浏览器
+    mediaQuery.addListener(handleChange);
+  }
+};
+
 const renderProfileCenter = () => {
   const user = state.currentUser;
   if (!user) return;
@@ -1044,6 +1066,14 @@ const closeProfileCenterOnMobileNav = () => {
   if (!window.matchMedia("(max-width: 768px)").matches) return;
   if (profileCenterModal.style.display === "none" || !profileCenterModal.style.display) return;
   closeModalById(profileCenterModal);
+  // 关闭个人中心时清除 side=profile 参数
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("side") === "profile") {
+    params.delete("side");
+    const query = params.toString();
+    const nextUrl = `${window.location.pathname}${query ? `?${query}` : ""}`;
+    window.history.replaceState({}, "", nextUrl);
+  }
 };
 
 const bindProfileCenter = () => {
@@ -1054,6 +1084,15 @@ const bindProfileCenter = () => {
     logoBox.onclick = (event) => {
       event.preventDefault();
       openProfileCenter();
+      // 手机版点击时更新 URL 参数，保证刷新不会跳首页
+      if (window.matchMedia("(max-width: 768px)").matches) {
+        const params = new URLSearchParams(window.location.search);
+        params.set("main", "files");
+        params.set("side", "profile");
+        const query = params.toString();
+        const nextUrl = `${window.location.pathname}${query ? `?${query}` : ""}`;
+        window.history.replaceState({}, "", nextUrl);
+      }
     };
   }
   if (closeProfileCenterBtn) {

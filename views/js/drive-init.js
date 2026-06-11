@@ -21,6 +21,7 @@ bindPrimaryNav();
 bindDragUpload();
 bindUserTableSortEvents();
 bindProfileCenter();
+bindLogoBoxResponsive();
 switchTransferTaskTab("upload");
 bindThemeToggle();
   bindRefreshPage();

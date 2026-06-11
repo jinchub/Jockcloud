@@ -265,6 +265,15 @@ const applyRouteFromUrl = async () => {
     state.mySharesPage = 1;
     renderMyShares();
     setMySharesViewVisible(true);
+  } else if (side === "profile") {
+    // 手机版个人中心，刷新时自动打开弹窗
+    state.view = "files";
+    state.category = "";
+    state.currentFolderId = null;
+    setUploadTasksViewVisible(false);
+    if (window.matchMedia("(max-width: 768px)").matches) {
+      setTimeout(() => openProfileCenter(), 100);
+    }
   } else {
     setUploadTasksViewVisible(false);
     if (side === "hidden") {
@@ -301,6 +310,8 @@ const applyRouteFromUrl = async () => {
     }
   }
   updateHiddenSpaceUiState();
-  updateRouteQuery({ main: "files", side: resolveCurrentFilesSide().side, category: resolveCurrentFilesSide().category }, true);
+  // 保留 side=profile 参数，保证刷新不跳首页
+  const finalSide = side === "profile" ? "profile" : resolveCurrentFilesSide().side;
+  updateRouteQuery({ main: "files", side: finalSide, category: resolveCurrentFilesSide().category }, true);
   await refreshAll();
 };

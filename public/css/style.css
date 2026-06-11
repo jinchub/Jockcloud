@@ -600,7 +600,7 @@ html {
 }
 
 .user-avatar-nav-icon {
-  display: none;
+  display: none !important;
 }
 
 .logo-box-label {
@@ -4913,9 +4913,7 @@ html {
 }
 
 .profile-group-badge.user-badge {
-  color: #dbe7ff;
-  background: rgba(160, 174, 192, 0.18);
-  border-color: rgba(160, 174, 192, 0.2);
+  color: #bfbfbf;
 }
 
 .profile-group-badge.vip-badge {
@@ -4927,7 +4925,8 @@ html {
 }
 
 .badge-icon-s,
-.badge-icon-v {
+.badge-icon-v,
+.badge-icon-u {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -5096,7 +5095,6 @@ html {
 
 .clickable-badge:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
 .plan-comparison-modal {
