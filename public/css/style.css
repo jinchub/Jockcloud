@@ -5044,6 +5044,16 @@ html {
   color: var(--text-danger);
 }
 
+#profileCenterModal #closeProfileCenterBtn {
+  margin-top: -6px;
+  background: var(--primary-color-hover);
+  color: #fff;
+}
+
+#profileCenterModal #closeProfileCenterBtn:hover {
+  background: var(--primary-color);
+}
+
 [data-theme="dark"] .profile-modal .profile-action-row .btn-sm,
 [data-theme="dark"] .profile-modal .modal-actions .btn-sm:not(.danger) {
   background: rgba(15, 23, 42, 0.46);
