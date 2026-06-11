@@ -24,7 +24,7 @@ const getPlanComparisonToneKey = (groupName) => {
 const getPlanComparisonDisplayName = (groupName) => {
   const rawName = String(groupName || "").trim();
   if (!rawName) return "未命名用户组";
-  return rawName.toLowerCase() === "user" ? "普通用户" : rawName;
+  return rawName.toLowerCase() === "user" ? "USER" : rawName;
 };
 
 const getPlanComparisonIconText = (groupName) => {
