@@ -147,7 +147,7 @@ a {
   display: block;
   height: 100dvh;
   overflow: hidden;
-  --mobile-tabbar-offset: calc(75px + env(safe-area-inset-bottom, 0px));
+  --mobile-tabbar-offset: calc(70px + env(safe-area-inset-bottom, 0px));
 }
 
 #mountStorageTitle {
@@ -161,7 +161,7 @@ a {
 .main-content {
   height: 100dvh;
   padding-bottom: var(--mobile-tabbar-offset);
-  background: radial-gradient(circle at top right, rgba(64, 158, 255, 0.2), transparent 32%), radial-gradient(circle at left center, rgba(137, 87, 255, 0.14), transparent 28%);
+  background: radial-gradient(circle at right center, rgba(64, 158, 255, 0.2), transparent 32%), radial-gradient(circle at left center, rgba(137, 87, 255, 0.14), transparent 28%);
 }
 
 .sidebar-primary {
@@ -176,9 +176,7 @@ a {
   border-right: 0;
   border: 0;
   border-top: 1px solid var(--border-primary);
-  border-radius: 18px 18px 0 0;
   background: var(--bg-primary);
-  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -222,6 +220,7 @@ a {
   height: 44px;
   border-radius: 50%;
   box-shadow: none;
+  background: none;
 }
 
 .logo-box.active {
@@ -268,7 +267,9 @@ a {
   order: 2;
   width: 100%;
 }
-
+.cell-check {
+    padding-top: 4px;
+}
 .view-switch {
   flex-shrink: 0;
   margin-top: 0;
@@ -276,6 +277,7 @@ a {
   order: 3;
   margin-left: auto;
   -webkit-tap-highlight-color: transparent;
+  background: none;
 }
 
 .view-switch button,
@@ -295,17 +297,13 @@ a {
   -webkit-overflow-scrolling: touch;
   width: 100%;
   order: 4;
-  display: none;
-}
-
-.list-toolbar-actions.has-selection {
   display: flex;
 }
 
 .btn-action {
   min-width: max-content;
   font-size: 12px;
-  padding: 4px 8px;
+  padding: 4px 4px;
 }
 .preview-media-toolbar-tip,
 .preview-image-toolbar-tip {
@@ -909,12 +907,8 @@ a {
 }
 
 #view-files .file-table .cell-check {
-  display: none !important;
-  width: 36px;
-}
-
-#view-files .file-table.show-check .cell-check {
   display: table-cell !important;
+  width: 36px;
 }
 
 #view-files .file-table .cell-name {

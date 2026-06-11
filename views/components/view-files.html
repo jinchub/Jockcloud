@@ -119,8 +119,8 @@
           <button class="btn-sm" id="closeUploadTasksBtn">返回文件</button>
         </div>
         <div class="transfer-task-tabs">
-          <button type="button" class="transfer-task-tab active" id="transferUploadTabBtn">上传任务</button>
-          <button type="button" class="transfer-task-tab" id="transferDownloadTabBtn">下载任务</button>
+          <button type="button" class="transfer-task-tab active" id="transferDownloadTabBtn">下载任务</button>
+          <button type="button" class="transfer-task-tab" id="transferUploadTabBtn">上传任务</button>
           <span class="transfer-task-refresh-tip" id="transferTaskRefreshTip">如果有文件正在上传中请勿刷新页面，避免任务中断</span>
         </div>
         <div class="upload-task-header">
@@ -136,7 +136,7 @@
             <button class="btn-sm danger" id="clearUploadTasksBtn">清空已完成</button>
           </div>
         </div>
-        <div class="transfer-task-panel" id="uploadTaskPanel">
+        <div class="transfer-task-panel hidden" id="uploadTaskPanel">
           <div class="upload-task-table">
             <div class="upload-task-row upload-task-head">
               <div><input type="checkbox" id="uploadTaskSelectAllCheckbox"></div>
@@ -151,7 +151,7 @@
             <div id="uploadTaskList"></div>
           </div>
         </div>
-        <div class="transfer-task-panel hidden" id="downloadTaskPanel">
+        <div class="transfer-task-panel" id="downloadTaskPanel">
           <div class="upload-task-table">
             <div class="upload-task-row upload-task-head">
               <div><input type="checkbox" id="downloadTaskSelectAllCheckbox"></div>

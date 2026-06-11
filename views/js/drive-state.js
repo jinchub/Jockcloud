@@ -30,7 +30,7 @@ const state = {
   uploadTasksPageSize: 20,
   downloadTasksPage: 1,
   downloadTasksPageSize: 20,
-  transferTaskTab: "upload",
+  transferTaskTab: "download",
   mySharesPage: 1,
   mySharesPageSize: 20,
   usersPage: 1,

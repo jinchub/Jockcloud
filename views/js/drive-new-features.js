@@ -186,6 +186,9 @@ const bindPrimaryNav = () => {
   mainNavItems.forEach(el => {
     el.onclick = async (e) => {
       e.preventDefault();
+      if (typeof closeProfileCenterOnMobileNav === "function") {
+        closeProfileCenterOnMobileNav();
+      }
       const view = el.dataset.view;
       const enterOptions = {};
       if (view === "settings") {
@@ -203,6 +206,12 @@ const bindPrimaryNav = () => {
       } else if (targetView === "monitor") {
         renderMonitorPanel(monitorState.activeMenu);
         updateRouteQuery({ main: targetView, side: null, category: null, usersTab: null, mountId: null, syncTaskId: null, settingsMenu: null, monitorMenu: monitorState.activeMenu });
+      } else if (targetView === "mounts") {
+        const currentMountId = mountManager && typeof mountManager.getCurrentMountId === "function" ? mountManager.getCurrentMountId() : null;
+        updateRouteQuery({ main: targetView, side: null, category: null, usersTab: null, mountId: currentMountId, syncTaskId: null, settingsMenu: null, monitorMenu: null });
+      } else if (targetView === "sync") {
+        const currentSyncTaskId = syncManager && typeof syncManager.getCurrentSyncTaskId === "function" ? syncManager.getCurrentSyncTaskId() : null;
+        updateRouteQuery({ main: targetView, side: null, category: null, usersTab: null, mountId: null, syncTaskId: currentSyncTaskId, settingsMenu: null, monitorMenu: null });
       } else {
         updateRouteQuery({ main: targetView, side: null, category: null, usersTab: null, mountId: null, syncTaskId: null, settingsMenu: null, monitorMenu: null });
       }

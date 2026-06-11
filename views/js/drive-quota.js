@@ -1351,7 +1351,7 @@ const loadUserInfo = async () => {
     await loadDownloadTasks();
     renderUploadTasks();
     renderDownloadTasks();
-    switchTransferTaskTab("upload");
+    switchTransferTaskTab("download");
     const activeMain = Array.from(mainNavItems).find((item) => item.classList.contains("active"))?.dataset.view || "";
     if (!getRenderableMenus().includes(activeMain)) {
       await applyRouteFromUrl();
@@ -1381,7 +1381,7 @@ const loadUserInfo = async () => {
     renderUploadTasks();
     state.downloadTasks = [];
     renderDownloadTasks();
-    switchTransferTaskTab("upload");
+    switchTransferTaskTab("download");
     state.hiddenSpaceEnabled = null;
     state.visibleCategories = FILE_CATEGORY_KEYS.slice();
     applyCategoryVisibilityUI();

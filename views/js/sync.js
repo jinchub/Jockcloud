@@ -1030,22 +1030,29 @@
     return {
       onEnterView: async (options = {}) => {
         const params = new URLSearchParams(window.location.search);
-        const syncTaskIdFromUrl = Object.prototype.hasOwnProperty.call(options, "taskId")
-          ? String(options.taskId || "").trim()
-          : String(params.get("syncTaskId") || "").trim();
-        if (!runtime.hasLoadedOnce) {
-          await loadTasks();
-          runtime.hasLoadedOnce = true;
-        }
-        await loadMounts();
-        if (runtime.tasks.length) {
-          if (syncTaskIdFromUrl && getTaskById(syncTaskIdFromUrl)) {
-            runtime.selectedTaskId = syncTaskIdFromUrl;
+        const rawTaskId = Object.prototype.hasOwnProperty.call(options, "taskId") ? options.taskId : params.get("syncTaskId");
+        if (rawTaskId !== null && rawTaskId !== undefined) {
+          const syncTaskIdFromUrl = String(rawTaskId || "").trim();
+          if (!runtime.hasLoadedOnce) {
+            await loadTasks();
+            runtime.hasLoadedOnce = true;
+          }
+          await loadMounts();
+          if (runtime.tasks.length) {
+            if (syncTaskIdFromUrl && getTaskById(syncTaskIdFromUrl)) {
+              runtime.selectedTaskId = syncTaskIdFromUrl;
+            } else {
+              runtime.selectedTaskId = "";
+            }
           } else {
             runtime.selectedTaskId = "";
           }
         } else {
-          runtime.selectedTaskId = "";
+          if (!runtime.hasLoadedOnce) {
+            await loadTasks();
+            runtime.hasLoadedOnce = true;
+          }
+          await loadMounts();
         }
         render();
         updateAutoRefreshTimer();
@@ -1056,7 +1063,8 @@
           stopLiveLogStream();
         }
         syncTaskRoute(true);
-      }
+      },
+      getCurrentSyncTaskId: () => runtime && String(runtime.selectedTaskId || "").trim() ? String(runtime.selectedTaskId) : null
     };
   };
 })();

@@ -840,6 +840,7 @@
       const addMountBtn = document.getElementById("addMountBtn");
       const toggleMountSidebarBtn = document.getElementById("toggleMountSidebarBtn");
       const mountSidebarEl = document.querySelector(".mounts-sidebar");
+      const mountsSidebarOverlayEl = document.getElementById("mountsSidebarOverlay");
       const cancelMountModalBtn = document.getElementById("cancelMountModalBtn");
       const mountForm = document.getElementById("mountForm");
       const closeMountConnectionBtn = document.getElementById("closeMountConnectionBtn");
@@ -856,6 +857,22 @@
       const mountSortUpdatedAt = document.getElementById("mountSortUpdatedAt");
       const mountObjectUploadInput = document.getElementById("mountObjectUploadInput");
       if (!addMountBtn || !toggleMountSidebarBtn || !mountSidebarEl || !cancelMountModalBtn || !mountForm || !closeMountConnectionBtn || !createMountFolderBtn || !uploadMountObjectBtn || !refreshMountObjectBtn || !mountPrevPageBtn || !mountNextPageBtn || !mountObjectUploadInput) return;
+
+      const isMobileView = () => window.matchMedia("(max-width: 768px)").matches;
+      const updateMountsSidebarOverlay = () => {
+        if (!mountsSidebarOverlayEl) return;
+        if (isMobileView() && !mountSidebarEl.classList.contains("collapsed")) {
+          mountsSidebarOverlayEl.classList.add("show");
+        } else {
+          mountsSidebarOverlayEl.classList.remove("show");
+        }
+      };
+      const collapseMountsSidebarOnMobile = () => {
+        if (isMobileView()) {
+          mountSidebarEl.classList.add("collapsed");
+          updateMountsSidebarOverlay();
+        }
+      };
 
       addMountBtn.onclick = () => {
         openMountModal(null);
@@ -876,8 +893,16 @@
       toggleMountSidebarBtn.onclick = () => {
         mountSidebarEl.classList.toggle("collapsed");
         updateMountSidebarToggleIcon();
+        updateMountsSidebarOverlay();
       };
       updateMountSidebarToggleIcon();
+      if (mountsSidebarOverlayEl) {
+        mountsSidebarOverlayEl.onclick = () => {
+          mountSidebarEl.classList.add("collapsed");
+          updateMountSidebarToggleIcon();
+          updateMountsSidebarOverlay();
+        };
+      }
 
       cancelMountModalBtn.onclick = () => {
         closeMountModal();
@@ -1333,14 +1358,33 @@
     bindEvents();
 
     return {
-      onEnterView: async () => {
+      onEnterView: async (options = {}) => {
         const params = new URLSearchParams(window.location.search);
-        const mountIdFromUrl = Math.floor(Number(params.get("mountId")));
-        selectedMountId = Number.isFinite(mountIdFromUrl) && mountIdFromUrl > 0 ? mountIdFromUrl : null;
+        const rawMountId = params.get("mountId");
+        const parsedMountId = Number.isFinite(Number(rawMountId)) && Number(rawMountId) > 0 ? Math.floor(Number(rawMountId)) : null;
+        const optionMountId = options && Number(options.mountId) > 0 ? Math.floor(Number(options.mountId)) : null;
+        if (rawMountId !== null) {
+          selectedMountId = parsedMountId;
+        } else if (optionMountId !== null) {
+          selectedMountId = optionMountId;
+        }
+        const mountSidebarEl = document.querySelector(".mounts-sidebar");
+        const mountsSidebarOverlayEl = document.getElementById("mountsSidebarOverlay");
+        if (mountSidebarEl && window.matchMedia("(max-width: 768px)").matches) {
+          mountSidebarEl.classList.add("collapsed");
+          if (mountsSidebarOverlayEl) mountsSidebarOverlayEl.classList.remove("show");
+          const toggleBtn = document.getElementById("toggleMountSidebarBtn");
+          if (toggleBtn) {
+            const icon = toggleBtn.querySelector("i");
+            if (icon) icon.className = "fa-solid fa-angles-right";
+            toggleBtn.title = "展开侧边栏";
+          }
+        }
         await loadMounts();
         await loadMountObjects();
         syncMountRoute(true);
-      }
+      },
+      getCurrentMountId: () => Number.isFinite(Number(selectedMountId)) && Number(selectedMountId) > 0 ? Number(selectedMountId) : null
     };
   };
 })();

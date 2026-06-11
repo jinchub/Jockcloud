@@ -3091,9 +3091,6 @@ const getSelectedEntries = () => state.selectedEntries.slice();
 
 const clearSelection = () => {
   state.selectedEntries = [];
-  const fileTable = document.querySelector("#view-files .file-table");
-  if (fileTable) fileTable.classList.remove("show-check");
-  
   document.querySelectorAll(".grid-item.selected, .table-row.selected, .timeline-entry.selected").forEach(item => {
     item.classList.remove("selected");
     const checkbox = item.querySelector("input[type='checkbox']");
@@ -3228,12 +3225,12 @@ const updateBatchActionState = () => {
     batchCancelBtn.style.display = hasClipboard ? "" : "none";
   }
   const fileTable = document.querySelector("#view-files .file-table");
-  if (fileTable && isMobileViewport()) {
-    fileTable.classList.toggle("show-check", hasSelection);
+  if (fileTable) {
+    fileTable.classList.add("show-check");
   }
   const listToolbar = document.querySelector(".list-toolbar-actions");
   if (listToolbar && isMobileViewport()) {
-    listToolbar.classList.toggle("has-selection", hasSelection);
+    listToolbar.classList.add("has-selection");
   }
   const currentPageEntries = getCurrentFilePageEntries();
   const visible = currentPageEntries.length;
