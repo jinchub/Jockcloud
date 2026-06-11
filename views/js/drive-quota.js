@@ -940,13 +940,14 @@ const renderLogoBox = (user) => {
   const logoBox = document.querySelector(".logo-box");
   if (!logoBox || !user) return;
   
-  let avatarHtml = "";
+  let avatarContentHtml = "";
   if (user.avatar && user.avatar.trim() !== "") {
-    avatarHtml = `<img src="${user.avatar}" class="user-avatar-img" alt="avatar">`;
+    avatarContentHtml = `<img src="${user.avatar}" class="user-avatar-img" alt="avatar">`;
   } else {
     const firstChar = (user.username || "U").charAt(0).toUpperCase();
-    avatarHtml = `<div class="user-avatar-default">${firstChar}</div>`;
+    avatarContentHtml = `<div class="user-avatar-default">${firstChar}</div>`;
   }
+  const avatarHtml = `<div class="logo-box-avatar-shell"><i class="fa-solid fa-user user-avatar-nav-icon" aria-hidden="true"></i>${avatarContentHtml}</div><span class="logo-box-label">我的</span>`;
   
   let groupsHtml = "";
   if (user.groupNames && Array.isArray(user.groupNames) && user.groupNames.length > 0) {
@@ -1007,10 +1008,24 @@ const openProfileCenter = async () => {
   setProfileCenterTriggerActive(true);
 };
 
+const syncProfileCenterMobileNavState = (active) => {
+  if (!window.matchMedia("(max-width: 768px)").matches) return;
+  if (active) {
+    mainNavItems.forEach((el) => el.classList.remove("active"));
+    if (uploadTasksNavBtn) uploadTasksNavBtn.classList.remove("active");
+    if (mySharesNavBtn) mySharesNavBtn.classList.remove("active");
+    return;
+  }
+  if (typeof updateNavState === "function") {
+    updateNavState();
+  }
+};
+
 const setProfileCenterTriggerActive = (active) => {
   const logoBox = document.querySelector(".logo-box");
   if (!logoBox) return;
   logoBox.classList.toggle("active", !!active);
+  syncProfileCenterMobileNavState(!!active);
 };
 
 const closeModalById = (modalEl) => {
