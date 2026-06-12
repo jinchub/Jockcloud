@@ -179,6 +179,20 @@ const switchMainView = async (viewName, enterOptions = {}) => {
   if (targetView === "mounts" && mountManager && typeof mountManager.onEnterView === "function") await mountManager.onEnterView(enterOptions.mounts || {});
   if (targetView === "sync" && syncManager && typeof syncManager.onEnterView === "function") await syncManager.onEnterView(enterOptions.sync || {});
   if (targetView === "settings" && settingsManager && typeof settingsManager.onEnterView === "function") await settingsManager.onEnterView(enterOptions.settings || {});
+  if (targetView === "monitor") {
+    const monitorSidebarEl = document.getElementById("monitorSidebar");
+    const monitorSidebarOverlayEl = document.getElementById("monitorSidebarOverlay");
+    if (monitorSidebarEl && window.matchMedia("(max-width: 768px)").matches) {
+      monitorSidebarEl.classList.add("collapsed");
+      if (monitorSidebarOverlayEl) monitorSidebarOverlayEl.classList.remove("show");
+      const toggleBtn = document.getElementById("toggleMonitorSidebarBtn");
+      if (toggleBtn) {
+        const icon = toggleBtn.querySelector("i");
+        if (icon) icon.className = "fa-solid fa-angles-right";
+        toggleBtn.title = "展开侧边栏";
+      }
+    }
+  }
   return targetView;
 };
 

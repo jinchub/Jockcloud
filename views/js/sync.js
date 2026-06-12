@@ -944,7 +944,15 @@
       toggleSyncSidebarBtn.onclick = () => {
         syncSidebar.classList.toggle("collapsed");
         updateSidebarToggleIcon();
+        updateSyncSidebarOverlay();
       };
+      if (document.getElementById("syncSidebarOverlay")) {
+        document.getElementById("syncSidebarOverlay").onclick = () => {
+          syncSidebar.classList.add("collapsed");
+          updateSidebarToggleIcon();
+          updateSyncSidebarOverlay();
+        };
+      }
 
       syncTaskAsideList.onclick = async (event) => {
         const target = event.target.closest("button,[data-sync-item]");
@@ -1022,6 +1030,21 @@
       };
     };
 
+    const isMobileView = () => window.matchMedia("(max-width: 768px)").matches;
+    const updateSyncSidebarOverlay = () => {
+      const overlay = document.getElementById("syncSidebarOverlay");
+      if (!overlay) return;
+      if (isMobileView() && !syncSidebar.classList.contains("collapsed")) {
+        overlay.classList.add("show");
+      } else {
+        overlay.classList.remove("show");
+      }
+    };
+    if (isMobileView()) {
+      syncSidebar.classList.add("collapsed");
+      updateSyncSidebarOverlay();
+    }
+
     bindEvents();
     updateSidebarToggleIcon();
     render();
@@ -1031,6 +1054,16 @@
       onEnterView: async (options = {}) => {
         const params = new URLSearchParams(window.location.search);
         const rawTaskId = Object.prototype.hasOwnProperty.call(options, "taskId") ? options.taskId : params.get("syncTaskId");
+        if (isMobileView()) {
+          syncSidebar.classList.add("collapsed");
+          const syncSidebarOverlayEl = document.getElementById("syncSidebarOverlay");
+          if (syncSidebarOverlayEl) syncSidebarOverlayEl.classList.remove("show");
+          if (toggleSyncSidebarBtn) {
+            const icon = toggleSyncSidebarBtn.querySelector("i");
+            if (icon) icon.className = "fa-solid fa-angles-right";
+            toggleSyncSidebarBtn.title = "展开侧边栏";
+          }
+        }
         if (rawTaskId !== null && rawTaskId !== undefined) {
           const syncTaskIdFromUrl = String(rawTaskId || "").trim();
           if (!runtime.hasLoadedOnce) {

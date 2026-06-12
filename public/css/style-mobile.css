@@ -567,7 +567,6 @@ a {
 }
 
 #profileCenterModal .profile-info-grid {
-  grid-template-columns: 1fr;
   gap: 12px;
 }
 
@@ -576,7 +575,6 @@ a {
 }
 
 #profileCenterModal .profile-action-row {
-  grid-template-columns: 1fr;
   gap: 10px;
 }
 
@@ -897,7 +895,7 @@ a {
   bottom: 0;
   padding-bottom: var(--mobile-tabbar-offset);
   margin-left: 0;
-  z-index: 9999;
+  z-index: 19;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.16);
   transition: margin-left 0.25s ease;
 }

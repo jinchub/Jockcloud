@@ -2120,7 +2120,7 @@ html {
 .timeline-day-group {
   position: sticky;
   top: calc(var(--timeline-day-sticky-index, 0) * var(--timeline-day-sticky-height));
-  z-index: calc(100 - var(--timeline-day-sticky-index, 0));
+  z-index: 0;
   display: flex;
   align-items: center;
   min-height: 34px;
