@@ -81,7 +81,7 @@ const RATE_LIMIT_MAX_REQUESTS = 100;
 const ARCHIVE_SUPPORTED_TYPE_SET = new Set(["zip", "tar", "tgz", "tbz2", "txz", "gz", "bz2", "xz"]);
 const ALL_FILE_PERMISSIONS = ["upload", "download", "rename", "delete", "move", "copy", "extract", "viewArchive"];
 const FILE_PERMISSION_SET = new Set(ALL_FILE_PERMISSIONS);
-const ALLOWED_UPLOAD_TASK_STATUS = new Set(["pending", "uploading", "downloading", "completed", "failed", "canceled", "paused"]);
+const ALLOWED_UPLOAD_TASK_STATUS = new Set(["pending", "uploading", "downloading", "completed", "failed", "canceled", "paused", "browser_downloading"]);
 const ALLOWED_SYNC_TASK_STATUS = new Set(["idle", "running", "paused", "success", "error"]);
 const SETTINGS_GLOBAL_KEY = "global";
 

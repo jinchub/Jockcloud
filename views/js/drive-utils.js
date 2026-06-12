@@ -469,7 +469,7 @@ const getUploadStatusText = (task) => {
 };
 
 const normalizeUploadTaskStatus = (status) => {
-  if (status === "pending" || status === "uploading" || status === "downloading" || status === "completed" || status === "failed" || status === "canceled" || status === "paused") {
+  if (status === "pending" || status === "uploading" || status === "downloading" || status === "completed" || status === "failed" || status === "canceled" || status === "paused" || status === "browser_downloading") {
     return status;
   }
   return "failed";
@@ -715,12 +715,12 @@ const loadDownloadTasks = async () => {
           : task.status === "paused"
             ? "paused"
             : task.status === "browser_downloading"
-              ? "browser_downloading"
+              ? "completed"
               : task.status === "completed"
                 ? "completed"
                 : "canceled",
-      progress: Number(task.progress || 0),
-      downloaded: Number(task.downloaded || 0),
+      progress: task.status === "browser_downloading" ? 100 : Number(task.progress || 0),
+      downloaded: task.status === "browser_downloading" ? Number(task.size || 0) : Number(task.downloaded || 0),
       speed: Number(task.speed || 0)
     }));
   } catch (e) {}
@@ -731,7 +731,7 @@ const getDownloadStatusText = (task) => {
   if (task.status === "completed") return "已完成";
   if (task.status === "canceled") return "已取消";
   if (task.status === "paused") return "已暂停";
-  if (task.status === "browser_downloading") return "请在浏览器中查看下载详情";
+  if (task.status === "browser_downloading") return "请在默认下载目录中查看下载文件";
   if (task.status === "downloading") {
     const progressText = task.progress > 0 ? ` ${task.progress}%` : "";
     const speedText = task.speed > 0 ? ` | ${formatSize(task.speed)}/s` : "";
