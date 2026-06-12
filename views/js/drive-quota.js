@@ -969,7 +969,7 @@ const renderProfileCenter = () => {
   const avatarUrl = user.avatar && user.avatar.trim() ? user.avatar : "";
   if (profileCenterAvatar) {
     if (avatarUrl) {
-      profileCenterAvatar.innerHTML = `<img src="${avatarUrl}" alt="avatar" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`;
+      profileCenterAvatar.innerHTML = `<img src="${avatarUrl}" alt="avatar" style="width:100%;height:100%;object-fit:cover;">`;
     } else {
       profileCenterAvatar.textContent = (user.username || "U").charAt(0).toUpperCase();
     }

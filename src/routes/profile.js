@@ -1,4 +1,5 @@
 module.exports = (app, deps) => {
+  const sharp = require("sharp");
   const {
     authRequired,
     pool,
@@ -26,8 +27,7 @@ module.exports = (app, deps) => {
     crypto,
     fs,
     getAvatarStorageDir,
-    normalizeStorageRelativePath,
-    sharp
+    normalizeStorageRelativePath
   } = deps;
 
   app.get("/api/auth/me", authRequired, async (req, res) => {
