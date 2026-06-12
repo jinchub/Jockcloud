@@ -75,75 +75,56 @@ const getPlanComparisonArchiveSupportHtml = (permissions = [], toneKey = "user")
 };
 
 const renderPlanComparisonState = (message, isError = false) => {
-  const headEl = document.getElementById("planComparisonTableHead");
-  const bodyEl = document.getElementById("planComparisonTableBody");
-  if (!headEl || !bodyEl) return;
-  headEl.innerHTML = `
-    <tr>
-      <th>权益</th>
-      <th>方案</th>
-    </tr>
-  `;
-  bodyEl.innerHTML = `
-    <tr>
-      <td class="feature-name">状态</td>
-      <td class="feature-value${isError ? " user-value" : ""}">${escapeHtml(String(message || ""))}</td>
-    </tr>
-  `;
+  const container = document.getElementById("planCardsContainer");
+  if (!container) return;
+  container.innerHTML = `<div class="plan-loading${isError ? " plan-error" : ""}">${escapeHtml(String(message || ""))}</div>`;
 };
 
 const renderPlanComparisonTable = (groups = []) => {
-  const headEl = document.getElementById("planComparisonTableHead");
-  const bodyEl = document.getElementById("planComparisonTableBody");
-  if (!headEl || !bodyEl) return;
+  const container = document.getElementById("planCardsContainer");
+  if (!container) return;
   const sortedGroups = sortPlanComparisonGroups(groups);
   if (!sortedGroups.length) {
     renderPlanComparisonState("暂无用户组配置", false);
     return;
   }
 
-  headEl.innerHTML = `
-    <tr>
-      <th>权益</th>
-      ${sortedGroups.map((group) => {
-        const toneKey = getPlanComparisonToneKey(group && group.name);
-        return `
-          <th>
-            <div class="plan-header">
-              <span class="plan-icon plan-icon-${toneKey}">${getPlanComparisonIconText(group && group.name)}</span>
-              <span class="plan-name">${escapeHtml(getPlanComparisonDisplayName(group && group.name))}</span>
-            </div>
-          </th>
-        `;
-      }).join("")}
-    </tr>
-  `;
-
   const rows = [
-    {
-      name: "空间容量",
-      renderValue: (group) => escapeHtml(getPlanComparisonQuotaText(group && group.quotaBytes))
-    },
-    {
-      name: "上传大小限制",
-      renderValue: (group) => escapeHtml(getPlanComparisonUploadSizeText(group && group.maxUploadSizeMb))
-    },
-    {
-      name: "单次上传数量",
-      renderValue: (group) => escapeHtml(getPlanComparisonUploadCountText(group && group.maxUploadFileCount))
-    },
-    {
-      name: "压缩文件",
-      renderValue: (group) => getPlanComparisonArchiveSupportHtml(group && group.permissions, getPlanComparisonToneKey(group && group.name))
-    }
+    { name: "空间容量",  renderValue: (group) => escapeHtml(getPlanComparisonQuotaText(group && group.quotaBytes)) },
+    { name: "上传大小限制",  renderValue: (group) => escapeHtml(getPlanComparisonUploadSizeText(group && group.maxUploadSizeMb)) },
+    { name: "单次上传数量",  renderValue: (group) => escapeHtml(getPlanComparisonUploadCountText(group && group.maxUploadFileCount)) },
+    { name: "压缩文件",  renderValue: (group) => getPlanComparisonArchiveSupportHtml(group && group.permissions, getPlanComparisonToneKey(group && group.name)) }
   ];
 
-  bodyEl.innerHTML = rows.map((row) => `
-    <tr>
-      <td class="feature-name">${escapeHtml(row.name)}</td>
-      ${sortedGroups.map((group) => `<td class="feature-value ${getPlanComparisonToneKey(group && group.name)}-value">${row.renderValue(group)}</td>`).join("")}
-    </tr>
-  `).join("");
+  container.innerHTML = `
+    <div class="plan-compare">
+      <div class="plan-col-headers">
+        <div class="plan-col-placeholder">用户组</div>
+        ${sortedGroups.map((group) => {
+          const toneKey = getPlanComparisonToneKey(group && group.name);
+          return `
+            <div class="plan-col-head plan-col-head-${toneKey}">
+              <span class="plan-icon plan-icon-${toneKey}">${getPlanComparisonIconText(group && group.name)}</span>
+              <span class="plan-name plan-name-${toneKey}">${escapeHtml(getPlanComparisonDisplayName(group && group.name))}</span>
+            </div>
+          `;
+        }).join("")}
+      </div>
+      <div class="plan-rows">
+        ${rows.map((row) => `
+          <div class="plan-row">
+            <div class="plan-row-label">
+              ${escapeHtml(row.name)}
+            </div>
+            ${sortedGroups.map((group) => {
+              const toneKey = getPlanComparisonToneKey(group && group.name);
+              return `<div class="plan-row-value ${toneKey}-value">${row.renderValue(group)}</div>`;
+            }).join("")}
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `;
 };
 
 const loadPlanComparison = async () => {

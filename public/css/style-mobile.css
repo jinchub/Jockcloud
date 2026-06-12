@@ -677,31 +677,45 @@ a {
 }
 
 .plan-comparison-modal {
-  max-width: 95vw;
-  width: 95vw;
+  max-width: 96vw;
+  width: 96vw;
 }
 
-.plan-comparison-table th,
-.plan-comparison-table td {
+.plan-comparison-header {
+  margin-bottom: 16px;
+}
+
+.plan-col-headers,
+.plan-row {
+  grid-template-columns: 100px repeat(3, 1fr);
+  gap: 6px;
+}
+
+.plan-col-head {
   padding: 8px 4px;
-  font-size: 12px;
+  gap: 4px;
 }
 
 .plan-icon {
   width: 24px;
   height: 24px;
-  font-size: 14px;
-}
-
-.plan-name {
-  font-size: 13px;
-}
-
-.feature-name {
+  border-radius: 6px;
   font-size: 12px;
 }
 
-.feature-value {
+.plan-name {
+  font-size: 12px;
+}
+
+.plan-row {
+  padding: 10px 0;
+}
+
+.plan-row-label {
+  font-size: 11px;
+}
+
+.plan-row-value {
   font-size: 12px;
 }
 

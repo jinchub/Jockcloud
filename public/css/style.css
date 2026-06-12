@@ -5097,99 +5097,183 @@ html {
   transform: translateY(-2px);
 }
 
+/* ===== Plan Comparison Modal - Row-Based Comparison ===== */
 .plan-comparison-modal {
-  max-width: 800px;
-  width: 90vw;
+  max-width: 640px;
+  width: 92vw;
+  box-shadow: none;
 }
 
-.plan-comparison-table-wrap {
-  overflow-x: auto;
-  margin: 20px 0;
+.plan-comparison-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
 }
 
-.plan-comparison-table {
-  width: 100%;
-  border-collapse: collapse;
+.plan-comparison-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+.plan-close-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  font-size: 18px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+  line-height: 1;
+}
+
+.plan-close-btn:hover {
+  background: var(--border-secondary);
+  color: var(--text-primary);
+}
+
+.plan-body {
+  min-height: 60px;
+}
+
+.plan-loading {
+  text-align: center;
+  padding: 40px 0;
+  color: var(--text-tertiary);
   font-size: 14px;
 }
 
-.plan-comparison-table th,
-.plan-comparison-table td {
-  padding: 12px 16px;
-  text-align: center;
-  border: 1px solid var(--border-secondary);
+.plan-loading.plan-error {
+  color: #f53f3f;
 }
 
-.plan-comparison-table th {
-  background: var(--bg-tertiary);
-  font-weight: 600;
-}
-
-.plan-comparison-table tbody tr:nth-child(odd) {
-  background: var(--bg-secondary);
-}
-
-.plan-comparison-table tbody tr:nth-child(even) {
-  background: var(--bg-primary);
-}
-
-.plan-header {
+/* Column headers - plan icons + names */
+.plan-compare {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 6px;
 }
 
+.plan-col-headers {
+  display: grid;
+  grid-template-columns: 140px repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.plan-col-placeholder {
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+}
+
+.plan-col-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 8px;
+  border-radius: 12px 12px 0 0;
+}
+
+.plan-col-head-svip {
+  background: linear-gradient(180deg, rgba(255,77,79,0.1) 0%, rgba(255,77,79,0.02) 100%);
+}
+
+.plan-col-head-vip {
+  background: linear-gradient(180deg, rgba(255,197,61,0.1) 0%, rgba(255,197,61,0.02) 100%);
+}
+
+.plan-col-head-user {
+  background: linear-gradient(180deg, rgba(134,144,156,0.08) 0%, rgba(134,144,156,0.02) 100%);
+}
+
+/* Icon & name in header */
 .plan-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  font-size: 16px;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  font-size: 14px;
   font-weight: 700;
   color: #fff;
 }
 
 .plan-icon-svip {
-  background: red;
+  background: linear-gradient(135deg, #ff6b6b, #cf1322);
 }
 
 .plan-icon-vip {
-  background: #efaa06;
+  background: linear-gradient(135deg, #ffd666, #d48806);
 }
 
 .plan-icon-user {
-  background: #86909c;
+  background: linear-gradient(135deg, #c9cdd4, #86909c);
 }
 
 .plan-name {
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
 }
 
-.feature-name {
-  text-align: left;
-  font-weight: 500;
-  color: var(--text-secondary);
+.plan-name-svip {
+  color: #cf1322;
 }
 
-.feature-value {
-  font-weight: 600;
+.plan-name-vip {
+  color: #ad6800;
 }
 
-.svip-value {
-  color: red;
-}
-
-.vip-value {
-  color: #efaa06;
-}
-
-.user-value {
+.plan-name-user {
   color: #86909c;
 }
+
+/* Feature rows */
+.plan-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.plan-row {
+  display: grid;
+  grid-template-columns: 140px repeat(3, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 14px 0;
+}
+
+.plan-row + .plan-row {
+  border-top: 1px solid var(--border-secondary);
+}
+
+.plan-row-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.plan-row-value {
+  text-align: center;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.svip-value { color: #cf1322; }
+.vip-value { color: #ad6800; }
+.user-value { color: #86909c; }
 
 .support-icon {
   color: #00b578;
