@@ -262,13 +262,27 @@ a {
   flex: 0 1 auto;
   order: 1;
 }
+.file-icon.file-folder{
+  margin-bottom: -4px;
+}
+
+.file-icon.file-audio{
+  margin-bottom: -4px;
+}
 
 .search-result-summary {
   order: 2;
   width: 100%;
 }
+
 .cell-check {
-    padding-top: 4px;
+  min-width: 20px;
+  padding-left: 2px;
+}
+.cell-check input{
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
 }
 .view-switch {
   flex-shrink: 0;
@@ -752,8 +766,8 @@ a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   box-shadow: 0 0px 20px rgba(22, 93, 255, 0.28);
   margin-top: 0;
@@ -883,7 +897,7 @@ a {
   bottom: 0;
   padding-bottom: var(--mobile-tabbar-offset);
   margin-left: 0;
-  z-index: 19;
+  z-index: 9999;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.16);
   transition: margin-left 0.25s ease;
 }
@@ -899,8 +913,8 @@ a {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.4);
   z-index: 18;
+  backdrop-filter: blur(10px);
 }
 
 .sidebar-overlay.show {
@@ -922,8 +936,10 @@ a {
 }
 
 #view-files .file-table .cell-check {
-  display: table-cell !important;
-  width: 36px;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
 }
 
 #view-files .file-table .cell-name {
@@ -933,7 +949,7 @@ a {
 }
 
 #view-files .file-table .cell-time {
-  width: 108px;
+  width: 98px;
 }
 
 #view-files .file-table .cell-quick {
@@ -944,7 +960,9 @@ a {
 #myFilesMoreBtn {
   display: inline-flex !important;
 }
-
+.timeline-day-group {
+  background: linear-gradient(90deg, white 30%, transparent);
+}
 .mobile-category-fixed {
   position: sticky;
   top: 0;

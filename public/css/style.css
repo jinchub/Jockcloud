@@ -2113,7 +2113,8 @@ html {
   top: 0;
   bottom: 0;
   width: 1px;
-  background: var(--border-tertiary);
+  background: #e2ebff;
+  height: 100vh;
 }
 
 .timeline-day-group {
@@ -2128,6 +2129,7 @@ html {
   font-size: 12px;
   font-weight: 600;
   background: var(--bg-primary);
+  border-radius: 10px;
 }
 
 .timeline-day-dot {
@@ -2141,14 +2143,12 @@ html {
 }
 
 .timeline-day-label {
-  padding: 0 16px;
   border-radius: 10px;
   background: transparent;
   backdrop-filter: blur(10px);
   color: var(--text-primary);
   line-height: 22px;
   font-size: 14px;
-  box-shadow: var(--shadow-sm);
   cursor: pointer;
 }
 
@@ -2213,7 +2213,6 @@ html {
   margin-left: 0;
   padding: 20px;
   border-radius: 10px;
-  background: var(--bg-card);
 }
 
 .table-row.timeline-entry::before {
@@ -2229,14 +2228,11 @@ html {
 
 .timeline-card-media {
   width: 100%;
-  aspect-ratio: 1 / 1;
   border-radius: 8px;
-  background: var(--bg-tertiary);
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  box-shadow: var(--shadow-sm);
 }
 
 .timeline-card-media .file-icon {
@@ -2615,7 +2611,9 @@ html {
 .file-icon.file-font {
   color: #7c3aed;
 }
-
+.file-icon{
+  margin-bottom: -2px;
+}
 .file-icon.file-psd {
   box-sizing: border-box;
   width: 1.25em;
