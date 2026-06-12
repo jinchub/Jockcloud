@@ -26,6 +26,10 @@ const resetSuccessModal = document.getElementById("resetSuccessModal");
 const resetSuccessTitle = resetSuccessModal ? resetSuccessModal.querySelector(".dialog-title") : null;
 const resetSuccessMessage = document.getElementById("resetSuccessMessage");
 const resetSuccessGoLoginBtn = document.getElementById("resetSuccessGoLoginBtn");
+const userSelectModal = document.getElementById("userSelectModal");
+const userSelectHint = document.getElementById("userSelectHint");
+const userSelectList = document.getElementById("userSelectList");
+const userSelectCancelBtn = document.getElementById("userSelectCancelBtn");
 
 const runtime = {
   loginCaptchaEnabled: false,
@@ -41,7 +45,8 @@ const runtime = {
   activeMode: "account",
   loginEncryptKeyId: "",
   loginEncryptKey: null,
-  dialogConfirmHandler: null
+  dialogConfirmHandler: null,
+  userSelectCallback: null
 };
 
 const LOGOUT_REASON_STORAGE_KEY = "jc_logout_reason";
@@ -117,6 +122,48 @@ const showResetSuccessDialog = (message = "") => {
   showDialog("重置成功", String(message || "").trim() || "密码重置成功，请重新登录", "去登录", () => {
     switchToAccount();
   });
+};
+
+const hideUserSelectModal = () => {
+  if (userSelectModal) {
+    userSelectModal.style.display = "none";
+  }
+  runtime.userSelectCallback = null;
+};
+
+const showUserSelectDialog = (users, hint, callback) => {
+  if (!userSelectList || !userSelectModal) return;
+  if (userSelectHint) {
+    userSelectHint.textContent = String(hint || "请选择要操作的账号");
+  }
+  userSelectList.innerHTML = "";
+  users.forEach((user) => {
+    const item = document.createElement("div");
+    item.className = "user-select-item";
+    const displayName = user.name || user.username;
+    const initial = displayName ? displayName.charAt(0).toUpperCase() : "U";
+    item.innerHTML =
+      '<div class="user-select-avatar">' + initial + '</div>' +
+      '<div class="user-select-info">' +
+        '<div class="user-select-name">' + escapeHtml(displayName) + '</div>' +
+        '<div class="user-select-username">' + escapeHtml(user.username) + '</div>' +
+      '</div>';
+    item.addEventListener("click", () => {
+      hideUserSelectModal();
+      if (typeof callback === "function") {
+        callback(user);
+      }
+    });
+    userSelectList.appendChild(item);
+  });
+  runtime.userSelectCallback = typeof callback === "function" ? callback : null;
+  userSelectModal.style.display = "flex";
+};
+
+const escapeHtml = (text) => {
+  const div = document.createElement("div");
+  div.textContent = String(text || "");
+  return div.innerHTML;
 };
 
 const hasValidStoredSession = () => {
@@ -381,6 +428,20 @@ if (resetSuccessGoLoginBtn) {
   });
 }
 
+if (userSelectCancelBtn) {
+  userSelectCancelBtn.addEventListener("click", () => {
+    hideUserSelectModal();
+  });
+}
+
+if (userSelectModal) {
+  userSelectModal.addEventListener("click", (event) => {
+    if (event.target === userSelectModal) {
+      hideUserSelectModal();
+    }
+  });
+}
+
 if (captchaCodeText) {
   captchaCodeText.addEventListener("click", () => {
     refreshCaptcha().catch(() => {});
@@ -578,20 +639,29 @@ smsForm.addEventListener("submit", async (event) => {
     return;
   }
   try {
-    const res = await fetch("/api/auth/sms/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone, code })
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      setStatus(data.message || "短信登录失败", true);
-      if (submitBtn) submitBtn.disabled = false;
-      return;
-    }
-    persistLoginSession(data);
-    setStatus("登录成功，正在跳转");
-    window.location.href = "/drive.html";
+    const doSmsLogin = async (selectedUserId) => {
+      const res = await fetch("/api/auth/sms/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone, code, userId: selectedUserId })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setStatus(data.message || "短信登录失败", true);
+        if (submitBtn) submitBtn.disabled = false;
+        return;
+      }
+      if (data.multipleUsers && data.users && data.users.length > 1) {
+        showUserSelectDialog(data.users, data.message || "该手机号绑定了多个账号，请选择要登录的账号", (selectedUser) => {
+          doSmsLogin(selectedUser.id);
+        });
+        return;
+      }
+      persistLoginSession(data);
+      setStatus("登录成功，正在跳转");
+      window.location.href = "/drive.html";
+    };
+    await doSmsLogin(null);
   } catch (_error) {
     setStatus("网络请求失败，请稍后重试", true);
     if (submitBtn) submitBtn.disabled = false;
@@ -622,23 +692,32 @@ if (resetForm) {
       return;
     }
     try {
-      const res = await fetch("/api/auth/password-reset/reset", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone, code, newPassword })
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setStatus(data.message || "重置密码失败", true);
+      const doResetPassword = async (selectedUserId) => {
+        const res = await fetch("/api/auth/password-reset/reset", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone, code, newPassword, userId: selectedUserId })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setStatus(data.message || "重置密码失败", true);
+          if (submitBtn) submitBtn.disabled = false;
+          return;
+        }
+        if (data.multipleUsers && data.users && data.users.length > 1) {
+          showUserSelectDialog(data.users, data.message || "该手机号绑定了多个账号，请选择要重置密码的账号", (selectedUser) => {
+            doResetPassword(selectedUser.id);
+          });
+          return;
+        }
+        setStatus("");
+        showResetSuccessDialog(data.message || "密码重置成功，请重新登录");
+        if (resetPhoneInput) resetPhoneInput.value = "";
+        if (resetCodeInput) resetCodeInput.value = "";
+        if (resetPasswordInput) resetPasswordInput.value = "";
         if (submitBtn) submitBtn.disabled = false;
-        return;
-      }
-      setStatus("");
-      showResetSuccessDialog(data.message || "密码重置成功，请重新登录");
-      if (resetPhoneInput) resetPhoneInput.value = "";
-      if (resetCodeInput) resetCodeInput.value = "";
-      if (resetPasswordInput) resetPasswordInput.value = "";
-      if (submitBtn) submitBtn.disabled = false;
+      };
+      await doResetPassword(null);
     } catch (_error) {
       setStatus("网络请求失败，请稍后重试", true);
       if (submitBtn) submitBtn.disabled = false;

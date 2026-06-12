@@ -117,13 +117,9 @@ module.exports = (app, deps) => {
       }
       recentTimestamps.push(now);
       smsIpRateStore.set(ipKey, { windowMs: smsPolicy.ipLimitWindowMs, timestamps: recentTimestamps });
-      const [userRows] = await pool.query("SELECT id FROM users WHERE phone = ? LIMIT 2", [phone]);
+      const [userRows] = await pool.query("SELECT id FROM users WHERE phone = ? LIMIT 1", [phone]);
       if (userRows.length === 0) {
         res.status(404).json({ message: "手机号未绑定账号" });
-        return;
-      }
-      if (userRows.length > 1) {
-        res.status(400).json({ message: "手机号绑定多个账号，请联系管理员处理" });
         return;
       }
       smsCodeStore.set(phone, {
@@ -168,18 +164,50 @@ module.exports = (app, deps) => {
         res.status(400).json({ message: "短信配置不完整" });
         return;
       }
-      await verifySmsCode({ loginSettings: settings.login, phone, verifyCode: code });
-      const [rows] = await pool.query("SELECT id FROM users WHERE phone = ? LIMIT 2", [phone]);
+      const [rows] = await pool.query("SELECT id, username, name FROM users WHERE phone = ? LIMIT 10", [phone]);
       if (rows.length === 0) {
         res.status(404).json({ message: "手机号未绑定账号" });
         return;
       }
-      if (rows.length > 1) {
-        res.status(400).json({ message: "手机号绑定多个账号，请联系管理员处理" });
+      const isMultiAccount = rows.length > 1;
+      const stored = smsCodeStore.get(phone);
+      const alreadyVerified = stored && stored.smsVerified;
+      if (isMultiAccount && !req.body.userId && !alreadyVerified) {
+        await verifySmsCode({ loginSettings: settings.login, phone, verifyCode: code });
+        smsCodeStore.set(phone, { ...stored, smsVerified: true, smsVerifiedAt: Date.now() });
+        const users = rows.map((u) => ({
+          id: u.id,
+          username: u.username,
+          name: u.name || ""
+        }));
+        res.json({ message: "请选择要重置密码的账号", multipleUsers: true, users });
+        return;
+      }
+      if (isMultiAccount && !req.body.userId && alreadyVerified) {
+        const users = rows.map((u) => ({
+          id: u.id,
+          username: u.username,
+          name: u.name || ""
+        }));
+        res.json({ message: "请选择要重置密码的账号", multipleUsers: true, users });
+        return;
+      }
+      if (!alreadyVerified) {
+        await verifySmsCode({ loginSettings: settings.login, phone, verifyCode: code });
+      }
+      smsCodeStore.delete(phone);
+      if (isMultiAccount) {
+        const userId = Number(req.body.userId);
+        const matched = rows.find((r) => Number(r.id) === userId);
+        if (!matched) {
+          res.status(400).json({ message: "指定的账号不存在" });
+          return;
+        }
+        await pool.query("UPDATE users SET password_hash = ? WHERE id = ? LIMIT 1", [await hashPassword(newPassword), matched.id]);
+        res.json({ message: "密码重置成功，请重新登录" });
         return;
       }
       await pool.query("UPDATE users SET password_hash = ? WHERE id = ? LIMIT 1", [await hashPassword(newPassword), rows[0].id]);
-      smsCodeStore.delete(phone);
       res.json({ message: "密码重置成功，请重新登录" });
     } catch (error) {
       if (error && error.message === "短信验证码校验失败") {
@@ -265,6 +293,7 @@ module.exports = (app, deps) => {
   app.post("/api/auth/sms/login", async (req, res) => {
     const phone = normalizePhone(req.body.phone);
     const code = String(req.body.code || "").trim();
+    const userId = req.body.userId ? Number(req.body.userId) : null;
     if (!/^1\d{10}$/.test(phone) || !/^\d{6}$/.test(code)) {
       res.status(400).json({ message: "手机号或验证码不正确" });
       return;
@@ -279,17 +308,49 @@ module.exports = (app, deps) => {
         res.status(400).json({ message: "短信配置不完整" });
         return;
       }
-      await verifySmsCode({ loginSettings: settings.login, phone, verifyCode: code });
-      const [rows] = await pool.query("SELECT id FROM users WHERE phone = ? LIMIT 2", [phone]);
+      const [rows] = await pool.query("SELECT id, username, name FROM users WHERE phone = ? LIMIT 10", [phone]);
       if (rows.length === 0) {
         res.status(404).json({ message: "手机号未绑定账号" });
         return;
       }
-      if (rows.length > 1) {
-        res.status(400).json({ message: "手机号绑定多个账号，请联系管理员处理" });
+      const isMultiAccount = rows.length > 1;
+      const isSelectingAccount = isMultiAccount && userId;
+      const stored = smsCodeStore.get(phone);
+      const alreadyVerified = stored && stored.smsVerified;
+      if (isMultiAccount && !userId && !alreadyVerified) {
+        await verifySmsCode({ loginSettings: settings.login, phone, verifyCode: code });
+        smsCodeStore.set(phone, { ...stored, smsVerified: true, smsVerifiedAt: Date.now() });
+        const users = rows.map((u) => ({
+          id: u.id,
+          username: u.username,
+          name: u.name || ""
+        }));
+        res.json({ message: "请选择要登录的账号", multipleUsers: true, users });
         return;
       }
+      if (isMultiAccount && !userId && alreadyVerified) {
+        const users = rows.map((u) => ({
+          id: u.id,
+          username: u.username,
+          name: u.name || ""
+        }));
+        res.json({ message: "请选择要登录的账号", multipleUsers: true, users });
+        return;
+      }
+      if (!alreadyVerified) {
+        await verifySmsCode({ loginSettings: settings.login, phone, verifyCode: code });
+      }
       smsCodeStore.delete(phone);
+      if (isMultiAccount) {
+        const matched = rows.find((r) => Number(r.id) === userId);
+        if (!matched) {
+          res.status(400).json({ message: "指定的账号不存在" });
+          return;
+        }
+        const loginSessionMinutes = await createLoginSession(matched.id, req, res);
+        res.json({ message: "登录成功", loginSessionMinutes });
+        return;
+      }
       const loginSessionMinutes = await createLoginSession(rows[0].id, req, res);
       res.json({ message: "登录成功", loginSessionMinutes });
     } catch (error) {
