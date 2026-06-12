@@ -26,7 +26,8 @@ module.exports = (app, deps) => {
     crypto,
     fs,
     getAvatarStorageDir,
-    normalizeStorageRelativePath
+    normalizeStorageRelativePath,
+    sharp
   } = deps;
 
   app.get("/api/auth/me", authRequired, async (req, res) => {
@@ -223,7 +224,11 @@ module.exports = (app, deps) => {
     const avatarAbsolutePath = path.join(UPLOAD_DIR, avatarRelativePath);
     try {
       fs.mkdirSync(avatarDir, { recursive: true });
-      fs.writeFileSync(avatarAbsolutePath, req.file.buffer);
+      // 压缩头像：最大 160x160px，保持比例缩放
+      const compressedBuffer = await sharp(req.file.buffer)
+        .resize(160, 160, { fit: "inside", withoutEnlargement: true })
+        .toBuffer();
+      fs.writeFileSync(avatarAbsolutePath, compressedBuffer);
       const [rows] = await pool.query("SELECT avatar FROM users WHERE id = ? LIMIT 1", [req.user.userId]);
       const oldAvatar = rows.length > 0 ? String(rows[0].avatar || "") : "";
       await pool.query("UPDATE users SET avatar = ? WHERE id = ?", [`/uploads/${avatarRelativePath}`, req.user.userId]);

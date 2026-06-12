@@ -715,12 +715,12 @@ const loadDownloadTasks = async () => {
           : task.status === "paused"
             ? "paused"
             : task.status === "browser_downloading"
-              ? "completed"
+              ? "browser_downloading"
               : task.status === "completed"
                 ? "completed"
                 : "canceled",
-      progress: task.status === "browser_downloading" ? 100 : Number(task.progress || 0),
-      downloaded: task.status === "browser_downloading" ? Number(task.size || 0) : Number(task.downloaded || 0),
+      progress: Number(task.progress || 0),
+      downloaded: Number(task.downloaded || 0),
       speed: Number(task.speed || 0)
     }));
   } catch (e) {}
@@ -731,7 +731,7 @@ const getDownloadStatusText = (task) => {
   if (task.status === "completed") return "已完成";
   if (task.status === "canceled") return "已取消";
   if (task.status === "paused") return "已暂停";
-  if (task.status === "browser_downloading") return "请在默认下载目录中查看下载文件";
+  if (task.status === "browser_downloading") return "请在默认下载目录中查看";
   if (task.status === "downloading") {
     const progressText = task.progress > 0 ? ` ${task.progress}%` : "";
     const speedText = task.speed > 0 ? ` | ${formatSize(task.speed)}/s` : "";
@@ -778,7 +778,8 @@ const renderTransferTaskHeader = () => {
   const uploadingCount = state.uploadTasks.filter((task) => task.status === "uploading").length;
   const uploadCompletedCount = state.uploadTasks.filter((task) => task.status === "completed").length;
   const pendingDownloadCount = state.downloadTasks.filter((task) => task.status === "pending").length;
-  const downloadingCount = state.downloadTasks.filter((task) => task.status === "downloading" || task.status === "browser_downloading").length;
+  const downloadingCount = state.downloadTasks.filter((task) => task.status === "downloading").length;
+  const browserDownloadingCount = state.downloadTasks.filter((task) => task.status === "browser_downloading").length;
   const pausedDownloadCount = state.downloadTasks.filter((task) => task.status === "paused").length;
   const downloadCompletedCount = state.downloadTasks.filter((task) => task.status === "completed").length;
   

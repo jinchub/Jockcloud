@@ -8,6 +8,7 @@ const bcrypt = require("bcrypt");
 const { spawn } = require("child_process");
 const archiver = require("archiver");
 const multer = require("multer");
+const sharp = require("sharp");
 
 const COS = require("cos-nodejs-sdk-v5");
 const qiniu = require("qiniu");
@@ -1145,6 +1146,7 @@ registerAllRoutes(app, {
   UPLOAD_DIR,
   getAvatarStorageDir,
   normalizeStorageRelativePath,
+  sharp,
   apiMonitorStore,
   PREVIEW_MEDIA_STREAM_CHUNK_BYTES,
   copyFileRecord,
