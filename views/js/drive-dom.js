@@ -10,6 +10,7 @@ const mobileUploadDirBtn = document.getElementById("mobileUploadDirBtn");
 const fileInput = document.getElementById("fileInput");
 const dirInput = document.getElementById("dirInput");
 const newFolderBtn = document.getElementById("newFolderBtn");
+const newFolderBtnMobile = document.getElementById("newFolderBtnMobile");
 const refreshDirBtn = document.getElementById("refreshDirBtn");
 const searchInput = document.getElementById("searchInput");
 const searchBtn = document.getElementById("searchBtn");

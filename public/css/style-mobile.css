@@ -303,6 +303,14 @@ a {
   display: none !important;
 }
 
+#newFolderBtnMobile {
+  display: inline-flex !important;
+}
+
+#newFolderBtn {
+  display: none !important;
+}
+
 .list-toolbar-actions {
   flex-wrap: nowrap;
   gap: 4px;

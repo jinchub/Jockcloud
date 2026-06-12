@@ -3207,6 +3207,9 @@ const updateBatchActionState = () => {
   if (newFolderBtn) {
     newFolderBtn.style.display = isRecycle ? "none" : "";
   }
+  if (newFolderBtnMobile) {
+    newFolderBtnMobile.style.display = isRecycle ? "none" : "";
+  }
   if (batchRestoreBtn) {
     batchRestoreBtn.disabled = count === 0;
     const suffix = count > 0 ? ` (${count})` : "";

@@ -751,6 +751,27 @@ newFolderBtn.onclick = async () => {
   }
 };
 
+if (newFolderBtnMobile) {
+  newFolderBtnMobile.onclick = async () => {
+    if (state.view === 'recycle') {
+      alert("回收站中无法创建文件夹");
+      return;
+    }
+    if (state.category) {
+      state.category = "";
+      state.view = "files";
+      refreshAll();
+    }
+    if (newFolderForm && newFolderModal && newFolderNameInput) {
+      newFolderForm.reset();
+      newFolderNameInput.value = "新建文件夹";
+      newFolderModal.style.display = "flex";
+      newFolderNameInput.focus();
+      newFolderNameInput.select();
+    }
+  };
+}
+
 if (refreshDirBtn) {
   refreshDirBtn.onclick = async () => {
     await refreshAll();
