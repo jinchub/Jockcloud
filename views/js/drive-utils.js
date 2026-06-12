@@ -3029,7 +3029,7 @@ const resolveCurrentFilesSide = () => {
 };
 
 const updateRouteQuery = (payload = {}, replace = false) => {
-  const { main, side, category, usersTab, mountId, syncTaskId, settingsMenu, monitorMenu, fileSpace } = payload;
+  const { main, side, category, usersTab, mountId, syncTaskId, settingsMenu, monitorMenu, fileSpace, folderId } = payload;
   const params = new URLSearchParams(window.location.search);
   if (main) params.set("main", main);
   else params.delete("main");
@@ -3037,6 +3037,11 @@ const updateRouteQuery = (payload = {}, replace = false) => {
   else params.delete("side");
   if (category) params.set("category", category);
   else params.delete("category");
+  const hasFolderId = Object.prototype.hasOwnProperty.call(payload, "folderId");
+  if (hasFolderId) {
+    if (folderId) params.set("folderId", String(folderId));
+    else params.delete("folderId");
+  }
   const hasUsersTab = Object.prototype.hasOwnProperty.call(payload, "usersTab");
   if (hasUsersTab) {
     if (usersTab) params.set("usersTab", usersTab);

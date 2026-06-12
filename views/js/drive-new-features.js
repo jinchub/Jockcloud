@@ -329,12 +329,13 @@ const applyRouteFromUrl = async () => {
       state.fileSpace = "normal";
       state.view = "files";
       state.category = "";
-      state.currentFolderId = null;
+      const folderId = params.get("folderId");
+      state.currentFolderId = folderId ? Number(folderId) : null;
     }
   }
   updateHiddenSpaceUiState();
   // 保留 side=profile 参数，保证刷新不跳首页
   const finalSide = side === "profile" ? "profile" : resolveCurrentFilesSide().side;
-  updateRouteQuery({ main: "files", side: finalSide, category: resolveCurrentFilesSide().category }, true);
+  updateRouteQuery({ main: "files", side: finalSide, category: resolveCurrentFilesSide().category, folderId: state.currentFolderId }, true);
   await refreshAll();
 };

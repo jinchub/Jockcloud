@@ -100,6 +100,7 @@ const renderPath = () => {
       state.keyword = "";
       state.searchOriginFolderId = null;
       state.selectedEntry = null;
+      updateRouteQuery({ main: "files", side: "myFiles", category: null, folderId: id });
       refreshAll();
     };
     return span;
@@ -701,6 +702,7 @@ const renderFileList = () => {
         if (searchInput) {
           searchInput.value = "";
         }
+        updateRouteQuery({ main: "files", side: "myFiles", category: null, folderId: entry.id });
         refreshAll();
         return;
       }
