@@ -979,7 +979,7 @@ const renderProfileCenter = () => {
   }
   if (profileCenterGroups) {
     const groupNames = user.groupNames && Array.isArray(user.groupNames) && user.groupNames.length > 0
-      ? user.groupNames.map(g => renderGroupBadge(g)).join("")
+      ? user.groupNames.map(g => renderGroupBadge(g, true)).join("")
       : "";
     profileCenterGroups.innerHTML = groupNames;
   }
