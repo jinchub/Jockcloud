@@ -151,7 +151,9 @@ const bindNav = () => {
   if (uploadTasksNavBtn) {
     uploadTasksNavBtn.onclick = async (e) => {
       e.preventDefault();
-      const visible = uploadTasksMainContainer && !uploadTasksMainContainer.classList.contains("hidden");
+      const filesView = document.getElementById("view-files");
+      const isFilesViewActive = filesView && filesView.style.display !== "none";
+      const visible = isFilesViewActive && uploadTasksMainContainer && !uploadTasksMainContainer.classList.contains("hidden");
       if (visible) {
         await switchMainView("files");
         setUploadTasksViewVisible(false);
@@ -159,11 +161,10 @@ const bindNav = () => {
         updateRouteQuery({ main: "files", side: resolveCurrentFilesSide().side, category: resolveCurrentFilesSide().category, usersTab: null, mountId: null, syncTaskId: null, settingsMenu: null });
         return;
       }
-      if (state.view === "recycle") {
-        state.view = "files";
-        state.category = "";
-        state.currentFolderId = null;
-      }
+      state.view = "files";
+      state.category = "";
+      state.keyword = "";
+      state.currentFolderId = null;
       await switchMainView("files");
       setUploadTasksViewVisible(true);
       updateRouteQuery({ main: "files", side: "uploadTasks", category: null, usersTab: null, mountId: null, syncTaskId: null, settingsMenu: null });
