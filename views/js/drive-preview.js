@@ -33,7 +33,10 @@
       dragStartX: 0,
       dragStartY: 0,
       dragOriginX: 0,
-      dragOriginY: 0
+      dragOriginY: 0,
+      pinchStartDistance: 0,
+      pinchStartZoom: 1,
+      pinching: false
     },
     mediaPreview: {
       entries: [],
@@ -1209,6 +1212,51 @@ importScripts(${JSON.stringify(workerMainUrl)});
       imageEl.onpointerup = stopDragging;
       imageEl.onpointercancel = stopDragging;
       imageEl.onlostpointercapture = stopDragging;
+
+      // 双指缩放
+      let pinchStartDistance = 0;
+      let pinchStartZoom = 1;
+      let isPinching = false;
+
+      const getTouchDistance = (touch1, touch2) => {
+        const dx = touch1.clientX - touch2.clientX;
+        const dy = touch1.clientY - touch2.clientY;
+        return Math.sqrt(dx * dx + dy * dy);
+      };
+
+      stageEl.ontouchstart = (event) => {
+        if (event.touches.length === 2) {
+          event.preventDefault();
+          isPinching = true;
+          pinchStartDistance = getTouchDistance(event.touches[0], event.touches[1]);
+          pinchStartZoom = state.imagePreview.zoom;
+        }
+      };
+
+      stageEl.ontouchmove = (event) => {
+        if (!isPinching || event.touches.length !== 2) return;
+        event.preventDefault();
+        const currentDistance = getTouchDistance(event.touches[0], event.touches[1]);
+        const scale = currentDistance / pinchStartDistance;
+        const newZoom = clampImageZoom(pinchStartZoom * scale);
+        state.imagePreview.zoom = newZoom;
+        if (newZoom <= 1) {
+          state.imagePreview.offsetX = 0;
+          state.imagePreview.offsetY = 0;
+        }
+        imageEl.style.transform = buildImageTransform();
+        // 更新缩放显示
+        const zoomDisplay = previewBody.querySelector(".preview-image-toolbar-center span:first-of-type");
+        if (zoomDisplay) {
+          zoomDisplay.textContent = `${Math.round(newZoom * 100)}%`;
+        }
+      };
+
+      stageEl.ontouchend = (event) => {
+        if (event.touches.length < 2) {
+          isPinching = false;
+        }
+      };
     }
     if (toggleSidebarBtn) {
       toggleSidebarBtn.onclick = () => {

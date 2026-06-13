@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>分享内容 - JockCloud</title>
   <link rel="stylesheet" href="/css/style.css" />
   <link rel="stylesheet" href="/fontawesome/css/all.min.css">
@@ -50,7 +50,38 @@
     .entry-actions {display: flex;gap: 10px;justify-content: flex-end;align-items: center;}
     .entry-meta-mobile { display: none; }
     .desktop-only { display: block; }
-    .file-icon { width: 20px; text-align: center; color: #8a8f99; font-size: 16px; }
+    .file-icon { width: 20px; text-align: center; font-size: 16px; flex-shrink: 0; }
+    .file-folder { color: #f5a623; }
+    .file-image { color: #52c41a; }
+    .file-video { color: #722ed1; }
+    .file-audio { color: #eb2f96; }
+    .file-pdf { color: #f5222d; }
+    .file-word { color: #2f54eb; }
+    .file-excel { color: #52c41a; }
+    .file-ppt { color: #fa541c; }
+    .file-text { color: #8c8c8c; }
+    .file-zip { color: #faad14; }
+    .file-program { color: #1890ff; }
+    .file-font { color: #8c8c8c; }
+    .file-code-html { color: #e44d26; }
+    .file-code-css { color: #264de4; }
+    .file-code-js { color: #f7df1e; }
+    .file-code-ts { color: #3178c6; }
+    .file-code-react { color: #61dafb; }
+    .file-code-vue { color: #42b883; }
+    .file-code-json { color: #8c8c8c; }
+    .file-code-py { color: #3776ab; }
+    .file-code-java { color: #e76f00; }
+    .file-code-php { color: #777bb4; }
+    .file-code-sql { color: #e48900; }
+    .file-code-shell { color: #4eaa25; }
+    .file-code-xml { color: #8c8c8c; }
+    .file-code-config { color: #8c8c8c; }
+    .file-code-cpp { color: #00599c; }
+    .file-code-cs { color: #68217a; }
+    .file-code { color: #8c8c8c; }
+    .file-psd { color: #31a8ff; }
+    .file-default { color: #8c8c8c; }
     .empty { padding: 40px; color: #8a8f99; font-size: 14px; text-align: center; }
     .footer-right { margin-top: 24px; text-align: right; color: #999; font-size: 12px; }
     @media (max-width: 760px) {
@@ -203,6 +234,41 @@
       return `${y}-${m}-${d} ${h}:${mi}`;
     };
 
+    const getFileIcon = (entry) => {
+      if (entry.type === "folder") return "fa-solid fa-folder file-folder";
+      const name = (entry.name || "").toLowerCase();
+      if (name.endsWith(".psd")) return "file-psd";
+      if (name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png") || name.endsWith(".gif") || name.endsWith(".bmp") || name.endsWith(".webp")) return "fa-solid fa-image file-image";
+      if (name.endsWith(".mp4") || name.endsWith(".mkv") || name.endsWith(".avi") || name.endsWith(".mov")) return "fa-solid fa-film file-video";
+      if (name.endsWith(".mp3") || name.endsWith(".wav") || name.endsWith(".flac") || name.endsWith(".m4a")) return "fa-solid fa-music file-audio";
+      if (name.endsWith(".pdf")) return "fa-solid fa-file-pdf file-pdf";
+      if (name.endsWith(".doc") || name.endsWith(".docx")) return "fa-solid fa-file-word file-word";
+      if (name.endsWith(".xls") || name.endsWith(".xlsx")) return "fa-solid fa-file-excel file-excel";
+      if (name.endsWith(".ppt") || name.endsWith(".pptx")) return "fa-solid fa-file-powerpoint file-ppt";
+      if (name.endsWith(".txt") || name.endsWith(".md")) return "fa-solid fa-file-lines file-text";
+      if (name.endsWith(".zip") || name.endsWith(".rar") || name.endsWith(".7z") || name.endsWith(".tar") || name.endsWith(".gz")) return "fa-solid fa-file-zipper file-zip";
+      if (name.endsWith(".exe") || name.endsWith(".msi") || name.endsWith(".bat") || name.endsWith(".cmd") || name.endsWith(".com")) return "fa-brands fa-windows file-program";
+      if (name.endsWith(".ttf") || name.endsWith(".otf") || name.endsWith(".woff") || name.endsWith(".woff2")) return "fa-solid fa-font file-font";
+      if (name.endsWith(".html") || name.endsWith(".htm")) return "fa-brands fa-html5 file-code-html";
+      if (name.endsWith(".css") || name.endsWith(".scss") || name.endsWith(".less")) return "fa-brands fa-css3-alt file-code-css";
+      if (name.endsWith(".js") || name.endsWith(".mjs") || name.endsWith(".cjs")) return "fa-brands fa-js file-code-js";
+      if (name.endsWith(".ts") || name.endsWith(".tsx")) return "fa-solid fa-code file-code-ts";
+      if (name.endsWith(".jsx")) return "fa-brands fa-react file-code-react";
+      if (name.endsWith(".vue")) return "fa-brands fa-vuejs file-code-vue";
+      if (name.endsWith(".json")) return "fa-solid fa-code file-code-json";
+      if (name.endsWith(".py")) return "fa-brands fa-python file-code-py";
+      if (name.endsWith(".java")) return "fa-brands fa-java file-code-java";
+      if (name.endsWith(".php")) return "fa-brands fa-php file-code-php";
+      if (name.endsWith(".sql")) return "fa-solid fa-database file-code-sql";
+      if (name.endsWith(".sh") || name.endsWith(".bash") || name.endsWith(".zsh") || name.endsWith(".ps1")) return "fa-solid fa-terminal file-code-shell";
+      if (name.endsWith(".xml")) return "fa-solid fa-code file-code-xml";
+      if (name.endsWith(".yaml") || name.endsWith(".yml") || name.endsWith(".toml") || name.endsWith(".ini")) return "fa-solid fa-sliders file-code-config";
+      if (name.endsWith(".c") || name.endsWith(".cpp") || name.endsWith(".cc") || name.endsWith(".h") || name.endsWith(".hpp")) return "fa-solid fa-microchip file-code-cpp";
+      if (name.endsWith(".cs")) return "fa-solid fa-hashtag file-code-cs";
+      if (name.endsWith(".go") || name.endsWith(".rs") || name.endsWith(".swift") || name.endsWith(".kt")) return "fa-solid fa-file-code file-code";
+      return "fa-solid fa-file file-default";
+    };
+
     const getTokenKey = () => `jc_share_token_${state.shareCode}`;
 
     const requestJson = async (url, options = {}) => {
@@ -344,11 +410,11 @@
           const row = document.createElement("div");
           row.className = "entry-row";
           const isFolder = item.type === "folder";
-          const icon = isFolder ? "📁" : "📄";
+          const iconClass = getFileIcon(item);
           const timeText = formatDate(item.updatedAt || item.createdAt);
           row.innerHTML = `
             <div class="entry-name">
-              <span class="file-icon">${icon}</span>
+              <i class="file-icon ${iconClass}"></i>
               ${isFolder ? `<a href="#" class="entry-link folder">${item.name || ""}</a>` : `<span class="entry-link" style="color: #1d2129; cursor: default;">${item.name || ""}</span>`}
             </div>
             <div class="entry-size desktop-only">${isFolder ? "-" : formatSize(item.size)}</div>
@@ -363,8 +429,8 @@
             </div>
           `;
           if (isFolder) {
-            const link = row.querySelector(".entry-link");
-            link.onclick = async (event) => {
+            const openFolder = async (event) => {
+              if (event.target.closest(".entry-actions")) return;
               event.preventDefault();
               if (state.currentFolderId === null) {
                 state.pathStack = [{ id: Number(item.id), name: item.name || "目录" }];
@@ -373,6 +439,9 @@
               }
               await loadFolderEntries(item.id);
             };
+            row.querySelector(".entry-link").onclick = openFolder;
+            row.onclick = openFolder;
+            row.style.cursor = "pointer";
           }
           const downloadBtn = row.querySelector("[data-download='1']");
           if (isFolder) {

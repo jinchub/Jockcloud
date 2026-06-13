@@ -710,6 +710,33 @@ const renderFileList = () => {
       document.querySelectorAll(".table-row, .grid-item").forEach(r => r.classList.remove("selected"));
       item.classList.add("selected");
       if (state.view === "recycle") return;
+      if (isMobileViewport()) {
+        if (isArchiveFileEntry(entry)) {
+          if (hasUserPermission("viewArchive")) {
+            const confirmed = await showDeleteConfirm({
+              title: "查看压缩包",
+              message: "是否查看该压缩包内容？",
+              desc: "将以文件列表方式展示压缩包内容",
+              okText: "查看",
+              cancelText: "取消"
+            });
+            if (!confirmed) return;
+            await viewZipArchiveEntries(entry);
+          } else {
+            const confirmed = await showDeleteConfirm({
+              title: "查看压缩包",
+              message: "在线查看压缩包功能需要升级为VIP",
+              desc: "升级VIP后可享受在线查看、解压等更多功能",
+              okText: "升级VIP",
+              cancelText: "取消"
+            });
+            if (!confirmed) return;
+            return;
+          }
+        }
+        openFilePreview(entry);
+        return;
+      }
       renderDetails(entry);
       showDetailsSidebar();
     };
