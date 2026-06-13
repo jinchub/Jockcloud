@@ -14,7 +14,6 @@
     { key: "files", title: "文件" },
     { key: "transfer", title: "传输" },
     { key: "users", title: "用户" },
-    { key: "permissions", title: "权限" },
     { key: "quota", title: "空间" },
     { key: "mounts", title: "挂载" },
     { key: "sync", title: "同步" },

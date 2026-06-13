@@ -48,7 +48,6 @@ const loadUsers = async () => {
     const [usersRes] = await Promise.all([request("/api/users"), loadUserGroups()]);
     usersData = await usersRes.json();
     renderUsers();
-    renderPermissions();
     setUserManageTab(userManageActiveTab);
   } catch (e) {
     console.error(e);
@@ -90,46 +89,6 @@ const renderUsers = () => {
           <button class="btn-sm" onclick="editUser(${u.id})">编辑</button>
           ${deleteBtn}
         </td>
-      </tr>
-    `;
-  }).join("");
-};
-
-const renderPermissions = () => {
-  const tbody = document.querySelector("#permsTable tbody");
-  if (!tbody) return;
-  const searchInput = document.getElementById("permsSearchInput");
-  const keyword = searchInput ? searchInput.value.trim().toLowerCase() : "";
-  let filteredUsers = getSortedUsersByTable("permissions");
-  if (keyword) {
-    filteredUsers = filteredUsers.filter(u =>
-      (u.username && u.username.toLowerCase().includes(keyword)) ||
-      (u.name && u.name.toLowerCase().includes(keyword))
-    );
-  }
-  const permsPagination = renderAdminTablePagination({
-    total: filteredUsers.length,
-    page: state.permissionsPage,
-    pageSize: state.permissionsPageSize,
-    summaryEl: permsPaginationSummaryEl,
-    pageInfoEl: permsPageInfoEl,
-    prevBtn: permsPrevPageBtn,
-    nextBtn: permsNextPageBtn,
-    pageSizeSelect: permsPageSizeSelect
-  });
-  state.permissionsPage = permsPagination.page;
-  tbody.innerHTML = filteredUsers.slice(permsPagination.startIndex, permsPagination.endIndex).map(u => {
-    const perms = u.effectivePermissions || u.permissions || [];
-    const groupNames = u.groupNames && u.groupNames.length > 0 ? u.groupNames.join(", ") : "-";
-    const checks = ALL_PERMISSIONS.map(p => `
-      <td>${perms.includes(p) ? '<i class="fa-solid fa-check" style="color: #18b377"></i>' : '<i class="fa-solid fa-xmark" style="color: #f53f3f"></i>'}</td>
-    `).join("");
-
-    return `
-      <tr>
-        <td>${u.id}</td>
-        <td>${u.username} (${u.name || "-"}) / ${groupNames}</td>
-        ${checks}
       </tr>
     `;
   }).join("");

@@ -4,7 +4,6 @@ const mainNavItems = document.querySelectorAll(".primary-nav-item[data-view]");
 const views = {
   files: document.getElementById("view-files"),
   users: document.getElementById("view-users"),
-  permissions: document.getElementById("view-permissions"),
   quota: document.getElementById("view-quota"),
   mounts: document.getElementById("view-mounts"),
   sync: document.getElementById("view-sync"),
@@ -52,7 +51,6 @@ const settingsManager = typeof window.createSettingsManager === "function"
   : null;
 const userTableSort = {
   users: { key: "id", order: "asc" },
-  permissions: { key: "id", order: "asc" },
   quota: { key: "id", order: "asc" }
 };
 
@@ -91,8 +89,6 @@ const updateUserTableSortHeaders = () => {
   const mappings = [
     { id: "usersSortId", table: "users", key: "id", text: "ID" },
     { id: "usersSortUsername", table: "users", key: "username", text: "用户名" },
-    { id: "permsSortId", table: "permissions", key: "id", text: "ID" },
-    { id: "permsSortUsername", table: "permissions", key: "username", text: "用户名" },
     { id: "quotaSortId", table: "quota", key: "id", text: "ID" },
     { id: "quotaSortUsername", table: "quota", key: "username", text: "用户名" },
     { id: "quotaSortUsed", table: "quota", key: "used", text: "已用" },
@@ -115,7 +111,6 @@ const toggleUserTableSort = (tableKey, key) => {
   }
   updateUserTableSortHeaders();
   if (tableKey === "users") renderUsers();
-  if (tableKey === "permissions") renderPermissions();
   if (tableKey === "quota") renderQuotaTable();
 };
 
@@ -123,8 +118,6 @@ const bindUserTableSortEvents = () => {
   const bindings = [
     ["usersSortId", "users", "id"],
     ["usersSortUsername", "users", "username"],
-    ["permsSortId", "permissions", "id"],
-    ["permsSortUsername", "permissions", "username"],
     ["quotaSortId", "quota", "id"],
     ["quotaSortUsername", "quota", "username"],
     ["quotaSortUsed", "quota", "used"],
@@ -166,7 +159,7 @@ const switchMainView = async (viewName, enterOptions = {}) => {
   }
 
   // Toggle Views
-  const flexViews = new Set(["files", "users", "permissions", "quota"]);
+  const flexViews = new Set(["files", "users", "quota"]);
   Object.keys(views).forEach(key => {
     if (!views[key]) return;
     views[key].style.display = key === targetView ? (flexViews.has(key) ? "flex" : "block") : "none";
@@ -174,7 +167,6 @@ const switchMainView = async (viewName, enterOptions = {}) => {
 
   // Load Data
   if (targetView === "users") await loadUsers();
-  if (targetView === "permissions") await loadUsers();
   if (targetView === "quota") await loadQuota();
   if (targetView === "mounts" && mountManager && typeof mountManager.onEnterView === "function") await mountManager.onEnterView(enterOptions.mounts || {});
   if (targetView === "sync" && syncManager && typeof syncManager.onEnterView === "function") await syncManager.onEnterView(enterOptions.sync || {});

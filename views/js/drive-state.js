@@ -37,8 +37,6 @@ const state = {
   usersPageSize: 20,
   userGroupsPage: 1,
   userGroupsPageSize: 20,
-  permissionsPage: 1,
-  permissionsPageSize: 20,
   quotaPage: 1,
   quotaPageSize: 20,
   entriesQueryKey: "",

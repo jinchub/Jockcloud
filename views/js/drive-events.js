@@ -1851,61 +1851,6 @@ if (userGroupsPageSizeSelect) {
   };
 }
 
-if (permsPrevPageBtn) {
-  permsPrevPageBtn.onclick = () => {
-    state.permissionsPage = Math.max(1, state.permissionsPage - 1);
-    renderPermissions();
-  };
-}
-
-if (permsNextPageBtn) {
-  permsNextPageBtn.onclick = () => {
-    const { totalPages } = getPaginationInfo(usersData.length, state.permissionsPage, state.permissionsPageSize);
-    state.permissionsPage = Math.min(totalPages, state.permissionsPage + 1);
-    renderPermissions();
-  };
-}
-
-if (permsPageSizeSelect) {
-  permsPageSizeSelect.onchange = () => {
-    state.permissionsPageSize = normalizePageSize(permsPageSizeSelect.value);
-    state.permissionsPage = 1;
-    renderPermissions();
-  };
-}
-
-const permsSearchInput = document.getElementById("permsSearchInput");
-const permsSearchBtn = document.getElementById("permsSearchBtn");
-const permsClearSearchBtn = document.getElementById("permsClearSearchBtn");
-
-if (permsSearchBtn) {
-  permsSearchBtn.onclick = () => {
-    const keyword = permsSearchInput ? permsSearchInput.value.trim().toLowerCase() : "";
-    state.permissionsPage = 1;
-    renderPermissions();
-    if (permsClearSearchBtn) {
-      permsClearSearchBtn.style.display = keyword ? "" : "none";
-    }
-  };
-}
-
-if (permsClearSearchBtn) {
-  permsClearSearchBtn.onclick = () => {
-    if (permsSearchInput) permsSearchInput.value = "";
-    state.permissionsPage = 1;
-    renderPermissions();
-    permsClearSearchBtn.style.display = "none";
-  };
-}
-
-if (permsSearchInput) {
-  permsSearchInput.onkeypress = (e) => {
-    if (e.key === "Enter") {
-      permsSearchBtn && permsSearchBtn.click();
-    }
-  };
-}
-
 if (quotaPrevPageBtn) {
   quotaPrevPageBtn.onclick = () => {
     state.quotaPage = Math.max(1, state.quotaPage - 1);

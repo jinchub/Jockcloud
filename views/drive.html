@@ -64,7 +64,7 @@
   <script>
     document.documentElement.classList.add("menu-permission-init");
     (function applyMenuInitFromCache() {
-      const ALL_MENU_KEYS = ["files", "transfer", "users", "permissions", "quota", "mounts", "sync", "monitor", "settings"];
+      const ALL_MENU_KEYS = ["files", "transfer", "users", "quota", "mounts", "sync", "monitor", "settings"];
       let allowedMenus = ["files", "transfer"];
       let mobileVisibleMenus = ALL_MENU_KEYS.slice();
       try {
@@ -115,8 +115,6 @@
             id="uploadTasksCompletedBadge" style="display: none;"></span></a>
         <a href="#" class="primary-nav-item" data-view="users" title="用户"><i
             class="fa-solid fa-user-group"></i><span>用户</span></a>
-        <a href="#" class="primary-nav-item" data-view="permissions" title="权限"><i
-            class="fa-solid fa-shield-halved"></i><span>权限</span></a>
         <a href="#" class="primary-nav-item" data-view="quota" title="空间"><i
             class="fa-solid fa-chart-pie"></i><span>空间</span></a>
         <a href="#" class="primary-nav-item" data-view="mounts" title="挂载"><i
@@ -267,8 +265,6 @@
       <!-- INCLUDE: view-files.html -->
 
       <!-- INCLUDE: view-users.html -->
-
-      <!-- INCLUDE: view-permissions.html -->
 
       <!-- INCLUDE: view-quota.html -->
 
