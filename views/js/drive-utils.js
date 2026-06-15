@@ -3257,6 +3257,7 @@ const updateBatchActionState = () => {
     updateBatchPasteLabel(state.clipboardAction, state.clipboardEntries.length);
   }
   if (batchCancelBtn) {
+    batchCancelBtn.disabled = !hasClipboard;
     batchCancelBtn.style.display = hasClipboard ? "" : "none";
   }
   const fileTable = document.querySelector("#view-files .file-table");

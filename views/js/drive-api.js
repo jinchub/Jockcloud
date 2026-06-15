@@ -105,7 +105,7 @@ const loadEntries = async () => {
   state.filePage = Number(payload && payload.page) || state.filePage;
 };
 
-const refreshAll = async () => {
+const refreshAll = async (keepSelection = false) => {
   try {
     const promises = [loadEntries(), loadStats(), loadQuickAccess()];
     if (state.view === "files" && !state.category) {
@@ -115,8 +115,10 @@ const refreshAll = async () => {
     }
     
     await Promise.all(promises);
-    const visibleMap = new Map(state.entries.map((entry) => [entryKey(entry), entry]));
-    state.selectedEntries = state.selectedEntries.filter((item) => visibleMap.has(entryKey(item)));
+    if (!keepSelection) {
+      const visibleMap = new Map(state.entries.map((entry) => [entryKey(entry), entry]));
+      state.selectedEntries = state.selectedEntries.filter((item) => visibleMap.has(entryKey(item)));
+    }
     renderPath();
     renderFileList();
     renderDetails(state.selectedEntry);

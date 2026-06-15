@@ -65,7 +65,6 @@ const renderPath = () => {
     resetBtn.textContent = "重置";
     resetBtn.onclick = () => {
       const targetFolderId = state.searchOriginFolderId;
-      clearSelection();
       state.view = "files";
       state.currentFolderId = targetFolderId === undefined ? null : targetFolderId;
       state.category = "";
@@ -95,13 +94,12 @@ const renderPath = () => {
     }
     span.appendChild(document.createTextNode(name));
     span.onclick = () => {
-      clearSelection();
       state.currentFolderId = id;
       state.keyword = "";
       state.searchOriginFolderId = null;
       state.selectedEntry = null;
       updateRouteQuery({ main: "files", side: "myFiles", category: null, folderId: id });
-      refreshAll();
+      refreshAll(true);
     };
     return span;
   };
@@ -680,11 +678,6 @@ const renderFileList = () => {
         mobileLongPressTriggered = false;
         return;
       }
-      if (state.selectedEntries.length > 0) {
-        event.preventDefault();
-        event.stopPropagation();
-        toggleMobileEntrySelection();
-      }
     }, { passive: false });
     item.addEventListener("touchcancel", () => {
       clearMobileLongPressTimer();
@@ -694,7 +687,6 @@ const renderFileList = () => {
     item.onclick = async (e) => {
       if (e.button !== 0) return;
       if (state.view !== "recycle" && isFolder) {
-        clearSelection();
         state.currentFolderId = entry.id;
         state.selectedEntry = null;
         state.category = "";
@@ -703,7 +695,7 @@ const renderFileList = () => {
           searchInput.value = "";
         }
         updateRouteQuery({ main: "files", side: "myFiles", category: null, folderId: entry.id });
-        refreshAll();
+        refreshAll(true);
         return;
       }
       state.selectedEntry = entry;
@@ -737,8 +729,25 @@ const renderFileList = () => {
         openFilePreview(entry);
         return;
       }
-      renderDetails(entry);
-      showDetailsSidebar();
+      // 文件夹先显示"正在统计大小"，然后异步获取最新数据
+      if (isFolder) {
+        renderDetails(entry, true);
+        showDetailsSidebar();
+        try {
+          const res = await request(`/api/entries/${entry.type}/${entry.id}`);
+          if (res.ok) {
+            const data = await res.json().catch(() => ({}));
+            const updatedEntry = { ...entry, ...data };
+            state.selectedEntry = updatedEntry;
+            renderDetails(updatedEntry);
+          }
+        } catch (error) {
+          void error;
+        }
+      } else {
+        renderDetails(entry);
+        showDetailsSidebar();
+      }
     };
 
     item.ondblclick = async (e) => {
@@ -984,7 +993,7 @@ const createBatchArchive = async () => {
   }
 };
 
-const renderDetails = (entry) => {
+const renderDetails = (entry, loading = false) => {
   if (!entry) {
     detailsContent.innerHTML = `
       <div class="empty-info">
@@ -997,7 +1006,7 @@ const renderDetails = (entry) => {
 
   const isFolder = entry.type === "folder";
   const folderTotalSize = Number(entry.totalSize);
-  const folderSizeText = Number.isFinite(folderTotalSize) && folderTotalSize >= 0 ? formatSize(folderTotalSize) : "-";
+  const folderSizeText = loading ? "正在统计大小..." : (Number.isFinite(folderTotalSize) && folderTotalSize > 0 ? formatSize(folderTotalSize) : "0 B");
 
   detailsContent.innerHTML = `
     <div class="info-detail-box">
@@ -1010,7 +1019,7 @@ const renderDetails = (entry) => {
     </div>
     <div class="info-prop">
       <div class="info-prop-label">大小</div>
-      <div class="info-prop-value">${isFolder ? folderSizeText : formatSize(entry.size)}</div>
+      <div class="info-prop-value" id="detailSizeValue">${isFolder ? folderSizeText : formatSize(entry.size)}</div>
     </div>
     <div class="info-prop">
       <div class="info-prop-label">${isFolder ? "创建时间" : "上传时间"}</div>
@@ -1030,6 +1039,14 @@ const renderDetails = (entry) => {
 
 const showSelectedEntryDetails = async () => {
   if (!state.selectedEntry) return;
+  const isFolder = state.selectedEntry.type === "folder";
+
+  // 如果是文件夹，先显示"正在统计大小"
+  if (isFolder) {
+    renderDetails(state.selectedEntry, true);
+    showDetailsSidebar();
+  }
+
   let detailEntry = state.selectedEntry;
   try {
     const res = await request(`/api/entries/${state.selectedEntry.type}/${state.selectedEntry.id}`);
