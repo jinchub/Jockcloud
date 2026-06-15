@@ -286,9 +286,9 @@ const getEntryVisualHtml = (entry, variant = "list") => {
     }
     const escapedName = escapeHtml(entry.name || "视频");
     if (variant === "grid") {
-      return `<div class="file-thumb-grid file-thumb-video-wrap"><video class="file-thumb file-thumb-video" src="${previewUrl}" preload="metadata" muted playsinline loading="lazy" alt="${escapedName}"></video><i class="fa-solid fa-play file-thumb-video-play-icon"></i></div>`;
+      return `<div class="file-thumb-grid file-thumb-video-wrap"><img class="file-thumb file-thumb-video" src="${previewUrl}" alt="${escapedName}" loading="lazy" /><i class="fa-solid fa-play file-thumb-video-play-icon"></i></div>`;
     }
-    return `<div class="file-thumb-video-list"><video class="file-thumb file-thumb-${variant} file-thumb-video-list-video" src="${previewUrl}" preload="metadata" muted playsinline loading="lazy" alt="${escapedName}"></video><i class="fa-solid fa-play file-thumb-video-list-play-icon"></i></div>`;
+    return `<div class="file-thumb-video-list"><img class="file-thumb file-thumb-${variant} file-thumb-video-list-video" src="${previewUrl}" alt="${escapedName}" loading="lazy" /><i class="fa-solid fa-play file-thumb-video-list-play-icon"></i></div>`;
   }
   return variant === "detail"
     ? `<i class="${iconClass}"></i>`

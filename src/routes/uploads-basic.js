@@ -48,7 +48,8 @@ module.exports = (app, deps) => {
     hasEntryNameConflict,
     hasFilePermission,
     resolveUniqueName,
-    logFileOperation
+    logFileOperation,
+    generateVideoThumbnail
   } = deps;
 
   const resolveEffectiveQuotaForUser = async (userId) => {
@@ -480,6 +481,20 @@ module.exports = (app, deps) => {
         ip: req.ip
       });
       
+      // 异步生成视频缩略图
+      if (fileCategory === "video" && !thumbnailStorageName) {
+        const fileId = insertResult.insertId;
+        const videoFilePath = finalFilePath;
+        setImmediate(async () => {
+          try {
+            const videoThumbName = await generateVideoThumbnail(videoFilePath, storageName, spaceType);
+            if (videoThumbName) {
+              await pool.query("UPDATE files SET thumbnail_storage_name = ? WHERE id = ?", [videoThumbName, fileId]);
+            }
+          } catch (e) {}
+        });
+      }
+      
       removeChunkSession(uploadId);
       res.json({ 
         message: "上传成功", 
@@ -685,6 +700,20 @@ module.exports = (app, deps) => {
           userId: req.user.userId,
           ip: req.ip
         });
+        
+        // 异步生成视频缩略图
+        if (fileCategory === "video" && !thumbnailStorageName) {
+          const fileId = insertResult.insertId;
+          const videoFilePath = item.currentFile.path;
+          setImmediate(async () => {
+            try {
+              const videoThumbName = await generateVideoThumbnail(videoFilePath, storageName, spaceType);
+              if (videoThumbName) {
+                await pool.query("UPDATE files SET thumbnail_storage_name = ? WHERE id = ?", [videoThumbName, fileId]);
+              }
+            } catch (e) {}
+          });
+        }
         
         uploadResults.push({
           originalName: item.originalName,

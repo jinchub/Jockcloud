@@ -418,6 +418,62 @@ const writeExtractedThumbnailFromSource = (sourcePath, baseStorageName, mimeType
   return thumbnailStorageName;
 };
 
+const generateVideoThumbnail = async (videoPath, baseStorageName, spaceType = "normal") => {
+  if (!videoPath || !fs.existsSync(videoPath)) return "";
+  
+  // 优先使用系统 PATH 中的 ffmpeg，其次使用 ffmpeg-static
+  let ffmpegPath;
+  try {
+    const whichCmd = process.platform === "win32" ? "where ffmpeg" : "which ffmpeg";
+    ffmpegPath = execSync(whichCmd, { encoding: "utf-8" }).trim().split("\n")[0];
+  } catch (e) {
+    try {
+      ffmpegPath = require("ffmpeg-static");
+    } catch (e2) {
+      return "";
+    }
+  }
+  
+  if (!ffmpegPath || !fs.existsSync(ffmpegPath)) return "";
+  
+  let ffmpeg;
+  try {
+    ffmpeg = require("fluent-ffmpeg");
+    ffmpeg.setFfmpegPath(ffmpegPath);
+  } catch (e) {
+    return "";
+  }
+  
+  const parsedStorageName = parseStoredStorageName(baseStorageName);
+  const normalizedBasePath = normalizeStorageRelativePath(parsedStorageName.relativePath);
+  const baseDir = path.posix.dirname(normalizedBasePath);
+  const thumbFileName = `${Date.now()}-${crypto.randomBytes(6).toString("hex")}.jpg`;
+  const relativeThumbPath = baseDir && baseDir !== "." ? `videothumb/${baseDir}/${thumbFileName}` : `videothumb/${thumbFileName}`;
+  const thumbnailStorageName = buildStoredStorageName(relativeThumbPath, parsedStorageName.diskId);
+  const thumbnailPath = resolveAbsoluteStoragePath(thumbnailStorageName, spaceType);
+  if (!thumbnailPath) return "";
+  fs.mkdirSync(path.dirname(thumbnailPath), { recursive: true });
+  return new Promise((resolve) => {
+    ffmpeg(videoPath)
+      .inputOptions(["-ss", "0"])
+      .outputOptions(["-vframes", "1", "-f", "image2", "-vf", "scale=320:-1"])
+      .output(thumbnailPath)
+      .on("end", () => {
+        if (fs.existsSync(thumbnailPath)) {
+          resolve(thumbnailStorageName);
+        } else {
+          resolve("");
+        }
+      })
+      .on("error", (err) => {
+        console.log("[video-thumb] ffmpeg error:", err && err.message ? err.message : err);
+        try { if (fs.existsSync(thumbnailPath)) fs.unlinkSync(thumbnailPath); } catch (e) {}
+        resolve("");
+      })
+      .run();
+  });
+};
+
 const resolveStorageNameFromPath = (filePath, fallbackName = "", storageRootDir = UPLOAD_DIR, diskId = "") => {
   const relative = normalizeStorageRelativePath(path.relative(storageRootDir, filePath));
   if (relative) return buildStoredStorageName(relative, diskId);
@@ -456,5 +512,6 @@ module.exports = {
   inferImageMimeTypeFromStorageName,
   inferMimeTypeByFileName,
   writeExtractedThumbnailFromSource,
+  generateVideoThumbnail,
   resolveStorageNameFromPath
 };
