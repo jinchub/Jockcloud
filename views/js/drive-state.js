@@ -31,6 +31,7 @@ const state = {
   downloadTasksPage: 1,
   downloadTasksPageSize: 20,
   transferTaskTab: "download",
+  transferTaskStatusFilter: "active",
   mySharesPage: 1,
   mySharesPageSize: 20,
   usersPage: 1,

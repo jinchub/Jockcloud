@@ -850,7 +850,8 @@ const renderQuotaTable = () => {
     pageSizeSelect: quotaPageSizeSelect
   });
   state.quotaPage = quotaPagination.page;
-  tbody.innerHTML = usersData.slice(quotaPagination.startIndex, quotaPagination.endIndex).map(u => {
+  const sortedUsers = getSortedUsersByTable("quota");
+  tbody.innerHTML = sortedUsers.slice(quotaPagination.startIndex, quotaPagination.endIndex).map(u => {
     const storageMigrationState = getQuotaStorageMigrationProgress(u.id);
     const isStorageMigrating = storageMigrationState && storageMigrationState.status === "running";
     const used = u.used || 0;

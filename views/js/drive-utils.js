@@ -806,13 +806,25 @@ const renderTransferTaskHeader = () => {
   if (isUploadTab) {
     pendingCountEl.textContent = `待上传 ${pendingUploadCount}`;
     pendingCountEl.style.display = "inline";
+    pendingCountEl.style.fontWeight = state.transferTaskStatusFilter === "pending" ? "bold" : "normal";
+    pendingCountEl.style.color = state.transferTaskStatusFilter === "pending" ? "#1890ff" : "";
     uploadingCountEl.textContent = `上传中 ${uploadingCount}`;
+    uploadingCountEl.style.fontWeight = state.transferTaskStatusFilter === "active" ? "bold" : "normal";
+    uploadingCountEl.style.color = state.transferTaskStatusFilter === "active" ? "#1890ff" : "";
     completedCountEl.textContent = `已完成 ${uploadCompletedCount}`;
+    completedCountEl.style.fontWeight = state.transferTaskStatusFilter === "completed" ? "bold" : "normal";
+    completedCountEl.style.color = state.transferTaskStatusFilter === "completed" ? "#1890ff" : "";
   } else {
     pendingCountEl.textContent = `待下载 ${pendingDownloadCount}`;
     pendingCountEl.style.display = "inline";
+    pendingCountEl.style.fontWeight = state.transferTaskStatusFilter === "pending" ? "bold" : "normal";
+    pendingCountEl.style.color = state.transferTaskStatusFilter === "pending" ? "#1890ff" : "";
     uploadingCountEl.textContent = `下载中 ${downloadingCount + pausedDownloadCount}`;
+    uploadingCountEl.style.fontWeight = state.transferTaskStatusFilter === "active" ? "bold" : "normal";
+    uploadingCountEl.style.color = state.transferTaskStatusFilter === "active" ? "#1890ff" : "";
     completedCountEl.textContent = `已完成 ${downloadCompletedCount}`;
+    completedCountEl.style.fontWeight = state.transferTaskStatusFilter === "completed" ? "bold" : "normal";
+    completedCountEl.style.color = state.transferTaskStatusFilter === "completed" ? "#1890ff" : "";
   }
   const activeTaskCount = pendingUploadCount + uploadingCount + pendingDownloadCount + downloadingCount + pausedDownloadCount;
   if (uploadTasksCompletedBadge) {
@@ -989,7 +1001,14 @@ const setDownloadTaskSelected = (taskId, selected) => {
 
 const renderUploadTasks = () => {
   if (!uploadTaskList) return;
-  const orderedTasks = sortUploadTasksForDisplay(state.uploadTasks);
+  let orderedTasks = sortUploadTasksForDisplay(state.uploadTasks);
+  if (state.transferTaskStatusFilter !== "all") {
+    if (state.transferTaskStatusFilter === "active") {
+      orderedTasks = orderedTasks.filter(t => t.status === "uploading" || t.status === "pending");
+    } else {
+      orderedTasks = orderedTasks.filter(t => t.status === state.transferTaskStatusFilter);
+    }
+  }
   const validIdSet = new Set(orderedTasks.map((task) => String(task.id || "")));
   state.selectedUploadTaskIds = state.selectedUploadTaskIds.filter((id) => validIdSet.has(id));
   const selectedSet = new Set(state.selectedUploadTaskIds);
@@ -1122,7 +1141,14 @@ const patchDownloadTaskRow = (taskId) => {
 
 const renderDownloadTasks = () => {
   if (!downloadTaskList) return;
-  const orderedTasks = sortDownloadTasksForDisplay(state.downloadTasks);
+  let orderedTasks = sortDownloadTasksForDisplay(state.downloadTasks);
+  if (state.transferTaskStatusFilter !== "all") {
+    if (state.transferTaskStatusFilter === "active") {
+      orderedTasks = orderedTasks.filter(t => t.status === "downloading" || t.status === "pending" || t.status === "paused");
+    } else {
+      orderedTasks = orderedTasks.filter(t => t.status === state.transferTaskStatusFilter);
+    }
+  }
   const validIdSet = new Set(orderedTasks.map((task) => String(task.id || "")));
   state.selectedDownloadTaskIds = state.selectedDownloadTaskIds.filter((id) => validIdSet.has(id));
   const selectedSet = new Set(state.selectedDownloadTaskIds);

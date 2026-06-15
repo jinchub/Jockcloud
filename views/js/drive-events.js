@@ -1482,6 +1482,33 @@ if (transferDownloadTabBtn) {
   };
 }
 
+if (pendingCountEl) {
+  pendingCountEl.style.cursor = "pointer";
+  pendingCountEl.onclick = () => {
+    state.transferTaskStatusFilter = state.transferTaskStatusFilter === "pending" ? "all" : "pending";
+    renderUploadTasks();
+    renderDownloadTasks();
+  };
+}
+
+if (uploadingCountEl) {
+  uploadingCountEl.style.cursor = "pointer";
+  uploadingCountEl.onclick = () => {
+    state.transferTaskStatusFilter = state.transferTaskStatusFilter === "active" ? "all" : "active";
+    renderUploadTasks();
+    renderDownloadTasks();
+  };
+}
+
+if (completedCountEl) {
+  completedCountEl.style.cursor = "pointer";
+  completedCountEl.onclick = () => {
+    state.transferTaskStatusFilter = state.transferTaskStatusFilter === "completed" ? "all" : "completed";
+    renderUploadTasks();
+    renderDownloadTasks();
+  };
+}
+
 if (myShareList) {
   myShareList.onclick = async (event) => {
     const selectInput = event.target.closest("input[data-share-select]");
