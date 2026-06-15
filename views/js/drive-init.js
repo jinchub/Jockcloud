@@ -25,3 +25,4 @@ bindLogoBoxResponsive();
 switchTransferTaskTab("download");
 bindThemeToggle();
   bindRefreshPage();
+  bindPullToRefresh();

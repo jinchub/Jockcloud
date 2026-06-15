@@ -255,3 +255,70 @@ const bindRefreshPage = () => {
     window.location.reload();
   };
 };
+
+const bindPullToRefresh = () => {
+  const indicator = document.getElementById("pullToRefreshIndicator");
+  const tableBody = document.getElementById("fileList");
+  if (!indicator || !tableBody) return;
+
+  let startY = 0;
+  let currentY = 0;
+  let isPulling = false;
+  let isRefreshing = false;
+  const THRESHOLD = 60;
+
+  const isMobileView = () => window.matchMedia("(max-width: 768px)").matches;
+
+  const onTouchStart = (e) => {
+    if (!isMobileView() || isRefreshing) return;
+    if (tableBody.scrollTop > 0) return;
+    startY = e.touches[0].clientY;
+    isPulling = true;
+  };
+
+  const onTouchMove = (e) => {
+    if (!isPulling || isRefreshing) return;
+    currentY = e.touches[0].clientY;
+    const diff = currentY - startY;
+    if (diff > 0 && diff < THRESHOLD * 2) {
+      indicator.classList.add("visible");
+      if (diff >= THRESHOLD) {
+        indicator.classList.add("pullable");
+      } else {
+        indicator.classList.remove("pullable");
+      }
+    } else {
+      indicator.classList.remove("visible", "pullable");
+    }
+  };
+
+  const onTouchEnd = async () => {
+    if (!isPulling || isRefreshing) {
+      isPulling = false;
+      return;
+    }
+    isPulling = false;
+    const diff = currentY - startY;
+    if (diff >= THRESHOLD) {
+      isRefreshing = true;
+      indicator.classList.remove("pullable");
+      indicator.classList.add("refreshing");
+      try {
+        await refreshAll();
+      } catch (e) {
+        console.error(e);
+      } finally {
+        indicator.classList.remove("refreshing", "visible");
+        isRefreshing = false;
+      }
+    } else {
+      indicator.classList.remove("visible", "pullable");
+    }
+    startY = 0;
+    currentY = 0;
+  };
+
+  tableBody.addEventListener("touchstart", onTouchStart, { passive: true });
+  tableBody.addEventListener("touchmove", onTouchMove, { passive: false });
+  tableBody.addEventListener("touchend", onTouchEnd, { passive: true });
+};

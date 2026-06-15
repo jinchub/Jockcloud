@@ -1128,3 +1128,46 @@ a {
 .info-sidebar-overlay.show {
   display: block;
 }
+
+/* 下拉刷新 */
+.pull-to-refresh-indicator {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 0;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 12px;
+  transition: height 0.2s ease;
+}
+
+.pull-to-refresh-indicator.visible {
+  display: flex;
+}
+
+.pull-to-refresh-indicator.refreshing {
+  height: 36px;
+}
+
+.pull-to-refresh-indicator.pullable {
+  height: 36px;
+}
+
+.pull-refresh-icon {
+  font-size: 14px;
+  transition: transform 0.2s ease;
+}
+
+.pull-to-refresh-indicator.refreshing .pull-refresh-icon {
+  animation: pull-refresh-spin 0.8s linear infinite;
+}
+
+.pull-to-refresh-indicator.pullable .pull-refresh-icon {
+  transform: rotate(180deg);
+}
+
+@keyframes pull-refresh-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

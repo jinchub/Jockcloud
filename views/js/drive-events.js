@@ -2319,4 +2319,6 @@ bindGridDragSelect();
 if (typeof window !== "undefined") {
   window.gridDragSelectState = gridDragSelectState;
   window.hideGridSelectionBox = hideGridSelectionBox;
+  // 暴露到全局，供 Android App 等外部调用
+  window.uploadBatch = uploadBatch;
 }

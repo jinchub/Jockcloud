@@ -333,9 +333,9 @@ importScripts(${JSON.stringify(workerMainUrl)});
     return monacoReadyPromise;
   };
 
-  const showNotice = ({ title = "提示", message = "", isError = false } = {}) => {
+  const showNotice = ({ title = "提示", message = "", isError = false, okText = "知道了", iconTone, iconClass, onOk } = {}) => {
     if (typeof global.showAppNotice === "function") {
-      global.showAppNotice({ title, message, isError });
+      global.showAppNotice({ title, message, isError, okText, iconTone, iconClass, okAction: "custom", okPayload: onOk });
       return;
     }
     if (typeof global.alert === "function") {
@@ -711,8 +711,21 @@ importScripts(${JSON.stringify(workerMainUrl)});
     previewBody.innerHTML = `<div class="preview-placeholder">当前文件暂不支持预览</div>`;
   };
 
-  const showUnsupportedNotice = () => {
-    showNotice({ title: "提示", message: "当前文件暂不支持预览", isError: true });
+  const showUnsupportedNotice = (entry) => {
+    const iconClass = (entry && typeof global.getFileIcon === "function") ? global.getFileIcon(entry) : "fa-solid fa-file";
+    showNotice({
+      title: "提示",
+      message: "当前文件暂不支持预览，请下载后查看",
+      isError: false,
+      iconTone: "orange",
+      iconClass: iconClass,
+      okText: "下载",
+      onOk: () => {
+        if (typeof global.startDownloadTask === "function" && entry) {
+          global.startDownloadTask(entry);
+        }
+      }
+    });
   };
 
   const setPreviewBodyImageMode = (enabled) => {
@@ -1436,7 +1449,7 @@ importScripts(${JSON.stringify(workerMainUrl)});
     const ext = getFileExt(entry.name);
     const previewType = resolvePreviewType(entry);
     if (!previewType) {
-      showUnsupportedNotice();
+      showUnsupportedNotice(entry);
       return;
     }
     state.activeEntry = entry;

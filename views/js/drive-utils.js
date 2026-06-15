@@ -450,6 +450,11 @@ const createUploadItem = (file, relativePath = "", sourcePath = "") => ({
   sourcePath: normalizeUploadSourcePath(sourcePath || file?.path || relativePath || file?.webkitRelativePath || file?.name)
 });
 
+// 暴露到全局，供 Android App 等外部调用
+if (typeof window !== "undefined") {
+  window.createUploadItem = createUploadItem;
+}
+
 const isUploadItemSourcePathValid = (task, uploadItem) => {
   if (!task || !uploadItem || !uploadItem.file) return false;
   const expectedPath = normalizeUploadSourcePath(task.sourcePath);
@@ -2291,6 +2296,11 @@ const showAppNotice = ({ title, message, isError = false, iconTone = "default", 
         await copyTextToClipboard(copyValue);
       } catch (error) {}
     }
+    if (okAction === "custom" && typeof okPayload === "function") {
+      try {
+        await okPayload();
+      } catch (error) {}
+    }
     close();
   };
   const closeByMask = (event) => {
@@ -2865,6 +2875,7 @@ window.showAppConfirm = (options = {}) => showDeleteConfirm(options);
 window.showAppNotice = (options = {}) => showAppNotice(options);
 window.showAppPrompt = (options = {}) => showAppPrompt(options);
 window.showAppSelect = (options = {}) => showAppSelect(options);
+window.startDownloadTask = (entry) => startDownloadTask(entry);
 window.alert = (message) => {
   showAppNotice({ message: String(message || ""), noticeType: APP_NOTICE_TYPE.ERROR }).catch(() => {
     nativeAlert(String(message || ""));

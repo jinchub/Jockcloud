@@ -162,6 +162,9 @@ const getFileIcon = (entry) => {
   if (name.endsWith(".exe") || name.endsWith(".msi") || name.endsWith(".bat") || name.endsWith(".cmd") || name.endsWith(".com")) {
     return "fa-brands fa-windows file-program";
   }
+  if (name.endsWith(".apk")) {
+    return "fa-brands fa-android file-program";
+  }
   if (name.endsWith(".ttf") || name.endsWith(".otf") || name.endsWith(".woff") || name.endsWith(".woff2")) {
     return "fa-solid fa-font file-font";
   }
@@ -218,6 +221,7 @@ const getFileIcon = (entry) => {
   }
   return "fa-solid fa-file file-default";
 };
+window.getFileIcon = getFileIcon;
 
 const IMAGE_THUMB_EXT_SET = new Set(["jpg", "jpeg", "png", "gif", "bmp", "webp", "svg", "avif", "apng", "jfif", "tif", "tiff", "ico"]);
 const IMAGE_UPLOAD_MIME_SET = new Set(["image/jpeg", "image/pjpeg", "image/png", "image/webp", "image/bmp", "image/x-ms-bmp", "image/gif", "image/svg+xml", "image/x-icon", "image/vnd.microsoft.icon", "image/ico"]);
