@@ -732,6 +732,7 @@ if (batchPasteBtn) {
 if (batchCancelBtn) {
   batchCancelBtn.onclick = () => {
     clearBatchClipboard();
+    clearSelection();
   };
 }
 

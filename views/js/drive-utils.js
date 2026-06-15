@@ -3228,23 +3228,23 @@ const updateBatchActionState = () => {
   batchButtonMeta.forEach((item) => updateBatchButtonLabel(item.btn, item.icon, item.text, count));
   if (batchDownloadBtn) {
     batchDownloadBtn.disabled = disabled || !canDownload;
-    batchDownloadBtn.style.display = !isRecycle && canDownload ? "" : "none";
+    batchDownloadBtn.style.display = !isRecycle && canDownload && !hasClipboard ? "" : "none";
   }
   if (batchArchiveBtn) {
     batchArchiveBtn.disabled = disabled || !canArchive;
-    batchArchiveBtn.style.display = !isRecycle && canArchive ? "" : "none";
+    batchArchiveBtn.style.display = !isRecycle && canArchive && !hasClipboard ? "" : "none";
   }
   if (batchCopyBtn) {
     batchCopyBtn.disabled = disabled || !canCopy;
-    batchCopyBtn.style.display = !isRecycle && canCopy ? "" : "none";
+    batchCopyBtn.style.display = !isRecycle && canCopy && !hasClipboard ? "" : "none";
   }
   if (batchMoveBtn) {
     batchMoveBtn.disabled = disabled || !canMove;
-    batchMoveBtn.style.display = !isRecycle && canMove ? "" : "none";
+    batchMoveBtn.style.display = !isRecycle && canMove && !hasClipboard ? "" : "none";
   }
   if (batchDeleteBtn) {
     batchDeleteBtn.disabled = disabled || !canDelete;
-    batchDeleteBtn.style.display = !isRecycle && canDelete ? "" : "none";
+    batchDeleteBtn.style.display = !isRecycle && canDelete && !hasClipboard ? "" : "none";
   }
   if (newFolderBtn) {
     newFolderBtn.style.display = isRecycle ? "none" : "";
