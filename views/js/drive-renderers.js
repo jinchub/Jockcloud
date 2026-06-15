@@ -224,6 +224,7 @@ const getFileIcon = (entry) => {
 window.getFileIcon = getFileIcon;
 
 const IMAGE_THUMB_EXT_SET = new Set(["jpg", "jpeg", "png", "gif", "bmp", "webp", "svg", "avif", "apng", "jfif", "tif", "tiff", "ico"]);
+const VIDEO_THUMB_EXT_SET = new Set(["mp4", "webm", "ogg", "mov", "avi", "mkv", "flv", "wmv", "m4v", "3gp"]);
 const IMAGE_UPLOAD_MIME_SET = new Set(["image/jpeg", "image/pjpeg", "image/png", "image/webp", "image/bmp", "image/x-ms-bmp", "image/gif", "image/svg+xml", "image/x-icon", "image/vnd.microsoft.icon", "image/ico"]);
 const UPLOAD_THUMB_MAX_SIDE = 240;
 const UPLOAD_THUMB_QUALITY = 0.82;
@@ -246,6 +247,14 @@ const isImageEntry = (entry) => {
   return !!ext && IMAGE_THUMB_EXT_SET.has(ext);
 };
 
+const isVideoEntry = (entry) => {
+  if (!entry || entry.type === "folder") return false;
+  if (String(entry.fileCategory || "").toLowerCase() === "video") return true;
+  const name = String(entry.name || "").toLowerCase();
+  const ext = name.includes(".") ? name.split(".").pop() : "";
+  return !!ext && VIDEO_THUMB_EXT_SET.has(ext);
+};
+
 const getEntryPreviewUrl = (entry) => {
   if (!entry || entry.type === "folder" || entry.id === undefined || entry.id === null) return "";
   const recycleQuery = state.view === "recycle" ? "&recycle=1" : "";
@@ -258,19 +267,32 @@ const getEntryPreviewUrl = (entry) => {
 
 const getEntryVisualHtml = (entry, variant = "list") => {
   const iconClass = getFileIcon(entry);
-  if (!isImageEntry(entry)) {
-    return variant === "detail"
-      ? `<i class="${iconClass}"></i>`
-      : `<i class="${iconClass} file-icon"></i>`;
+  if (isImageEntry(entry)) {
+    const previewUrl = getEntryPreviewUrl(entry);
+    if (!previewUrl) {
+      return variant === "detail"
+        ? `<i class="${iconClass}"></i>`
+        : `<i class="${iconClass} file-icon"></i>`;
+    }
+    const escapedName = escapeHtml(entry.name || "图片");
+    return `<img class="file-thumb file-thumb-${variant}" src="${previewUrl}" alt="${escapedName}" loading="lazy" />`;
   }
-  const previewUrl = getEntryPreviewUrl(entry);
-  if (!previewUrl) {
-    return variant === "detail"
-      ? `<i class="${iconClass}"></i>`
-      : `<i class="${iconClass} file-icon"></i>`;
+  if (isVideoEntry(entry)) {
+    const previewUrl = getEntryPreviewUrl(entry);
+    if (!previewUrl) {
+      return variant === "detail"
+        ? `<i class="${iconClass}"></i>`
+        : `<i class="${iconClass} file-icon"></i>`;
+    }
+    const escapedName = escapeHtml(entry.name || "视频");
+    if (variant === "grid") {
+      return `<div class="file-thumb-grid file-thumb-video-wrap"><video class="file-thumb file-thumb-video" src="${previewUrl}" preload="metadata" muted playsinline loading="lazy" alt="${escapedName}"></video><i class="fa-solid fa-play file-thumb-video-play-icon"></i></div>`;
+    }
+    return `<div class="file-thumb-video-list"><video class="file-thumb file-thumb-${variant} file-thumb-video-list-video" src="${previewUrl}" preload="metadata" muted playsinline loading="lazy" alt="${escapedName}"></video><i class="fa-solid fa-play file-thumb-video-list-play-icon"></i></div>`;
   }
-  const escapedName = escapeHtml(entry.name || "图片");
-  return `<img class="file-thumb file-thumb-${variant}" src="${previewUrl}" alt="${escapedName}" loading="lazy" />`;
+  return variant === "detail"
+    ? `<i class="${iconClass}"></i>`
+    : `<i class="${iconClass} file-icon"></i>`;
 };
 
 const getEntryTypeLabel = (entry) => {
