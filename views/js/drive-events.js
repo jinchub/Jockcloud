@@ -1,7 +1,8 @@
 // Events
-const uploadLargeFileByChunks = async ({ taskId, uploadItem, thumbnailDataUrl, abortController, batchMeta, uploadStrategy = "cancel" }) => {
+const uploadLargeFileByChunks = async ({ taskId, uploadItem, thumbnailDataUrl, abortController, batchMeta, taskFolderId, uploadStrategy = "cancel" }) => {
   const file = uploadItem.file;
   const totalChunks = Math.ceil(file.size / UPLOAD_CHUNK_SIZE_BYTES);
+  const effectiveFolderId = taskFolderId !== undefined ? taskFolderId : state.currentFolderId;
   const initRes = await request("/api/upload/chunk/init", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -10,7 +11,7 @@ const uploadLargeFileByChunks = async ({ taskId, uploadItem, thumbnailDataUrl, a
       fileName: file.name,
       fileSize: file.size,
       mimeType: file.type || "application/octet-stream",
-      folderId: state.currentFolderId === null ? "null" : String(state.currentFolderId),
+      folderId: effectiveFolderId === null ? "null" : String(effectiveFolderId),
       relativePath: uploadItem.relativePath ? uploadItem.relativePath.replace(/\\/g, "/") : "",
       uploadBatchId: batchMeta && batchMeta.batchId ? String(batchMeta.batchId) : "",
       uploadBatchTotal: batchMeta && Number.isFinite(Number(batchMeta.batchTotal)) ? Math.floor(Number(batchMeta.batchTotal)) : 1,
@@ -167,7 +168,8 @@ const enqueueUploadTask = (uploadItem, batchMeta = null) => {
     uploaded: 0,
     lastUpdateTime: 0,
     lastUploaded: 0,
-    speed: 0
+    speed: 0,
+    folderId: state.currentFolderId
   });
   uploadTaskRuntimePayloadMap.set(taskId, { uploadItem, batchMeta });
   return taskId;
@@ -190,6 +192,7 @@ const runUploadTask = (taskId, uploadItem, batchMeta = null) => new Promise((res
     return;
   }
   const startTime = Date.now();
+  const taskFolderId = task.folderId !== undefined ? task.folderId : state.currentFolderId;
   updateUploadTask(taskId, { 
     status: "uploading", 
     progress: 0,
@@ -206,7 +209,7 @@ const runUploadTask = (taskId, uploadItem, batchMeta = null) => new Promise((res
     const thumbnailDataUrl = await createUploadImageThumbnailDataUrl(uploadItem.file);
     if (isChunkUploadFileSize(uploadItem.file.size)) {
       try {
-        await uploadLargeFileByChunks({ taskId, uploadItem, thumbnailDataUrl, abortController, batchMeta });
+        await uploadLargeFileByChunks({ taskId, uploadItem, thumbnailDataUrl, abortController, batchMeta, taskFolderId });
         updateUploadTask(taskId, { status: "completed", progress: 100 });
         refreshAll();
       } catch (error) {
@@ -335,7 +338,7 @@ const runUploadTask = (taskId, uploadItem, batchMeta = null) => new Promise((res
         };
         const formData = new FormData();
         formData.append("files", uploadItem.file, uploadItem.file.name);
-        formData.append("folderId", state.currentFolderId === null ? "null" : String(state.currentFolderId));
+        formData.append("folderId", taskFolderId === null ? "null" : String(taskFolderId));
         formData.append("uploadBatchId", batchMeta && batchMeta.batchId ? String(batchMeta.batchId) : "");
         formData.append("uploadBatchTotal", batchMeta && Number.isFinite(Number(batchMeta.batchTotal)) ? String(Math.floor(Number(batchMeta.batchTotal))) : "1");
         formData.append("uploadStrategy", currentStrategy);
