@@ -1,7 +1,10 @@
 .login-header {
   padding: 0 20px;
 }
-
+input[type="checkbox"]:checked::after {
+  left: 2px;
+    top: 0;
+}
 a {
   -webkit-tap-highlight-color: transparent;
 }

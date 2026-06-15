@@ -102,6 +102,58 @@
   --shadow-xl: 0 12px 36px rgba(0, 0, 0, 0.65);
 }
 
+/* 自定义复选框样式 */
+input[type="checkbox"] {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid var(--text-quaternary);
+  border-radius: 50%;
+  background: var(--bg-primary);
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+input[type="checkbox"]:hover {
+  border-color: var(--primary-color);
+}
+
+input[type="checkbox"]:checked {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 2.5px;
+  top: 0.5px;
+  width: 3px;
+  height: 5px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+input[type="checkbox"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+input[type="checkbox"]:disabled:hover {
+  border-color: var(--text-quaternary);
+}
+
+input[type="checkbox"]:disabled:checked {
+  background: var(--text-quaternary);
+  border-color: var(--text-quaternary);
+}
+
 [data-theme="dark"] .timeline-card-media {
   box-shadow: none;
 }
@@ -2379,6 +2431,7 @@ html {
   -moz-user-select: none;
   -ms-user-select: none;
   overflow: hidden;
+      background: rgb(251 251 251 / 50%);
 }
 
 .grid-check {
