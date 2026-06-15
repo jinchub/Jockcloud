@@ -124,7 +124,57 @@ const refreshAll = async (keepSelection = false) => {
     renderDetails(state.selectedEntry);
     updateNavState();
     updateBatchActionState();
+    if (state.view !== "recycle") {
+      startVideoThumbnailPolling();
+    }
   } catch(e) {
     console.error(e);
+  }
+};
+
+// 视频缩略图轮询
+const videoThumbnailPollMap = new Map();
+
+const pollVideoThumbnailStatus = (fileId, maxRetries = 20, interval = 2000) => {
+  if (videoThumbnailPollMap.has(fileId)) return;
+  let retryCount = 0;
+  let timerId = null;
+  const poll = async () => {
+    if (retryCount >= maxRetries) {
+      videoThumbnailPollMap.delete(fileId);
+      return;
+    }
+    retryCount++;
+    try {
+      const res = await request(`/api/files/${fileId}/thumbnail-status`);
+      if (!res.ok) {
+        videoThumbnailPollMap.delete(fileId);
+        return;
+      }
+      const data = await res.json();
+      if (data.hasThumbnail) {
+        videoThumbnailPollMap.delete(fileId);
+        const entry = state.entries.find((e) => e.id === fileId && e.type === "file");
+        if (entry) {
+          entry.hasThumbnail = true;
+          renderFileList();
+        }
+      } else {
+        timerId = setTimeout(poll, interval);
+        videoThumbnailPollMap.set(fileId, timerId);
+      }
+    } catch (e) {
+      videoThumbnailPollMap.delete(fileId);
+    }
+  };
+  timerId = setTimeout(poll, interval);
+  videoThumbnailPollMap.set(fileId, timerId);
+};
+
+const startVideoThumbnailPolling = () => {
+  for (const entry of state.entries) {
+    if (entry.type === "file" && !entry.hasThumbnail && String(entry.fileCategory || "").toLowerCase() === "video") {
+      pollVideoThumbnailStatus(entry.id);
+    }
   }
 };

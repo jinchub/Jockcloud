@@ -497,4 +497,28 @@ module.exports = (app, deps) => {
     }
     res.json({ message: "批量操作完成", successCount, failCount, errors });
   });
+
+  // 视频缩略图状态查询（用于前端轮询）
+  app.get("/api/files/:id/thumbnail-status", authRequired, async (req, res) => {
+    const spaceType = resolveStorageSpaceTypeByRequest(req);
+    const fileId = normalizeFolderId(req.params.id);
+    if (!fileId) {
+      res.status(400).json({ message: "文件ID不合法" });
+      return;
+    }
+    try {
+      const [rows] = await pool.query(
+        "SELECT thumbnail_storage_name FROM files WHERE id = ? AND user_id = ? AND space_type = ? AND deleted_at IS NULL LIMIT 1",
+        [fileId, req.user.userId, spaceType]
+      );
+      if (rows.length === 0) {
+        res.status(404).json({ message: "文件不存在" });
+        return;
+      }
+      const hasThumbnail = !!String(rows[0].thumbnail_storage_name || "").trim();
+      res.json({ hasThumbnail });
+    } catch (error) {
+      sendDbError(res, error);
+    }
+  });
 };

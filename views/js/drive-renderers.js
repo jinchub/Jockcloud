@@ -156,7 +156,7 @@ const getFileIcon = (entry) => {
   if (name.endsWith(".txt") || name.endsWith(".md")) {
     return "fa-solid fa-file-lines file-text";
   }
-  if (name.endsWith(".zip") || name.endsWith(".rar") || name.endsWith(".7z") || name.endsWith(".tar") || name.endsWith(".gz")) {
+  if (name.endsWith(".zip") || name.endsWith(".rar") || name.endsWith(".7z") || name.endsWith(".tar") || name.endsWith(".gz") || name.endsWith(".xz") || name.endsWith(".bz2") || name.endsWith(".zst")) {
     return "fa-solid fa-file-zipper file-zip";
   }
   if (name.endsWith(".exe") || name.endsWith(".msi") || name.endsWith(".bat") || name.endsWith(".cmd") || name.endsWith(".com")) {
@@ -278,15 +278,25 @@ const getEntryVisualHtml = (entry, variant = "list") => {
     return `<img class="file-thumb file-thumb-${variant}" src="${previewUrl}" alt="${escapedName}" loading="lazy" />`;
   }
   if (isVideoEntry(entry)) {
-    const previewUrl = getEntryPreviewUrl(entry);
-    if (!previewUrl) {
-      return variant === "detail"
-        ? `<i class="${iconClass}"></i>`
-        : `<i class="${iconClass} file-icon"></i>`;
+    if (!entry.hasThumbnail) {
+      if (variant === "grid") {
+        return `<div class="file-thumb-grid file-thumb-video-wrap video-thumb-placeholder"><i class="fa-solid fa-play video-thumb-placeholder-play-icon"></i></div>`;
+      }
+      if (variant === "list") {
+        return `<div class="file-thumb-video-list video-thumb-placeholder-list"><i class="fa-solid fa-play file-thumb-video-list-play-icon"></i></div>`;
+      }
+      if (variant === "detail") {
+        return `<div class="file-thumb-video-detail-wrap video-thumb-placeholder-detail"><i class="fa-solid fa-play video-thumb-placeholder-play-icon"></i></div>`;
+      }
+      return `<i class="${iconClass}"></i>`;
     }
+    const previewUrl = getEntryPreviewUrl(entry);
     const escapedName = escapeHtml(entry.name || "视频");
     if (variant === "grid") {
       return `<div class="file-thumb-grid file-thumb-video-wrap"><img class="file-thumb file-thumb-video" src="${previewUrl}" alt="${escapedName}" loading="lazy" /><i class="fa-solid fa-play file-thumb-video-play-icon"></i></div>`;
+    }
+    if (variant === "detail") {
+      return `<div class="file-thumb-video-detail-wrap"><img class="file-thumb file-thumb-detail" src="${previewUrl}" alt="${escapedName}" loading="lazy" /></div>`;
     }
     return `<div class="file-thumb-video-list"><img class="file-thumb file-thumb-${variant} file-thumb-video-list-video" src="${previewUrl}" alt="${escapedName}" loading="lazy" /><i class="fa-solid fa-play file-thumb-video-list-play-icon"></i></div>`;
   }
@@ -535,7 +545,9 @@ const renderFileList = () => {
       timelineDayGroupIndex += 1;
     }
     const item = document.createElement("div");
+    const isVideoNoThumb = entry.type === "file" && isVideoEntry(entry) && !entry.hasThumbnail;
     item.className = state.viewMode === "grid" ? "grid-item" : `table-row${isCategoryTimelineMode ? " timeline-entry" : ""}`;
+    if (isVideoNoThumb) item.classList.add("video-no-thumb");
     if (isEntrySelected(entry) || (state.selectedEntry && state.selectedEntry.id === entry.id && state.selectedEntry.type === entry.type)) {
       item.classList.add("selected");
     }

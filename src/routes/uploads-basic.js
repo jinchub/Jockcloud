@@ -500,6 +500,8 @@ module.exports = (app, deps) => {
         message: "上传成功", 
         total: 1,
         fileName: actualOriginalName,
+        fileId: insertResult.insertId,
+        fileCategory: fileCategory,
         renamed: duplicated && uploadStrategy === "auto_rename"
       });
     } catch (error) {
@@ -718,6 +720,8 @@ module.exports = (app, deps) => {
         uploadResults.push({
           originalName: item.originalName,
           actualName: actualOriginalName,
+          fileId: insertResult.insertId,
+          fileCategory: fileCategory,
           renamed: conflictItem && uploadStrategy === "auto_rename"
         });
       }
