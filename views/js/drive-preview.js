@@ -679,7 +679,7 @@ importScripts(${JSON.stringify(workerMainUrl)});
 
     let pdfDoc = null;
     let currentPage = 1;
-    let scale = 0.8;
+    let scale = 1.0;
     let renderedPages = new Set();
     let pageHeights = [];
 
@@ -690,6 +690,16 @@ importScripts(${JSON.stringify(workerMainUrl)});
     };
     const updateZoomInfo = () => {
       zoomInput.value = `${Math.round(scale * 100)}%`;
+    };
+
+    const parseZoomValue = (rawValue) => {
+      if (rawValue == null) return NaN;
+      const str = String(rawValue).trim().replace(/[%％]/g, "");
+      const val = parseFloat(str);
+      if (!isNaN(val) && val >= 50 && val <= 300) {
+        return val;
+      }
+      return NaN;
     };
 
     const getPageViewport = async (pageNum) => {
@@ -869,6 +879,7 @@ importScripts(${JSON.stringify(workerMainUrl)});
     zoomOutBtn.onclick = async () => {
       if (scale > 0.5) {
         scale -= 0.25;
+        updateZoomInfo();
         await renderAllPages();
         onScroll();
       }
@@ -876,12 +887,14 @@ importScripts(${JSON.stringify(workerMainUrl)});
     zoomInBtn.onclick = async () => {
       if (scale < 3) {
         scale += 0.25;
+        updateZoomInfo();
         await renderAllPages();
         onScroll();
       }
     };
     fitWidthBtn.onclick = async () => {
       await fitWidth();
+      updateZoomInfo();
     };
 
     pageInput.addEventListener("keydown", (e) => {
@@ -903,22 +916,29 @@ importScripts(${JSON.stringify(workerMainUrl)});
     pageInput.addEventListener("blur", () => {
       updatePageInfo(currentPage);
     });
+
+    const applyZoomInput = () => {
+      const val = parseZoomValue(zoomInput.value);
+      if (!isNaN(val)) {
+        scale = val / 100;
+        updateZoomInfo();
+        void renderAllPages();
+        onScroll();
+        return true;
+      }
+      updateZoomInfo();
+      return false;
+    };
+
     zoomInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
         e.preventDefault();
-        const val = parseFloat(zoomInput.value);
-        if (!isNaN(val) && val >= 50 && val <= 300) {
-          scale = val / 100;
-          void renderAllPages();
-          onScroll();
-        } else {
-          updateZoomInfo();
-        }
+        applyZoomInput();
         zoomInput.blur();
       }
     });
     zoomInput.addEventListener("blur", () => {
-      updateZoomInfo();
+      applyZoomInput();
     });
   };
 
@@ -981,7 +1001,7 @@ importScripts(${JSON.stringify(workerMainUrl)});
 
     let pdfDoc = null;
     let currentPage = 1;
-    let scale = 0.5;
+    let scale = 1.0;
     let rendering = false;
     let highlightOutlineItem = null;
     let renderedPages = new Set(); // 已渲染的页码
@@ -994,6 +1014,16 @@ importScripts(${JSON.stringify(workerMainUrl)});
     };
     const updateZoomInfo = () => {
       zoomInput.value = `${Math.round(scale * 100)}%`;
+    };
+
+    const parseZoomValue = (rawValue) => {
+      if (rawValue == null) return NaN;
+      const str = String(rawValue).trim().replace(/[%％]/g, "");
+      const val = parseFloat(str);
+      if (!isNaN(val) && val >= 50 && val <= 300) {
+        return val;
+      }
+      return NaN;
     };
 
     // 获取页面 viewport
@@ -1239,6 +1269,7 @@ importScripts(${JSON.stringify(workerMainUrl)});
     zoomOutBtn.onclick = async () => {
       if (scale > 0.5) {
         scale -= 0.25;
+        updateZoomInfo();
         await renderAllPages();
         onScroll();
       }
@@ -1246,12 +1277,14 @@ importScripts(${JSON.stringify(workerMainUrl)});
     zoomInBtn.onclick = async () => {
       if (scale < 3) {
         scale += 0.25;
+        updateZoomInfo();
         await renderAllPages();
         onScroll();
       }
     };
     fitWidthBtn.onclick = async () => {
       await fitWidth();
+      updateZoomInfo();
     };
 
     // 目录面板切换
@@ -1295,22 +1328,28 @@ importScripts(${JSON.stringify(workerMainUrl)});
     });
 
     // 缩放输入处理
+    const applyZoomInput = () => {
+      const val = parseZoomValue(zoomInput.value);
+      if (!isNaN(val)) {
+        scale = val / 100;
+        updateZoomInfo();
+        void renderAllPages();
+        onScroll();
+        return true;
+      }
+      updateZoomInfo();
+      return false;
+    };
+
     zoomInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
         e.preventDefault();
-        const val = parseFloat(zoomInput.value);
-        if (!isNaN(val) && val >= 50 && val <= 300) {
-          scale = val / 100;
-          void renderAllPages();
-          onScroll();
-        } else {
-          updateZoomInfo();
-        }
+        applyZoomInput();
         zoomInput.blur();
       }
     });
     zoomInput.addEventListener("blur", () => {
-      updateZoomInfo();
+      applyZoomInput();
     });
 
     // 浏览器原生预览（iframe 模式），仅电脑端
