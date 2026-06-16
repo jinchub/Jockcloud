@@ -16,6 +16,7 @@ const OSS = require("ali-oss");
 const Dypnsapi = require("@alicloud/dypnsapi20170525");
 const mammoth = require("mammoth");
 const xlsx = require("xlsx");
+const officeParser = require("officeparser");
 const Throttle = require('stream-throttle').Throttle;
 const { createRateLimitMiddleware } = require("./middlewares/rate-limit");
 const { createAuthMiddlewares } = require("./middlewares/auth");
@@ -1105,6 +1106,7 @@ registerAllRoutes(app, {
   inferImageMimeTypeFromStorageName,
   mammoth,
   xlsx,
+  officeParser,
   writeExtractedThumbnailFromSource,
   runCompressArchive,
   Throttle,

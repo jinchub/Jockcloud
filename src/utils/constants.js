@@ -90,7 +90,7 @@ const DEFAULT_PREVIEW_CONFIG = {
   videoExts: ["mp4", "webm", "ogg", "ogv", "mov", "m4v", "mkv", "avi", "wmv", "flv", "3gp", "mpeg", "mpg", "ts", "m2ts"],
   audioExts: ["mp3", "wav", "flac", "aac", "ogg", "oga", "m4a", "amr", "opus", "wma", "abc"],
   textExts: ["crt", "csr", "key", "pem", "txt", "md", "markdown", "log", "ini", "conf", "cfg", "yaml", "yml", "json", "xml", "csv", "tsv", "srt", "ass", "ssa", "vtt", "rtf", "tex", "js", "ts", "jsx", "tsx", "py", "java", "c", "cc", "cpp", "h", "hpp", "cs", "go", "rs", "php", "rb", "swift", "kt", "kts", "sql", "sh", "bash", "zsh", "ps1", "bat", "cmd", "vue", "css", "scss", "sass", "less", "html", "htm", "xhtml", "toml", "env", "gitignore", "dockerfile", "makefile", "gradle", "properties", "lock"],
-  docExts: ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "wps", "et", "dps", "epub", "mobi", "azw3", "ibooks", "ps", "eps"]
+  docExts: ["pdf", "doc", "docx", "xls", "xlsx", "csv", "ppt", "pptx", "wps", "et", "dps", "epub", "mobi", "azw3", "ibooks", "ps", "eps"]
 };
 
 module.exports = {

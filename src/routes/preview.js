@@ -1,4 +1,91 @@
 module.exports = (app, deps) => {
+  const { convert: convertOffice } = require("officeparser");
+  const AdmZip = require("adm-zip");
+
+  /**
+   * 从 PPTX 中提取背景色（优先从 slide 的第一个全尺寸形状获取，其次从主题获取）
+   */
+  function extractPptxThemeStyles(filePath) {
+    try {
+      const zip = new AdmZip(filePath);
+
+      // 1. 优先从每张 slide 的第一个形状提取背景色（覆盖整个幻灯片的形状）
+      const presXml = zip.readFile("ppt/presentation.xml")?.toString("utf8") || "";
+      const sldIdLstMatch = presXml.match(/<p:sldIdLst[^>]*>([\s\S]*?)<\/p:sldIdLst>/);
+      let slideBgColor = null;
+      if (sldIdLstMatch) {
+        const slideIds = [...sldIdLstMatch[1].matchAll(/r:id="([^"]+)"/g)].map(m => m[1]);
+        const presRelsXml = zip.readFile("ppt/_rels/presentation.xml.rels")?.toString("utf8") || "";
+        for (const rId of slideIds) {
+          const relMatch = presRelsXml.match(new RegExp(`<Relationship\\s+Id="${rId}"[^>]*Target="([^"]+)`));
+          if (!relMatch) continue;
+          let slidePath = relMatch[1];
+          if (!slidePath.startsWith("/")) slidePath = "ppt/" + slidePath;
+          const slideXml = zip.readFile(slidePath)?.toString("utf8") || "";
+          const spTree = slideXml.match(/<p:spTree[^>]*>([\s\S]*?)<\/p:spTree>/);
+          if (!spTree) continue;
+          const shapes = [...spTree[1].matchAll(/<p:sp[^>]*>([\s\S]*?)<\/p:sp>/g)];
+          const firstShape = shapes[0]?.[1];
+          if (!firstShape) continue;
+          // 检查是否覆盖整个幻灯片
+          const xfrm = firstShape.match(/<a:xfrm[^>]*>([\s\S]*?)<\/a:xfrm>/);
+          if (xfrm) {
+            const off = xfrm[1].match(/<a:off x="(\d+)" y="(\d+)"/);
+            const ext = xfrm[1].match(/<a:ext cx="(\d+)" cy="(\d+)"/);
+            if (off && ext && parseInt(off[1]) === 0 && parseInt(off[2]) === 0 &&
+                parseInt(ext[1]) >= 12000000 && parseInt(ext[2]) >= 6800000) {
+              // 是全尺寸背景形状，提取填充色
+              const solidFill = firstShape.match(/<a:solidFill[^>]*>([\s\S]*?)<\/a:solidFill>/);
+              if (solidFill) {
+                const srgb = solidFill[1].match(/<a:srgbClr val="([^"]+)"/);
+                if (srgb) { slideBgColor = `#${srgb[1]}`; break; }
+              }
+              const gradFill = firstShape.match(/<a:gradFill[^>]*>([\s\S]*?)<\/a:gradFill>/);
+              if (gradFill) {
+                const gsList = [...gradFill[1].matchAll(/<a:gs pos="(\d+)">([\s\S]*?)<\/a:gs>/g)];
+                if (gsList.length >= 2) {
+                  const stops = gsList.map(gs => {
+                    const pos = parseInt(gs[1]) / 1000 * 100;
+                    const srgb = gs[2].match(/<a:srgbClr val="([^"]+)"/);
+                    return `${srgb ? `#${srgb[1]}` : "#ffffff"} ${pos}%`;
+                  });
+                  slideBgColor = `linear-gradient(180deg, ${stops.join(", ")})`;
+                  break;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // 2. 从主题提取颜色作为备选
+      const themeXml = zip.readFile("ppt/theme/theme1.xml")?.toString("utf8") || "";
+      const clrSchemeMatch = themeXml.match(/<a:clrScheme[^>]*>([\s\S]*?)<\/a:clrScheme>/);
+      const colors = {};
+      if (clrSchemeMatch) {
+        const colorTags = [...clrSchemeMatch[1].matchAll(/<a:(\w+)>([\s\S]*?)<\/a:\1>/g)];
+        for (const tag of colorTags) {
+          const inner = tag[2];
+          const srgb = inner.match(/<a:srgbClr val="([^"]+)"/);
+          const sys = inner.match(/<a:sysClr val="[^"]*" lastClr="([^"]+)"/);
+          colors[tag[1]] = srgb ? `#${srgb[1]}` : (sys ? `#${sys[1]}` : null);
+        }
+      }
+
+      const bgColor = slideBgColor || colors.lt1 || "#ffffff";
+      const bg2Color = colors.lt2 || "#f0f0f0";
+
+      return {
+        bgColor,
+        bg2Color,
+        accent1: colors.accent1 || "#4472C4",
+        dk2: colors.dk2 || "#44546A"
+      };
+    } catch (e) {
+      return null;
+    }
+  }
+
   const {
     authRequired,
     requireFilePermission,
@@ -127,6 +214,41 @@ module.exports = (app, deps) => {
             const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${escapedOriginalName}</title><style>body { font-family: Arial, sans-serif; margin: 0; padding: 20px; } .tabs { border-bottom: 1px solid #ccc; margin-bottom: 20px; } .tab-button { background: #f1f1f1; border: none; padding: 10px 20px; cursor: pointer; margin-right: 5px; border-top-left-radius: 5px; border-top-right-radius: 5px; } .tab-button.active { background: #007cba; color: white; } .sheet-content { display: none; overflow: auto; } .sheet-content.active { display: block; } table { border-collapse: collapse; width: 100%; font-size: 12px; } td, th { border: 1px solid #ddd; padding: 4px 8px; text-align: left; white-space: nowrap; } th { background-color: #f2f2f2; font-weight: bold; }</style><script>function showSheet(index) { const sheets = document.querySelectorAll(".sheet-content"); const buttons = document.querySelectorAll(".tab-button"); sheets.forEach((sheet) => sheet.classList.remove("active")); buttons.forEach((button) => button.classList.remove("active")); const target = document.getElementById("sheet-" + index); if (target) target.classList.add("active"); if (buttons[index]) buttons[index].classList.add("active"); }</script></head><body><div class="tabs">${tabsHtml}</div><div class="content">${contentHtml}</div></body></html>`;
             res.setHeader("Content-Type", "text/html; charset=utf-8");
             res.send(html);
+            return;
+          }
+          if (ext === "pptx") {
+            const { value: rawHtml } = await convertOffice(filePath, "html", { ignoreNotes: true });
+            // 移除 officeparser 生成的 slide-note 备注区域
+            const html = rawHtml.replace(/<div class="slide-note">[\s\S]*?<\/div>\s*/g, "");
+            const theme = extractPptxThemeStyles(filePath);
+            let themeCSS = "";
+            if (theme) {
+              const bg = theme.gradientCSS || theme.bgColor;
+              themeCSS = `
+                :root {
+                  --ppt-bg: ${theme.bgColor};
+                  --ppt-bg2: ${theme.bg2Color};
+                  --ppt-accent: ${theme.accent1};
+                  --ppt-dark: ${theme.dk2};
+                }
+                body { background-color: ${theme.bg2Color} !important; }
+                .presentation-container { background: transparent !important; }
+                .slide {
+                  background: ${bg} !important;
+                  border: 1px solid ${theme.bg2Color};
+                  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                }
+                h1, h2, h3 { color: var(--ppt-dark) !important; }
+                .metadata-summary { display: none; }
+              `;
+            }
+            const fullHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${escapedOriginalName}</title><style>body { padding: 20px; font-family: Arial, sans-serif; line-height: 1.6; } img { max-width: 100%; height: auto; } table { border-collapse: collapse; width: 100%; margin: 10px 0; } table, th, td { border: 1px solid #ddd; } th, td { padding: 8px; text-align: left; } th { background-color: #f2f2f2; }${themeCSS}</style></head><body>${html || "<p>演示文稿内容为空</p>"}</body></html>`;
+            res.setHeader("Content-Type", "text/html; charset=utf-8");
+            res.send(fullHtml);
+            return;
+          }
+          if (ext === "ppt") {
+            sendOfficePreviewUnsupportedHtml(res, originalName);
             return;
           }
           res.status(400).send("不支持的办公文档格式预览");

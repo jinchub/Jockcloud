@@ -172,7 +172,7 @@
     const timeText = formatDate(entry.updatedAt || entry.modifiedAt || entry.mtime || entry.createdAt);
     previewMeta.textContent = `大小：${sizeText} ｜ 修改时间：${timeText}`;
     // 如果是 PDF 预览，添加浏览器预览按钮到 meta 中（仅电脑端）
-    if (state.activeType === "document" && typeof isMobileViewport === "function" && !isMobileViewport()) {
+    if (state.activeType === "document" && getFileExt(state.activeEntry?.name) === "pdf" && typeof isMobileViewport === "function" && !isMobileViewport()) {
       const existingBtn = previewMeta.querySelector("#pdfBrowserPreviewBtn");
       if (!existingBtn) {
         const btn = document.createElement("button");
@@ -1043,7 +1043,7 @@ importScripts(${JSON.stringify(workerMainUrl)});
     }
     if (previewType === "document") {
       const ext = getFileExt(entry.name);
-      if (["docx", "doc", "xlsx", "xls", "csv"].includes(ext)) {
+      if (["docx", "doc", "xlsx", "xls", "csv", "pptx"].includes(ext)) {
         renderOfficePreviewFrame(entry, previewMiniBody);
       } else if (ext === "pdf") {
         void renderPdfPreview(entry, previewMiniBody);
@@ -1924,9 +1924,12 @@ importScripts(${JSON.stringify(workerMainUrl)});
     if (previewType === "document") {
       setPreviewBodyDocumentMode(true);
       const ext = getFileExt(entry.name);
-      if (["docx", "doc", "xlsx", "xls", "csv"].includes(ext)) {
+      if (["docx", "doc", "xlsx", "xls", "csv", "pptx"].includes(ext)) {
         // 对于 Office 文档，无论是否是压缩包中的文件，都使用 renderOfficePreviewFrame
         renderOfficePreviewFrame(entry, previewBody);
+      } else if (ext === "ppt") {
+        // 旧版 PPT 不支持预览
+        showUnsupportedNotice(entry);
       } else if (ext === "pdf") {
         void renderPdfPreview(entry, previewBody);
       } else {
