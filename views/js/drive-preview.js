@@ -619,7 +619,7 @@ importScripts(${JSON.stringify(workerMainUrl)});
         <div class="pdf-loading">正在加载 PDF，请稍候...</div>
         <div class="pdf-error" style="display:none;">PDF 加载失败，请稍后重试</div>
         <div class="pdf-content-wrap">
-          <div class="pdf-outline-panel" id="pdfOutlinePanel" style="display:flex;">
+          <div class="pdf-outline-panel" id="pdfOutlinePanel" style="display:${/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ? "none" : "flex"};">
             <div class="pdf-outline-header">
               <span class="pdf-outline-title">目录</span>
               <button type="button" class="pdf-outline-close-btn" id="pdfOutlineCloseBtn">×</button>
@@ -765,9 +765,17 @@ importScripts(${JSON.stringify(workerMainUrl)});
     // 重新渲染所有页面（缩放时调用）
     const renderAllPages = async () => {
       if (!pdfDoc) return;
+      // 保存当前页面
+      const savedPage = currentPage;
       renderedPages.clear();
       await initPagePlaceholders();
+      // 滚动到当前页
+      const targetWrapper = canvasWrap.querySelector(`.pdf-page-wrapper[data-page-num="${savedPage}"]`);
+      if (targetWrapper) {
+        targetWrapper.scrollIntoView({ block: "start", behavior: "instant" });
+      }
       await checkAndRenderVisiblePages();
+      onScroll();
     };
 
     // 计算适应宽度的缩放比例
@@ -992,55 +1000,24 @@ importScripts(${JSON.stringify(workerMainUrl)});
     } else {
       if (metaBrowserBtn) {
         metaBrowserBtn.onclick = () => {
+          // 替换 meta 中的按钮
+          metaBrowserBtn.textContent = "PDF.js 预览";
+          metaBrowserBtn.title = "切换回 PDF.js 预览";
+          metaBrowserBtn.onclick = () => {
+            // 恢复按钮
+            metaBrowserBtn.textContent = "浏览器预览";
+            metaBrowserBtn.title = "使用浏览器原生预览";
+            void renderPdfPreview(entry, container);
+          };
+          // 切换为 iframe 模式
           container.innerHTML = `
             <div class="pdf-iframe-wrap">
-              <div class="pdf-iframe-toolbar">
-                <button type="button" class="pdf-tool-btn" id="pdfBackToCanvasBtn">PDF.js 预览</button>
-              </div>
               <iframe class="preview-iframe" src="${finalUrl}"></iframe>
             </div>
           `;
-          container.querySelector("#pdfBackToCanvasBtn").onclick = () => {
-            void renderPdfPreview(entry, container);
-          };
         };
       }
     }
-
-    // 移动端双指捏合缩放
-    let pinchStartDist = 0;
-    let pinchStartScale = 0;
-    let pinchCurrentScale = 0;
-    canvasWrap.addEventListener("touchstart", (e) => {
-      if (e.touches.length === 2) {
-        e.preventDefault();
-        const dx = e.touches[0].clientX - e.touches[1].clientX;
-        const dy = e.touches[0].clientY - e.touches[1].clientY;
-        pinchStartDist = Math.sqrt(dx * dx + dy * dy);
-        pinchStartScale = scale;
-        pinchCurrentScale = scale;
-      }
-    }, { passive: false });
-    canvasWrap.addEventListener("touchmove", (e) => {
-      if (e.touches.length === 2) {
-        e.preventDefault();
-        const dx = e.touches[0].clientX - e.touches[1].clientX;
-        const dy = e.touches[0].clientY - e.touches[1].clientY;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        const ratio = dist / pinchStartDist;
-        pinchCurrentScale = Math.min(3, Math.max(0.5, pinchStartScale * ratio));
-        zoomInput.value = `${Math.round(pinchCurrentScale * 100)}%`;
-      }
-    }, { passive: false });
-    canvasWrap.addEventListener("touchend", (e) => {
-      if (e.touches.length < 2 && pinchStartDist > 0) {
-        scale = pinchCurrentScale;
-        pinchStartDist = 0;
-        pinchStartScale = 0;
-        void renderAllPages();
-        onScroll();
-      }
-    });
   };
 
   const renderMiniPreview = () => {
