@@ -602,6 +602,326 @@ importScripts(${JSON.stringify(workerMainUrl)});
     };
   };
 
+  const renderPptxPreview = async (entry, container) => {
+    if (!container || !entry) return;
+    let pdfUrl;
+    let fallbackHtmlUrl;
+    if (entry.isArchiveEntry && entry.archiveId && entry.archivePath) {
+      pdfUrl = `/api/files/${encodeURIComponent(entry.archiveId)}/zip/entry?path=${encodeURIComponent(entry.archivePath)}&mode=office&as-pdf=1`;
+      fallbackHtmlUrl = `/api/files/${encodeURIComponent(entry.archiveId)}/zip/entry?path=${encodeURIComponent(entry.archivePath)}&mode=office`;
+    } else if (entry.id !== undefined && entry.id !== null) {
+      pdfUrl = `/api/preview/${encodeURIComponent(entry.id)}?mode=office&as-pdf=1`;
+      fallbackHtmlUrl = `/api/preview/${encodeURIComponent(entry.id)}?mode=office`;
+    } else {
+      return;
+    }
+    const finalPdfUrl = typeof state.buildPreviewUrl === "function" ? state.buildPreviewUrl(pdfUrl, entry) : pdfUrl;
+    const finalFallbackUrl = typeof state.buildPreviewUrl === "function" ? state.buildPreviewUrl(fallbackHtmlUrl, entry) : fallbackHtmlUrl;
+
+    container.innerHTML = `
+      <div class="pdf-preview pptx-preview">
+        <div class="pdf-loading">正在转换 PPT，请稍候...</div>
+        <div class="pdf-error" style="display:none;"></div>
+        <div class="pdf-content-wrap" style="display:none;">
+          <div class="pdf-canvas-wrap pptx-canvas-wrap"></div>
+        </div>
+        <div class="pdf-toolbar pptx-toolbar" style="display:none;">
+          <button type="button" class="pdf-tool-btn" id="pptxPrevPageBtn" disabled>上一页</button>
+          <input type="text" class="pdf-page-input" id="pptxPageInput" value="0 / 0" />
+          <button type="button" class="pdf-tool-btn" id="pptxNextPageBtn" disabled>下一页</button>
+          <button type="button" class="pdf-tool-btn" id="pptxZoomOutBtn">-</button>
+          <input type="text" class="pdf-zoom-input" id="pptxZoomInput" value="100%" />
+          <button type="button" class="pdf-tool-btn" id="pptxZoomInBtn">+</button>
+          <button type="button" class="pdf-tool-btn" id="pptxFitWidthBtn" title="适应宽度">适应宽度</button>
+        </div>
+      </div>
+    `;
+
+    const loading = container.querySelector(".pdf-loading");
+    const errorDiv = container.querySelector(".pdf-error");
+    const contentWrap = container.querySelector(".pdf-content-wrap");
+    const canvasWrap = container.querySelector(".pptx-canvas-wrap");
+    const toolbar = container.querySelector(".pptx-toolbar");
+    const prevBtn = container.querySelector("#pptxPrevPageBtn");
+    const nextBtn = container.querySelector("#pptxNextPageBtn");
+    const pageInput = container.querySelector("#pptxPageInput");
+    const zoomOutBtn = container.querySelector("#pptxZoomOutBtn");
+    const zoomInBtn = container.querySelector("#pptxZoomInBtn");
+    const zoomInput = container.querySelector("#pptxZoomInput");
+    const fitWidthBtn = container.querySelector("#pptxFitWidthBtn");
+
+    const fallbackToHtml = (message) => {
+      container.innerHTML = `
+        <div class="document-preview">
+          <div class="loading" style="display:${message ? "block" : "none"};color:#666;padding:12px;">${message || "正在加载..."}</div>
+          <iframe class="preview-iframe" style="display:none;" src="${finalFallbackUrl}"></iframe>
+        </div>
+      `;
+      const iframe = container.querySelector("iframe");
+      const fallbackLoading = container.querySelector(".loading");
+      if (iframe) {
+        iframe.onload = () => {
+          iframe.style.display = "block";
+          if (fallbackLoading) fallbackLoading.style.display = "none";
+        };
+        iframe.onerror = () => {
+          if (fallbackLoading) fallbackLoading.textContent = "文档预览失败";
+        };
+      }
+    };
+
+    if (typeof pdfjsLib === "undefined") {
+      fallbackToHtml("PDF.js 未加载，使用原始样式预览");
+      return;
+    }
+
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdfjs-dist@2.16.105/build/pdf.worker.min.js";
+
+    let pdfDoc = null;
+    let currentPage = 1;
+    let scale = 0.8;
+    let renderedPages = new Set();
+    let pageHeights = [];
+
+    const updatePageInfo = (pageNum) => {
+      pageInput.value = `${pageNum} / ${pdfDoc.numPages}`;
+      prevBtn.disabled = pageNum <= 1;
+      nextBtn.disabled = pageNum >= pdfDoc.numPages;
+    };
+    const updateZoomInfo = () => {
+      zoomInput.value = `${Math.round(scale * 100)}%`;
+    };
+
+    const getPageViewport = async (pageNum) => {
+      const page = await pdfDoc.getPage(pageNum);
+      return page.getViewport({ scale: scale * 1.5 });
+    };
+
+    const createPagePlaceholder = (pageNum, viewport) => {
+      const wrapper = document.createElement("div");
+      wrapper.className = "pdf-page-wrapper pptx-page-wrapper";
+      wrapper.dataset.pageNum = pageNum;
+      wrapper.style.width = viewport.width + "px";
+      wrapper.style.height = viewport.height + "px";
+      wrapper.style.marginBottom = "16px";
+      wrapper.style.marginLeft = "auto";
+      wrapper.style.marginRight = "auto";
+      wrapper.style.position = "relative";
+      wrapper.style.boxShadow = "0 4px 16px rgba(0,0,0,0.12)";
+      wrapper.style.border = "1px solid #ddd";
+      return wrapper;
+    };
+
+    const renderPageToWrap = async (pageNum) => {
+      if (!pdfDoc || renderedPages.has(pageNum)) return;
+      renderedPages.add(pageNum);
+      try {
+        const page = await pdfDoc.getPage(pageNum);
+        const viewport = page.getViewport({ scale: scale * 1.5 });
+        const wrapper = canvasWrap.querySelector(`.pptx-page-wrapper[data-page-num="${pageNum}"]`);
+        if (!wrapper) return;
+        const canvas = document.createElement("canvas");
+        canvas.dataset.pageNum = pageNum;
+        const ctx = canvas.getContext("2d");
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        canvas.style.width = viewport.width + "px";
+        canvas.style.height = viewport.height + "px";
+        canvas.style.position = "absolute";
+        canvas.style.top = "0";
+        canvas.style.left = "0";
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        wrapper.appendChild(canvas);
+        pageHeights[pageNum] = viewport.height + 16;
+      } catch (e) {
+        console.log("[pptx] render page error:", e);
+      }
+    };
+
+    const getPageTopOffset = (pageNum) => {
+      let offset = 0;
+      for (let i = 1; i < pageNum; i++) {
+        offset += pageHeights[i] || 1000;
+      }
+      return offset;
+    };
+
+    const checkAndRenderVisiblePages = async () => {
+      if (!pdfDoc) return;
+      const scrollTop = canvasWrap.scrollTop;
+      const viewHeight = canvasWrap.clientHeight;
+      const viewBottom = scrollTop + viewHeight;
+      const margin = viewHeight * 2;
+      for (let i = 1; i <= pdfDoc.numPages; i++) {
+        const pageTop = getPageTopOffset(i);
+        const pageBottom = pageTop + (pageHeights[i] || 1000);
+        if (pageBottom >= scrollTop - margin && pageTop <= viewBottom + margin && !renderedPages.has(i)) {
+          await renderPageToWrap(i);
+        }
+      }
+    };
+
+    const initPagePlaceholders = async () => {
+      canvasWrap.innerHTML = "";
+      pageHeights = [];
+      for (let i = 1; i <= pdfDoc.numPages; i++) {
+        const viewport = await getPageViewport(i);
+        const placeholder = createPagePlaceholder(i, viewport);
+        canvasWrap.appendChild(placeholder);
+        pageHeights[i] = viewport.height + 16;
+      }
+    };
+
+    const renderAllPages = async () => {
+      if (!pdfDoc) return;
+      const savedPage = currentPage;
+      renderedPages.clear();
+      await initPagePlaceholders();
+      const targetWrapper = canvasWrap.querySelector(`.pptx-page-wrapper[data-page-num="${savedPage}"]`);
+      if (targetWrapper) {
+        targetWrapper.scrollIntoView({ block: "start", behavior: "instant" });
+      }
+      await checkAndRenderVisiblePages();
+      onScroll();
+    };
+
+    const fitWidth = async () => {
+      if (!pdfDoc) return;
+      const page = await pdfDoc.getPage(currentPage);
+      const unscaledViewport = page.getViewport({ scale: 1 });
+      const wrapWidth = canvasWrap.clientWidth - 32;
+      scale = (wrapWidth / unscaledViewport.width) / 1.5;
+      await renderAllPages();
+      onScroll();
+    };
+
+    const onScroll = () => {
+      if (!pdfDoc) return;
+      const scrollTop = canvasWrap.scrollTop;
+      let accumulatedHeight = 0;
+      let foundPage = 1;
+      for (let i = 1; i <= pdfDoc.numPages; i++) {
+        accumulatedHeight += pageHeights[i] || 1000;
+        if (accumulatedHeight > scrollTop) {
+          foundPage = i;
+          break;
+        }
+      }
+      if (foundPage !== currentPage) {
+        currentPage = foundPage;
+        updatePageInfo(currentPage);
+      }
+      void checkAndRenderVisiblePages();
+    };
+
+    try {
+      const response = await fetch(finalPdfUrl);
+      if (!response.ok) {
+        let fallbackMsg = "正在使用原始样式预览...";
+        try {
+          const errData = await response.json();
+          if (errData && errData.needLibreOffice) {
+            fallbackMsg = errData.message || "需要安装 LibreOffice 才能使用图片式预览。正在使用原始样式预览...";
+          }
+        } catch (e) {}
+        fallbackToHtml(fallbackMsg);
+        return;
+      }
+      const contentType = response.headers.get("content-type") || "";
+      if (!contentType.includes("application/pdf")) {
+        fallbackToHtml("正在使用原始样式预览...");
+        return;
+      }
+      const arrayBuffer = await response.arrayBuffer();
+      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+      pdfDoc = await loadingTask.promise;
+      loading.style.display = "none";
+      contentWrap.style.display = "flex";
+      toolbar.style.display = "flex";
+      currentPage = 1;
+      await renderAllPages();
+      canvasWrap.addEventListener("scroll", onScroll);
+      updatePageInfo(1);
+      updateZoomInfo();
+      onScroll();
+    } catch (e) {
+      console.log("[pptx] load error:", e);
+      fallbackToHtml("PPT 转换失败，正在使用原始样式预览...");
+      return;
+    }
+
+    prevBtn.onclick = () => {
+      if (currentPage > 1) {
+        const targetWrapper = canvasWrap.querySelector(`.pptx-page-wrapper[data-page-num="${currentPage - 1}"]`);
+        if (targetWrapper) {
+          targetWrapper.scrollIntoView({ block: "start", behavior: "smooth" });
+        }
+      }
+    };
+    nextBtn.onclick = () => {
+      if (pdfDoc && currentPage < pdfDoc.numPages) {
+        const targetWrapper = canvasWrap.querySelector(`.pptx-page-wrapper[data-page-num="${currentPage + 1}"]`);
+        if (targetWrapper) {
+          targetWrapper.scrollIntoView({ block: "start", behavior: "smooth" });
+        }
+      }
+    };
+    zoomOutBtn.onclick = async () => {
+      if (scale > 0.5) {
+        scale -= 0.25;
+        await renderAllPages();
+        onScroll();
+      }
+    };
+    zoomInBtn.onclick = async () => {
+      if (scale < 3) {
+        scale += 0.25;
+        await renderAllPages();
+        onScroll();
+      }
+    };
+    fitWidthBtn.onclick = async () => {
+      await fitWidth();
+    };
+
+    pageInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        const val = parseInt(pageInput.value, 10);
+        if (!isNaN(val) && val >= 1 && val <= pdfDoc.numPages && val !== currentPage) {
+          currentPage = val;
+          const targetWrapper = canvasWrap.querySelector(`.pptx-page-wrapper[data-page-num="${val}"]`);
+          if (targetWrapper) {
+            targetWrapper.scrollIntoView({ block: "start", behavior: "smooth" });
+          }
+        } else {
+          updatePageInfo(currentPage);
+        }
+        pageInput.blur();
+      }
+    });
+    pageInput.addEventListener("blur", () => {
+      updatePageInfo(currentPage);
+    });
+    zoomInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        const val = parseFloat(zoomInput.value);
+        if (!isNaN(val) && val >= 50 && val <= 300) {
+          scale = val / 100;
+          void renderAllPages();
+          onScroll();
+        } else {
+          updateZoomInfo();
+        }
+        zoomInput.blur();
+      }
+    });
+    zoomInput.addEventListener("blur", () => {
+      updateZoomInfo();
+    });
+  };
+
   const renderPdfPreview = async (entry, container) => {
     if (!container || !entry) return;
     let pdfUrl;
@@ -1924,8 +2244,11 @@ importScripts(${JSON.stringify(workerMainUrl)});
     if (previewType === "document") {
       setPreviewBodyDocumentMode(true);
       const ext = getFileExt(entry.name);
-      if (["docx", "doc", "xlsx", "xls", "csv", "pptx"].includes(ext)) {
-        // 对于 Office 文档，无论是否是压缩包中的文件，都使用 renderOfficePreviewFrame
+      if (ext === "pptx") {
+        // PPTX 使用图片式预览（逐页 canvas 渲染，保留原始样式）
+        void renderPptxPreview(entry, previewBody);
+      } else if (["docx", "doc", "xlsx", "xls", "csv"].includes(ext)) {
+        // 其他 Office 文档使用 iframe 预览
         renderOfficePreviewFrame(entry, previewBody);
       } else if (ext === "ppt") {
         // 旧版 PPT 不支持预览

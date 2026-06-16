@@ -1,6 +1,114 @@
 module.exports = (app, deps) => {
   const { convert: convertOffice } = require("officeparser");
   const AdmZip = require("adm-zip");
+  const os = require("os");
+  const path = require("path");
+  const { execFile } = require("child_process");
+
+  let cachedLibreOfficePath = null;
+  let libreOfficePathChecked = false;
+
+  function detectLibreOfficePath() {
+    if (libreOfficePathChecked) return cachedLibreOfficePath;
+    libreOfficePathChecked = true;
+    const candidates = [];
+    const platform = os.platform();
+    //ppt转图片预览需安装 libreoffice
+    if (platform === "win32") {
+      candidates.push("D:\\LibreOffice\\program\\soffice.exe");
+      candidates.push("C:\\Program Files\\LibreOffice\\program\\soffice.exe");
+      candidates.push("C:\\Program Files (x86)\\LibreOffice\\program\\soffice.exe");
+      candidates.push("C:\\Program Files\\LibreOffice 24.2\\program\\soffice.exe");
+      candidates.push("C:\\Program Files\\LibreOffice 24.8\\program\\soffice.exe");
+      candidates.push("D:\\Program Files\\LibreOffice\\program\\soffice.exe");
+      candidates.push("D:\\Program Files (x86)\\LibreOffice\\program\\soffice.exe");
+    } else if (platform === "darwin") {
+      candidates.push("/Applications/LibreOffice.app/Contents/MacOS/soffice");
+      candidates.push("/usr/local/bin/soffice");
+      candidates.push("/opt/local/bin/soffice");
+    } else {
+      candidates.push("/usr/bin/libreoffice");
+      candidates.push("/usr/bin/soffice");
+      candidates.push("/usr/local/bin/libreoffice");
+      candidates.push("/usr/local/bin/soffice");
+      candidates.push("/snap/bin/libreoffice");
+    }
+    for (const p of candidates) {
+      try {
+        if (deps.fs.existsSync(p)) {
+          cachedLibreOfficePath = p;
+          return p;
+        }
+      } catch (e) {}
+    }
+    cachedLibreOfficePath = null;
+    return null;
+  }
+
+  function getPptCacheDir() {
+    const cacheDir = path.join(process.cwd(), "uploads", ".ppt-pdf-cache");
+    try {
+      if (!deps.fs.existsSync(cacheDir)) {
+        deps.fs.mkdirSync(cacheDir, { recursive: true });
+      }
+    } catch (e) {}
+    return cacheDir;
+  }
+
+  function getCacheKey(fileId, fileSize, mtime) {
+    return `${fileId}_${fileSize}_${mtime}`;
+  }
+
+  function convertPptxToPdfWithLibreOffice(sofficePath, inputPath, outputDir) {
+    return new Promise((resolve, reject) => {
+      const timeoutMs = 120000;
+      let finished = false;
+      const child = execFile(
+        sofficePath,
+        ["--headless", "--nologo", "--norestore", "--nofirststartwizard", "--convert-to", "pdf", "--outdir", outputDir, inputPath],
+        { timeout: timeoutMs, maxBuffer: 10 * 1024 * 1024 },
+        (err, stdout, stderr) => {
+          if (finished) return;
+          finished = true;
+          if (err) {
+            reject(new Error(`LibreOffice 转换失败: ${err.message}`));
+            return;
+          }
+          const inputBase = path.basename(inputPath, path.extname(inputPath));
+          const expectedOutput = path.join(outputDir, `${inputBase}.pdf`);
+          if (deps.fs.existsSync(expectedOutput)) {
+            resolve(expectedOutput);
+            return;
+          }
+          try {
+            const files = deps.fs.readdirSync(outputDir);
+            const pdfFile = files.find(f => f.toLowerCase().endsWith(".pdf"));
+            if (pdfFile) {
+              resolve(path.join(outputDir, pdfFile));
+              return;
+            }
+          } catch (e) {}
+          reject(new Error("PDF 文件未生成"));
+        }
+      );
+      setTimeout(() => {
+        if (!finished) {
+          finished = true;
+          try { child.kill("SIGKILL"); } catch (e) {}
+          reject(new Error("PPT 转换超时，请稍后重试"));
+        }
+      }, timeoutMs + 2000);
+    });
+  }
+
+  function sendPptPdfPreview(res, pdfPath, originalName) {
+    const escapedName = escapeHtml(originalName || "preview.pdf");
+    const pdfName = escapedName.replace(/\.[^.]+$/, "") + ".pdf";
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename*=UTF-8''${encodeURIComponent(pdfName)}`);
+    res.setHeader("Cache-Control", "no-cache");
+    deps.fs.createReadStream(pdfPath).pipe(res);
+  }
 
   /**
    * 从 PPTX 中提取背景色（优先从 slide 的第一个全尺寸形状获取，其次从主题获取）
@@ -217,8 +325,71 @@ module.exports = (app, deps) => {
             return;
           }
           if (ext === "pptx") {
+            const asPdf = String(req.query["as-pdf"] || "").trim().toLowerCase() === "1";
+            if (asPdf) {
+              const sofficePath = detectLibreOfficePath();
+              if (!sofficePath) {
+                res.status(501).json({ message: "服务器未安装 LibreOffice，无法转换为图片式预览。请安装 LibreOffice 后再试。", needLibreOffice: true });
+                return;
+              }
+              const cacheDir = getPptCacheDir();
+              let stats;
+              try {
+                stats = fs.statSync(filePath);
+              } catch (e) {
+                res.status(404).json({ message: "文件不存在" });
+                return;
+              }
+              const cacheKey = getCacheKey(fileId, stats.size, Math.floor(stats.mtimeMs || 0));
+              const cachePdfPath = path.join(cacheDir, `${cacheKey}.pdf`);
+              let pdfPath = null;
+              try {
+                if (fs.existsSync(cachePdfPath)) {
+                  pdfPath = cachePdfPath;
+                } else {
+                  const tempDir = path.join(cacheDir, `tmp_${fileId}_${Date.now()}`);
+                  try {
+                    fs.mkdirSync(tempDir, { recursive: true });
+                  } catch (e) {
+                    res.status(500).json({ message: "无法创建临时目录" });
+                    return;
+                  }
+                  try {
+                    pdfPath = await convertPptxToPdfWithLibreOffice(sofficePath, filePath, tempDir);
+                    if (pdfPath && fs.existsSync(pdfPath)) {
+                      try {
+                        fs.copyFileSync(pdfPath, cachePdfPath);
+                        pdfPath = cachePdfPath;
+                      } catch (e) {
+                      }
+                    }
+                  } catch (convertErr) {
+                    res.status(500).json({ message: "PPT 转换失败: " + (convertErr.message || "未知错误") });
+                    return;
+                  } finally {
+                    try {
+                      if (fs.existsSync(tempDir)) {
+                        const entries = fs.readdirSync(tempDir);
+                        for (const entry of entries) {
+                          try { fs.unlinkSync(path.join(tempDir, entry)); } catch (e) {}
+                        }
+                        fs.rmdirSync(tempDir);
+                      }
+                    } catch (e) {}
+                  }
+                }
+              } catch (e) {
+                res.status(500).json({ message: "PPT 转换出错: " + (e.message || "未知错误") });
+                return;
+              }
+              if (!pdfPath || !fs.existsSync(pdfPath)) {
+                res.status(500).json({ message: "PDF 文件未生成" });
+                return;
+              }
+              sendPptPdfPreview(res, pdfPath, originalName);
+              return;
+            }
             const { value: rawHtml } = await convertOffice(filePath, "html", { ignoreNotes: true });
-            // 移除 officeparser 生成的 slide-note 备注区域
             const html = rawHtml.replace(/<div class="slide-note">[\s\S]*?<\/div>\s*/g, "");
             const theme = extractPptxThemeStyles(filePath);
             let themeCSS = "";
