@@ -614,6 +614,8 @@ const renderFileList = () => {
         };
       }
     } else {
+      item.setAttribute("data-entry-id", String(entry.id));
+      item.setAttribute("data-entry-type", entry.type);
       const canQuickToggle = state.view !== "recycle" && (entry.type === "folder" || entry.type === "file");
       const isQuickAccess = canQuickToggle && quickAccessEntryKeySet.has(getQuickAccessEntryKey(entry.type, Number(entry.id)));
       item.innerHTML = `

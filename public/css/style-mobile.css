@@ -1,9 +1,22 @@
+
+/* 触摸设备：禁用 hover 效果，避免点击后样式粘滞 */
+@media (hover: none) {
+  .table-row:hover,
+  .grid-item:hover {
+    background-color: transparent !important;
+    background: unset !important;
+  }
+  
+  /* 同时确保点击时有反馈 */
+  .table-row:active,
+  .grid-item:active {
+    background-color: rgba(0,0,0,0.05);
+        background: unset !important;
+  }
+}
+
 .login-header {
   padding: 0 20px;
-}
-input[type="checkbox"]:checked::after {
-  left: 2px;
-    top: 0;
 }
 a {
   -webkit-tap-highlight-color: transparent;
@@ -129,7 +142,9 @@ a {
   font-size: 14px;
   letter-spacing: 0;
 }
-
+.table-row:hover{
+  background: unset
+}
 .submit-btn {
   height: 40px;
   font-size: 16px;
@@ -282,10 +297,11 @@ a {
   min-width: 20px;
   padding-left: 2px;
 }
-.cell-check input{
+.grid-check input,.cell-check input{
   width: 10px;
   height: 10px;
-  border-radius: 50%;
+  border: 1.5px solid #dbdbdb;
+  background: transparent;
 }
 .view-switch {
   flex-shrink: 0;
@@ -329,6 +345,16 @@ a {
   min-width: max-content;
   font-size: 12px;
   padding: 4px 4px;
+}
+
+#batchDeleteBtn:not(:disabled) {
+  color: #dc2626;
+  background: #fef2f2;
+}
+
+#batchDeleteBtn:hover:not(:disabled) {
+  color: #dc2626;
+  background: #fee2e2;
 }
 .preview-media-toolbar-tip,
 .preview-image-toolbar-tip {

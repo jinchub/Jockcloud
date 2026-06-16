@@ -2121,6 +2121,8 @@ const isRectsIntersect = (rect1, rect2) => {
 
 const selectGridItemsInRect = (selectionRect) => {
   const gridItems = getGridItems();
+  const inRectIds = new Set();
+  
   gridItems.forEach(item => {
     const itemRect = item.getBoundingClientRect();
     const itemCenterX = (itemRect.left + itemRect.right) / 2;
@@ -2129,12 +2131,14 @@ const selectGridItemsInRect = (selectionRect) => {
     const shouldSelect = isPointInRect(itemCenterX, itemCenterY, selectionRect) || 
                          isRectsIntersect(selectionRect, itemRect);
     
-    if (shouldSelect) {
+    const entryId = item.getAttribute("data-entry-id");
+    const entryType = item.getAttribute("data-entry-type");
+    
+    if (shouldSelect && entryId && entryType) {
+      inRectIds.add(`${entryType}-${entryId}`);
       const checkbox = item.querySelector(".grid-check input");
-      const entryId = item.getAttribute("data-entry-id");
-      const entryType = item.getAttribute("data-entry-type");
       
-      if (checkbox && !checkbox.checked && entryId && entryType) {
+      if (checkbox && !checkbox.checked) {
         checkbox.checked = true;
         item.classList.add("selected");
         
@@ -2149,6 +2153,31 @@ const selectGridItemsInRect = (selectionRect) => {
     }
   });
   
+  // 取消不在选择区域内但被本次拖拽选中的项目
+  gridDragSelectState.selectedItems.forEach(key => {
+    if (!inRectIds.has(key)) {
+      const [entryType, entryId] = key.split("-");
+      const item = gridItems.find(i => 
+        i.getAttribute("data-entry-id") === entryId && 
+        i.getAttribute("data-entry-type") === entryType
+      );
+      if (item) {
+        const checkbox = item.querySelector(".grid-check input");
+        if (checkbox) {
+          checkbox.checked = false;
+          item.classList.remove("selected");
+        }
+        const entry = state.entries?.find(e => 
+          String(e.id) === entryId && e.type === entryType
+        );
+        if (entry) {
+          setEntrySelected(entry, false);
+        }
+      }
+    }
+  });
+  
+  gridDragSelectState.selectedItems = inRectIds;
   updateBatchActionState();
 };
 
@@ -2209,18 +2238,23 @@ const bindGridDragSelect = () => {
       hasDragged = true;
       gridDragSelectState.isSelecting = true;
       showGridSelectionBox();
+      fileListEl.style.userSelect = "none";
     }
     
     if (hasDragged) {
-      gridDragSelectState.currentX = event.clientX;
-      gridDragSelectState.currentY = event.clientY;
+      const containerRect = fileListEl.getBoundingClientRect();
+      let currentX = Math.max(containerRect.left, Math.min(event.clientX, containerRect.right));
+      let currentY = Math.max(containerRect.top, Math.min(event.clientY, containerRect.bottom));
+      
+      gridDragSelectState.currentX = currentX;
+      gridDragSelectState.currentY = currentY;
       updateGridSelectionBox();
       
       const selectionRect = {
-        left: Math.min(gridDragSelectState.startX, gridDragSelectState.currentX),
-        right: Math.max(gridDragSelectState.startX, gridDragSelectState.currentX),
-        top: Math.min(gridDragSelectState.startY, gridDragSelectState.currentY),
-        bottom: Math.max(gridDragSelectState.startY, gridDragSelectState.currentY)
+        left: Math.min(gridDragSelectState.startX, currentX),
+        right: Math.max(gridDragSelectState.startX, currentX),
+        top: Math.min(gridDragSelectState.startY, currentY),
+        bottom: Math.max(gridDragSelectState.startY, currentY)
       };
       
       selectGridItemsInRect(selectionRect);
@@ -2230,17 +2264,9 @@ const bindGridDragSelect = () => {
   document.addEventListener("mouseup", (event) => {
     if (!isDragging) return;
     
-    if (!hasDragged) {
-      const target = event.target;
-      const clickedOnGridItem = target.closest(".grid-item");
-      
-      if (!clickedOnGridItem && state.selectedEntries.length > 0) {
-        clearSelection();
-      }
-    }
-    
     isDragging = false;
     if (hasDragged) {
+      fileListEl.style.userSelect = "";
       endGridDragSelect();
     }
   });
@@ -2249,6 +2275,206 @@ const bindGridDragSelect = () => {
 const toggleSecondaryBtn = document.getElementById("toggleSecondaryBtn");
 const secondarySidebar = document.getElementById("secondarySidebar");
 const sidebarOverlay = document.getElementById("sidebarOverlay");
+
+// ===== 列表模式拖拉选择 =====
+let listDragSelectState = {
+  isSelecting: false,
+  startX: 0,
+  startY: 0,
+  currentX: 0,
+  currentY: 0,
+  selectionBox: null,
+  selectedItems: new Set()
+};
+
+const createListSelectionBox = () => {
+  if (listDragSelectState.selectionBox) return;
+  const box = document.createElement("div");
+  box.className = "grid-selection-box";
+  box.style.position = "fixed";
+  box.style.border = "1px solid var(--primary-color)";
+  box.style.background = "rgba(22, 93, 255, 0.1)";
+  box.style.pointerEvents = "none";
+  box.style.zIndex = "9999";
+  box.style.display = "none";
+  document.body.appendChild(box);
+  listDragSelectState.selectionBox = box;
+};
+
+const updateListSelectionBox = () => {
+  if (!listDragSelectState.selectionBox) return;
+  const { startX, startY, currentX, currentY } = listDragSelectState;
+  const left = Math.min(startX, currentX);
+  const top = Math.min(startY, currentY);
+  const width = Math.abs(currentX - startX);
+  const height = Math.abs(currentY - startY);
+
+  listDragSelectState.selectionBox.style.left = `${left}px`;
+  listDragSelectState.selectionBox.style.top = `${top}px`;
+  listDragSelectState.selectionBox.style.width = `${width}px`;
+  listDragSelectState.selectionBox.style.height = `${height}px`;
+};
+
+const hideListSelectionBox = () => {
+  if (listDragSelectState.selectionBox) {
+    listDragSelectState.selectionBox.style.display = "none";
+  }
+};
+
+const showListSelectionBox = () => {
+  if (listDragSelectState.selectionBox) {
+    listDragSelectState.selectionBox.style.display = "block";
+  }
+};
+
+const getListRows = () => {
+  if (!fileListEl) return [];
+  return Array.from(fileListEl.querySelectorAll(".table-row"));
+};
+
+const selectListRowsInRect = (selectionRect, containerRect) => {
+  const rows = getListRows();
+  const inRectIds = new Set();
+  
+  rows.forEach(row => {
+    const rowRect = row.getBoundingClientRect();
+    const intersects = !(selectionRect.right < rowRect.left ||
+                         selectionRect.left > rowRect.right ||
+                         selectionRect.bottom < rowRect.top ||
+                         selectionRect.top > rowRect.bottom);
+
+    const entryId = row.getAttribute("data-entry-id");
+    const entryType = row.getAttribute("data-entry-type");
+
+    if (intersects && entryId && entryType) {
+      inRectIds.add(`${entryType}-${entryId}`);
+      const checkbox = row.querySelector(".cell-check input");
+
+      if (checkbox && !checkbox.checked) {
+        checkbox.checked = true;
+        row.classList.add("selected");
+
+        const entry = state.entries?.find(e =>
+          String(e.id) === entryId && e.type === entryType
+        );
+
+        if (entry) {
+          setEntrySelected(entry, true);
+        }
+      }
+    }
+  });
+  
+  // 取消不在选择区域内但被本次拖拽选中的项目
+  listDragSelectState.selectedItems.forEach(key => {
+    if (!inRectIds.has(key)) {
+      const [entryType, entryId] = key.split("-");
+      const row = rows.find(r => 
+        r.getAttribute("data-entry-id") === entryId && 
+        r.getAttribute("data-entry-type") === entryType
+      );
+      if (row) {
+        const checkbox = row.querySelector(".cell-check input");
+        if (checkbox) {
+          checkbox.checked = false;
+          row.classList.remove("selected");
+        }
+        const entry = state.entries?.find(e => 
+          String(e.id) === entryId && e.type === entryType
+        );
+        if (entry) {
+          setEntrySelected(entry, false);
+        }
+      }
+    }
+  });
+  
+  listDragSelectState.selectedItems = inRectIds;
+
+  updateBatchActionState();
+};
+
+const endListDragSelect = () => {
+  if (!listDragSelectState.isSelecting) return;
+
+  listDragSelectState.isSelecting = false;
+  hideListSelectionBox();
+  listDragSelectState.selectedItems.clear();
+};
+
+const bindListDragSelect = () => {
+  if (!fileListEl) return;
+
+  createListSelectionBox();
+
+  let isDragging = false;
+  let hasDragged = false;
+
+  fileListEl.addEventListener("mousedown", (event) => {
+    if (event.button !== 0) return;
+    if (state.viewMode !== "list") return;
+
+    const target = event.target;
+    if (target.closest(".cell-check") ||
+        target.closest("input") ||
+        target.closest("button") ||
+        target.closest(".quick-access-toggle") ||
+        target.closest(".table-row")) {
+      return;
+    }
+
+    isDragging = true;
+    hasDragged = false;
+    listDragSelectState.startX = event.clientX;
+    listDragSelectState.startY = event.clientY;
+    listDragSelectState.currentX = event.clientX;
+    listDragSelectState.currentY = event.clientY;
+    listDragSelectState.selectedItems.clear();
+  });
+
+  document.addEventListener("mousemove", (event) => {
+    if (!isDragging) return;
+
+    const dx = event.clientX - listDragSelectState.startX;
+    const dy = event.clientY - listDragSelectState.startY;
+
+    if (!hasDragged && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
+      hasDragged = true;
+      listDragSelectState.isSelecting = true;
+      showListSelectionBox();
+      fileListEl.style.userSelect = "none";
+    }
+
+    if (hasDragged) {
+      const containerRect = fileListEl.getBoundingClientRect();
+      let currentX = Math.max(containerRect.left, Math.min(event.clientX, containerRect.right));
+      let currentY = Math.max(containerRect.top, Math.min(event.clientY, containerRect.bottom));
+      
+      listDragSelectState.currentX = currentX;
+      listDragSelectState.currentY = currentY;
+      updateListSelectionBox();
+
+      const selectionRect = {
+        left: Math.min(listDragSelectState.startX, currentX),
+        right: Math.max(listDragSelectState.startX, currentX),
+        top: Math.min(listDragSelectState.startY, currentY),
+        bottom: Math.max(listDragSelectState.startY, currentY)
+      };
+
+      selectListRowsInRect(selectionRect);
+    }
+  });
+
+  document.addEventListener("mouseup", (event) => {
+    if (!isDragging) return;
+
+    isDragging = false;
+    if (hasDragged) {
+      fileListEl.style.userSelect = "";
+      endListDragSelect();
+    }
+  });
+};
 
 const syncSecondaryToggleState = () => {
   if (!toggleSecondaryBtn || !secondarySidebar) return;
@@ -2316,6 +2542,7 @@ if (secondarySidebar) {
 document.documentElement.classList.remove("mobile-secondary-init");
 
 bindGridDragSelect();
+bindListDragSelect();
 
 if (typeof window !== "undefined") {
   window.gridDragSelectState = gridDragSelectState;

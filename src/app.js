@@ -996,6 +996,7 @@ app.use("/fontawesome", express.static(path.join(ROOT_DIR, "node_modules/@fortaw
 app.use("/monaco-editor@0.52.2", express.static(path.join(ROOT_DIR, "node_modules/monaco-editor")));
 app.use("/monaco-editor", express.static(path.join(ROOT_DIR, "node_modules/monaco-editor/min")));
 app.use("/chart.js", express.static(path.join(ROOT_DIR, "node_modules/chart.js/dist")));
+app.use("/pdfjs-dist@2.16.105", express.static(path.join(ROOT_DIR, "node_modules/pdfjs-dist")));
 app.use("/uploads", express.static(UPLOAD_DIR));
 
 registerAllRoutes(app, {

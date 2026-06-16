@@ -4,7 +4,7 @@
   let PREVIEW_AUDIO_EXT_SET = new Set();
   let PREVIEW_TEXT_EXT_SET = new Set();
   let PREVIEW_DOC_EXT_SET = new Set();
-  
+
   const updatePreviewExtSets = (previewConfig) => {
     if (previewConfig && typeof previewConfig === "object") {
       PREVIEW_IMAGE_EXT_SET = new Set(Array.isArray(previewConfig.imageExts) ? previewConfig.imageExts : []);
@@ -171,6 +171,19 @@
     const sizeText = formatSize(entry.size);
     const timeText = formatDate(entry.updatedAt || entry.modifiedAt || entry.mtime || entry.createdAt);
     previewMeta.textContent = `大小：${sizeText} ｜ 修改时间：${timeText}`;
+    // 如果是 PDF 预览，添加浏览器预览按钮到 meta 中（仅电脑端）
+    if (state.activeType === "document" && typeof isMobileViewport === "function" && !isMobileViewport()) {
+      const existingBtn = previewMeta.querySelector("#pdfBrowserPreviewBtn");
+      if (!existingBtn) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.id = "pdfBrowserPreviewBtn";
+        btn.className = "pdf-tool-btn pdf-meta-btn";
+        btn.title = "使用浏览器原生预览";
+        btn.textContent = "浏览器预览";
+        previewMeta.appendChild(btn);
+      }
+    }
   };
 
   const clampImageZoom = (zoom) => {
@@ -276,11 +289,11 @@
     const applyCurrentTime = () => {
       try {
         mediaEl.currentTime = targetTime;
-      } catch (error) {}
+      } catch (error) { }
       if (!snapshot.paused) {
         const playResult = mediaEl.play();
         if (playResult && typeof playResult.catch === "function") {
-          playResult.catch(() => {});
+          playResult.catch(() => { });
         }
       } else {
         mediaEl.pause();
@@ -442,11 +455,11 @@ importScripts(${JSON.stringify(workerMainUrl)});
     if (!previewBody) return;
     const readonlyFlag = state.textPreview.canEdit ? "" : "disabled";
     const truncatedHtml = state.textPreview.truncated ? `<div class="preview-code-truncated">内容过长，已截断</div>` : "";
-    
+
     // 检查是否是压缩包中的文件
     const isArchiveEntry = state.activeEntry && state.activeEntry.isArchiveEntry;
     const saveBtnHtml = isArchiveEntry ? "" : `<button type="button" class="preview-tool-btn" id="previewSaveBtn" ${readonlyFlag}>保存</button>`;
-    
+
     previewBody.innerHTML = `
       <div class="preview-code-wrap">
         <div class="preview-code-toolbar">
@@ -589,6 +602,447 @@ importScripts(${JSON.stringify(workerMainUrl)});
     };
   };
 
+  const renderPdfPreview = async (entry, container) => {
+    if (!container || !entry) return;
+    let pdfUrl;
+    if (entry.isArchiveEntry && entry.archiveId && entry.archivePath) {
+      pdfUrl = `/api/files/${encodeURIComponent(entry.archiveId)}/zip/entry?path=${encodeURIComponent(entry.archivePath)}&mode=stream`;
+    } else if (entry.id !== undefined && entry.id !== null) {
+      pdfUrl = `/api/preview/${encodeURIComponent(entry.id)}?mode=stream`;
+    } else {
+      return;
+    }
+    const finalUrl = typeof state.buildPreviewUrl === "function" ? state.buildPreviewUrl(pdfUrl, entry) : pdfUrl;
+
+    container.innerHTML = `
+      <div class="pdf-preview">
+        <div class="pdf-loading">正在加载 PDF，请稍候...</div>
+        <div class="pdf-error" style="display:none;">PDF 加载失败，请稍后重试</div>
+        <div class="pdf-content-wrap">
+          <div class="pdf-outline-panel" id="pdfOutlinePanel" style="display:flex;">
+            <div class="pdf-outline-header">
+              <span class="pdf-outline-title">目录</span>
+              <button type="button" class="pdf-outline-close-btn" id="pdfOutlineCloseBtn">×</button>
+            </div>
+            <div class="pdf-outline-list" id="pdfOutlineList"></div>
+          </div>
+          <div class="pdf-canvas-wrap"></div>
+        </div>
+        <div class="pdf-toolbar">
+          <button type="button" class="pdf-tool-btn" id="pdfToggleOutlineBtn" title="显示目录">☰</button>
+          <button type="button" class="pdf-tool-btn" id="pdfPrevPageBtn" disabled>上一页</button>
+          <input type="text" class="pdf-page-input" id="pdfPageInput" value="0 / 0" />
+          <button type="button" class="pdf-tool-btn" id="pdfNextPageBtn" disabled>下一页</button>
+          <button type="button" class="pdf-tool-btn" id="pdfZoomOutBtn">-</button>
+          <input type="text" class="pdf-zoom-input" id="pdfZoomInput" value="100%" />
+          <button type="button" class="pdf-tool-btn" id="pdfZoomInBtn">+</button>
+          <button type="button" class="pdf-tool-btn" id="pdfFitWidthBtn" title="适应宽度">适应宽度</button>
+        </div>
+      </div>
+    `;
+
+    const loading = container.querySelector(".pdf-loading");
+    const errorDiv = container.querySelector(".pdf-error");
+    const canvasWrap = container.querySelector(".pdf-canvas-wrap");
+    const prevBtn = container.querySelector("#pdfPrevPageBtn");
+    const nextBtn = container.querySelector("#pdfNextPageBtn");
+    const pageInput = container.querySelector("#pdfPageInput");
+    const zoomOutBtn = container.querySelector("#pdfZoomOutBtn");
+    const zoomInBtn = container.querySelector("#pdfZoomInBtn");
+    const zoomInput = container.querySelector("#pdfZoomInput");
+    const fitWidthBtn = container.querySelector("#pdfFitWidthBtn");
+
+    if (typeof pdfjsLib === "undefined") {
+      loading.textContent = "PDF.js 未加载，请刷新页面重试";
+      return;
+    }
+
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdfjs-dist@2.16.105/build/pdf.worker.min.js";
+
+    let pdfDoc = null;
+    let currentPage = 1;
+    let scale = 0.5;
+    let rendering = false;
+    let highlightOutlineItem = null;
+    let renderedPages = new Set(); // 已渲染的页码
+    let pageHeights = []; // 存储每页的渲染高度
+
+    const updatePageInfo = (pageNum) => {
+      pageInput.value = `${pageNum} / ${pdfDoc.numPages}`;
+      prevBtn.disabled = pageNum <= 1;
+      nextBtn.disabled = pageNum >= pdfDoc.numPages;
+    };
+    const updateZoomInfo = () => {
+      zoomInput.value = `${Math.round(scale * 100)}%`;
+    };
+
+    // 获取页面 viewport
+    const getPageViewport = async (pageNum) => {
+      const page = await pdfDoc.getPage(pageNum);
+      return page.getViewport({ scale: scale * 1.5 });
+    };
+
+    // 创建页面占位元素
+    const createPagePlaceholder = (pageNum, viewport) => {
+      const wrapper = document.createElement("div");
+      wrapper.className = "pdf-page-wrapper";
+      wrapper.dataset.pageNum = pageNum;
+      wrapper.style.width = viewport.width + "px";
+      wrapper.style.height = viewport.height + "px";
+      wrapper.style.marginBottom = "12px";
+      wrapper.style.marginLeft = "auto";
+      wrapper.style.marginRight = "auto";
+      wrapper.style.position = "relative";
+      return wrapper;
+    };
+
+    // 渲染单个页面
+    const renderPageToWrap = async (pageNum) => {
+      if (!pdfDoc || renderedPages.has(pageNum)) return;
+      renderedPages.add(pageNum);
+      try {
+        const page = await pdfDoc.getPage(pageNum);
+        const viewport = page.getViewport({ scale: scale * 1.5 });
+        const wrapper = canvasWrap.querySelector(`.pdf-page-wrapper[data-page-num="${pageNum}"]`);
+        if (!wrapper) return;
+
+        const canvas = document.createElement("canvas");
+        canvas.dataset.pageNum = pageNum;
+        const ctx = canvas.getContext("2d");
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        canvas.style.width = viewport.width + "px";
+        canvas.style.height = viewport.height + "px";
+        canvas.style.position = "absolute";
+        canvas.style.top = "0";
+        canvas.style.left = "0";
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        wrapper.appendChild(canvas);
+        pageHeights[pageNum] = viewport.height + 12;
+      } catch (e) {
+        console.log("[pdf] render page error:", e);
+      }
+    };
+
+    // 获取页面在 canvasWrap 中的偏移
+    const getPageTopOffset = (pageNum) => {
+      let offset = 0;
+      for (let i = 1; i < pageNum; i++) {
+        offset += pageHeights[i] || 1000;
+      }
+      return offset;
+    };
+
+    // 检查并渲染可视区域内的页面（懒加载）
+    const checkAndRenderVisiblePages = async () => {
+      if (!pdfDoc) return;
+      const scrollTop = canvasWrap.scrollTop;
+      const viewHeight = canvasWrap.clientHeight;
+      const viewBottom = scrollTop + viewHeight;
+      const margin = viewHeight * 2; // 预加载上下各两屏
+
+      for (let i = 1; i <= pdfDoc.numPages; i++) {
+        const pageTop = getPageTopOffset(i);
+        const pageBottom = pageTop + (pageHeights[i] || 1000);
+        if (pageBottom >= scrollTop - margin && pageTop <= viewBottom + margin && !renderedPages.has(i)) {
+          await renderPageToWrap(i);
+        }
+      }
+    };
+
+    // 初始化所有页面占位
+    const initPagePlaceholders = async () => {
+      canvasWrap.innerHTML = "";
+      pageHeights = [];
+      for (let i = 1; i <= pdfDoc.numPages; i++) {
+        const viewport = await getPageViewport(i);
+        const placeholder = createPagePlaceholder(i, viewport);
+        canvasWrap.appendChild(placeholder);
+        pageHeights[i] = viewport.height + 12;
+      }
+    };
+
+    // 重新渲染所有页面（缩放时调用）
+    const renderAllPages = async () => {
+      if (!pdfDoc) return;
+      renderedPages.clear();
+      await initPagePlaceholders();
+      await checkAndRenderVisiblePages();
+    };
+
+    // 计算适应宽度的缩放比例
+    const fitWidth = async () => {
+      if (!pdfDoc) return;
+      const page = await pdfDoc.getPage(currentPage);
+      const unscaledViewport = page.getViewport({ scale: 1 });
+      const wrapWidth = canvasWrap.clientWidth - 32;
+      scale = (wrapWidth / unscaledViewport.width) / 1.5;
+      await renderAllPages();
+      onScroll();
+    };
+
+    // 滚动时更新当前页码和高亮，并触发懒加载
+    const onScroll = () => {
+      if (!pdfDoc) return;
+      const scrollTop = canvasWrap.scrollTop;
+
+      // 计算当前页码
+      let accumulatedHeight = 0;
+      let foundPage = 1;
+      for (let i = 1; i <= pdfDoc.numPages; i++) {
+        accumulatedHeight += pageHeights[i] || 1000;
+        if (accumulatedHeight > scrollTop) {
+          foundPage = i;
+          break;
+        }
+      }
+      if (foundPage !== currentPage) {
+        currentPage = foundPage;
+        updatePageInfo(currentPage);
+        if (highlightOutlineItem) {
+          highlightOutlineItem(currentPage);
+        }
+      }
+
+      // 懒加载
+      void checkAndRenderVisiblePages();
+    };
+
+    try {
+      const loadingTask = pdfjsLib.getDocument(finalUrl);
+      pdfDoc = await loadingTask.promise;
+      loading.style.display = "none";
+      currentPage = 1;
+      await renderAllPages();
+
+      // 绑定滚动事件
+      canvasWrap.addEventListener("scroll", onScroll);
+      // 初始化页码显示
+      updatePageInfo(1);
+      updateZoomInfo();
+      // 初始化触发一次
+      onScroll();
+
+      // 加载并渲染目录
+      const outline = await pdfDoc.getOutline();
+      const outlinePanel = container.querySelector("#pdfOutlinePanel");
+      const outlineList = container.querySelector("#pdfOutlineList");
+      // 存储页码到目录元素的映射
+      const outlinePageMap = [];
+
+      if (outline && outline.length > 0 && outlineList) {
+        const renderOutlineItems = async (items, parentEl, depth = 0) => {
+          for (const item of items) {
+            const div = document.createElement("div");
+            div.className = "pdf-outline-item";
+            div.style.paddingLeft = `${depth * 16 + 8}px`;
+            div.textContent = item.title;
+
+            let dest = item.dest;
+            if (typeof dest === "string") {
+              dest = await pdfDoc.getDestination(dest);
+            }
+            let itemPage = null;
+            if (dest && dest.length > 0) {
+              const pageRef = dest[0];
+              const pageIndex = await pdfDoc.getPageIndex(pageRef);
+              itemPage = pageIndex + 1;
+              outlinePageMap.push({ el: div, page: itemPage });
+
+              div.onclick = async () => {
+                currentPage = itemPage;
+                const targetWrapper = canvasWrap.querySelector(`.pdf-page-wrapper[data-page-num="${itemPage}"]`);
+                if (targetWrapper) {
+                  targetWrapper.scrollIntoView({ block: "start", behavior: "smooth" });
+                }
+              };
+            }
+
+            parentEl.appendChild(div);
+            if (item.items && item.items.length > 0) {
+              await renderOutlineItems(item.items, parentEl, depth + 1);
+            }
+          }
+        };
+        await renderOutlineItems(outline, outlineList);
+      }
+
+      // 高亮当前页面对应的目录项
+      highlightOutlineItem = (pageNum) => {
+        outlineList.querySelectorAll(".pdf-outline-item").forEach((el) => el.classList.remove("active"));
+        // 找到小于等于当前页码的最后一个目录项
+        let activeItem = null;
+        for (const m of outlinePageMap) {
+          if (m.page <= pageNum) {
+            activeItem = m.el;
+          } else {
+            break;
+          }
+        }
+        if (activeItem) {
+          activeItem.classList.add("active");
+          // 滚动到可视区域
+          activeItem.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        }
+      };
+    } catch (e) {
+      console.log("[pdf] load error:", e);
+      loading.style.display = "none";
+      errorDiv.style.display = "block";
+      return;
+    }
+
+    prevBtn.onclick = () => {
+      if (currentPage > 1) {
+        const targetWrapper = canvasWrap.querySelector(`.pdf-page-wrapper[data-page-num="${currentPage - 1}"]`);
+        if (targetWrapper) {
+          targetWrapper.scrollIntoView({ block: "start", behavior: "smooth" });
+        }
+      }
+    };
+    nextBtn.onclick = () => {
+      if (pdfDoc && currentPage < pdfDoc.numPages) {
+        const targetWrapper = canvasWrap.querySelector(`.pdf-page-wrapper[data-page-num="${currentPage + 1}"]`);
+        if (targetWrapper) {
+          targetWrapper.scrollIntoView({ block: "start", behavior: "smooth" });
+        }
+      }
+    };
+    zoomOutBtn.onclick = async () => {
+      if (scale > 0.5) {
+        scale -= 0.25;
+        await renderAllPages();
+        onScroll();
+      }
+    };
+    zoomInBtn.onclick = async () => {
+      if (scale < 3) {
+        scale += 0.25;
+        await renderAllPages();
+        onScroll();
+      }
+    };
+    fitWidthBtn.onclick = async () => {
+      await fitWidth();
+    };
+
+    // 目录面板切换
+    const toggleOutlineBtn = container.querySelector("#pdfToggleOutlineBtn");
+    const outlinePanel = container.querySelector("#pdfOutlinePanel");
+    const outlineCloseBtn = container.querySelector("#pdfOutlineCloseBtn");
+    if (toggleOutlineBtn && outlinePanel) {
+      const hasOutline = outlinePanel.querySelector(".pdf-outline-item");
+      if (!hasOutline) {
+        toggleOutlineBtn.style.display = "none";
+      }
+      toggleOutlineBtn.onclick = () => {
+        outlinePanel.style.display = outlinePanel.style.display === "none" ? "flex" : "none";
+      };
+    }
+    if (outlineCloseBtn && outlinePanel) {
+      outlineCloseBtn.onclick = () => {
+        outlinePanel.style.display = "none";
+      };
+    }
+
+    // 页码输入处理
+    pageInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        const val = parseInt(pageInput.value, 10);
+        if (!isNaN(val) && val >= 1 && val <= pdfDoc.numPages && val !== currentPage) {
+          currentPage = val;
+          const targetWrapper = canvasWrap.querySelector(`.pdf-page-wrapper[data-page-num="${val}"]`);
+          if (targetWrapper) {
+            targetWrapper.scrollIntoView({ block: "start", behavior: "smooth" });
+          }
+        } else {
+          updatePageInfo(currentPage);
+        }
+        pageInput.blur();
+      }
+    });
+    pageInput.addEventListener("blur", () => {
+      updatePageInfo(currentPage);
+    });
+
+    // 缩放输入处理
+    zoomInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        const val = parseFloat(zoomInput.value);
+        if (!isNaN(val) && val >= 50 && val <= 300) {
+          scale = val / 100;
+          void renderAllPages();
+          onScroll();
+        } else {
+          updateZoomInfo();
+        }
+        zoomInput.blur();
+      }
+    });
+    zoomInput.addEventListener("blur", () => {
+      updateZoomInfo();
+    });
+
+    // 浏览器原生预览（iframe 模式），仅电脑端
+    const metaBrowserBtn = previewMeta.querySelector("#pdfBrowserPreviewBtn");
+    if (typeof isMobileViewport === "function" && isMobileViewport()) {
+      if (metaBrowserBtn) metaBrowserBtn.style.display = "none";
+    } else {
+      if (metaBrowserBtn) {
+        metaBrowserBtn.onclick = () => {
+          container.innerHTML = `
+            <div class="pdf-iframe-wrap">
+              <div class="pdf-iframe-toolbar">
+                <button type="button" class="pdf-tool-btn" id="pdfBackToCanvasBtn">PDF.js 预览</button>
+              </div>
+              <iframe class="preview-iframe" src="${finalUrl}"></iframe>
+            </div>
+          `;
+          container.querySelector("#pdfBackToCanvasBtn").onclick = () => {
+            void renderPdfPreview(entry, container);
+          };
+        };
+      }
+    }
+
+    // 移动端双指捏合缩放
+    let pinchStartDist = 0;
+    let pinchStartScale = 0;
+    let pinchCurrentScale = 0;
+    canvasWrap.addEventListener("touchstart", (e) => {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        pinchStartDist = Math.sqrt(dx * dx + dy * dy);
+        pinchStartScale = scale;
+        pinchCurrentScale = scale;
+      }
+    }, { passive: false });
+    canvasWrap.addEventListener("touchmove", (e) => {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const ratio = dist / pinchStartDist;
+        pinchCurrentScale = Math.min(3, Math.max(0.5, pinchStartScale * ratio));
+        zoomInput.value = `${Math.round(pinchCurrentScale * 100)}%`;
+      }
+    }, { passive: false });
+    canvasWrap.addEventListener("touchend", (e) => {
+      if (e.touches.length < 2 && pinchStartDist > 0) {
+        scale = pinchCurrentScale;
+        pinchStartDist = 0;
+        pinchStartScale = 0;
+        void renderAllPages();
+        onScroll();
+      }
+    });
+  };
+
   const renderMiniPreview = () => {
     if (!previewMiniBody) return;
     const entry = state.activeEntry;
@@ -614,6 +1068,8 @@ importScripts(${JSON.stringify(workerMainUrl)});
       const ext = getFileExt(entry.name);
       if (["docx", "doc", "xlsx", "xls", "csv"].includes(ext)) {
         renderOfficePreviewFrame(entry, previewMiniBody);
+      } else if (ext === "pdf") {
+        void renderPdfPreview(entry, previewMiniBody);
       } else {
         previewMiniBody.innerHTML = `<iframe class="preview-iframe" src="${previewUrl}"></iframe>`;
       }
@@ -810,7 +1266,7 @@ importScripts(${JSON.stringify(workerMainUrl)});
         if (audioEl.paused) {
           const playResult = audioEl.play();
           if (playResult && typeof playResult.catch === "function") {
-            playResult.catch(() => {});
+            playResult.catch(() => { });
           }
           return;
         }
@@ -899,7 +1355,7 @@ importScripts(${JSON.stringify(workerMainUrl)});
           sidebar.classList.toggle("is-collapsed", state.mediaPreview.sidebarCollapsed);
         }
         toggleSidebarBtn.textContent = state.mediaPreview.sidebarCollapsed ? "展开" : "收起";
-        
+
         // 显示/隐藏展开按钮
         let expandBtn = previewBody.querySelector("#previewMediaExpandSidebarBtn");
         if (state.mediaPreview.sidebarCollapsed) {
@@ -946,7 +1402,7 @@ importScripts(${JSON.stringify(workerMainUrl)});
   const updateMediaActiveState = (previewType) => {
     if (!previewBody || !["video", "audio"].includes(previewType)) return;
     const activeIndex = state.mediaPreview.activeIndex;
-    
+
     // 更新列表项的激活状态
     const listItems = previewBody.querySelectorAll(".preview-media-item");
     listItems.forEach((item, index) => {
@@ -959,7 +1415,7 @@ importScripts(${JSON.stringify(workerMainUrl)});
         item.classList.remove("is-active");
       }
     });
-    
+
     // 更新媒体源
     const currentEntry = state.activeEntry;
     if (currentEntry) {
@@ -971,7 +1427,7 @@ importScripts(${JSON.stringify(workerMainUrl)});
         const currentTime = mediaEl.currentTime;
         const volume = mediaEl.volume;
         const muted = mediaEl.muted;
-        
+
         // 添加错误处理，避免 ERR_ABORTED 日志
         const handleError = (e) => {
           // 忽略加载错误（通常是切换时的正常中止）
@@ -979,15 +1435,15 @@ importScripts(${JSON.stringify(workerMainUrl)});
             return;
           }
         };
-        
+
         // 更新源并恢复状态
         mediaEl.src = mediaUrl;
         mediaEl.onerror = handleError;
         mediaEl.load();
-        
+
         // 恢复播放状态
         if (!wasPaused && previewType === "video") {
-          mediaEl.play().catch(() => {});
+          mediaEl.play().catch(() => { });
         }
         if (currentTime) {
           mediaEl.currentTime = currentTime;
@@ -996,7 +1452,7 @@ importScripts(${JSON.stringify(workerMainUrl)});
         mediaEl.muted = muted;
       }
     }
-    
+
     // 更新导航按钮状态
     const prevBtn = previewBody.querySelector("#previewMediaPrevBtn");
     const nextBtn = previewBody.querySelector("#previewMediaNextBtn");
@@ -1014,7 +1470,7 @@ importScripts(${JSON.stringify(workerMainUrl)});
     if (audioNextBtn) {
       audioNextBtn.disabled = activeIndex >= state.mediaPreview.entries.length - 1;
     }
-    
+
     // 更新文件名显示
     const toolbarName = previewBody.querySelector(".preview-media-toolbar-name");
     if (toolbarName && currentEntry) {
@@ -1279,7 +1735,7 @@ importScripts(${JSON.stringify(workerMainUrl)});
           sidebar.classList.toggle("is-collapsed", state.imagePreview.sidebarCollapsed);
         }
         toggleSidebarBtn.textContent = state.imagePreview.sidebarCollapsed ? "展开" : "收起";
-        
+
         // 显示/隐藏展开按钮
         let expandBtn = previewBody.querySelector("#previewImageExpandSidebarBtn");
         if (state.imagePreview.sidebarCollapsed) {
@@ -1326,7 +1782,7 @@ importScripts(${JSON.stringify(workerMainUrl)});
   const updateImageActiveState = () => {
     if (!previewBody) return;
     const activeIndex = state.imagePreview.activeIndex;
-    
+
     // 更新列表项的激活状态
     const listItems = previewBody.querySelectorAll(".preview-image-item");
     listItems.forEach((item, index) => {
@@ -1340,14 +1796,14 @@ importScripts(${JSON.stringify(workerMainUrl)});
         item.classList.remove("is-active");
       }
     });
-    
+
     // 更新主图
     const imageEl = previewBody.querySelector("#previewImageMainImg");
     const currentEntry = state.activeEntry;
     if (imageEl && currentEntry) {
       const imageUrl = getStreamPreviewUrl(currentEntry);
       const imageName = state.escapeHtml(currentEntry.name || "预览图片");
-      
+
       // 添加错误处理，避免不必要的日志
       const handleImageError = (e) => {
         // 忽略加载错误（通常是切换时的正常中止）
@@ -1355,19 +1811,19 @@ importScripts(${JSON.stringify(workerMainUrl)});
           return;
         }
       };
-      
+
       imageEl.onerror = handleImageError;
       imageEl.src = imageUrl;
       imageEl.alt = imageName;
       imageEl.style.transform = buildImageTransform();
     }
-    
+
     // 更新工具栏的缩放比例显示
     const zoomDisplay = previewBody.querySelector(".preview-image-toolbar-center span:first-of-type");
     if (zoomDisplay) {
       zoomDisplay.textContent = `${Math.round(clampImageZoom(state.imagePreview.zoom) * 100)}%`;
     }
-    
+
     // 更新导航按钮状态
     const prevBtn = previewBody.querySelector("#previewImagePrevBtn");
     const nextBtn = previewBody.querySelector("#previewImageNextBtn");
@@ -1494,6 +1950,8 @@ importScripts(${JSON.stringify(workerMainUrl)});
       if (["docx", "doc", "xlsx", "xls", "csv"].includes(ext)) {
         // 对于 Office 文档，无论是否是压缩包中的文件，都使用 renderOfficePreviewFrame
         renderOfficePreviewFrame(entry, previewBody);
+      } else if (ext === "pdf") {
+        void renderPdfPreview(entry, previewBody);
       } else {
         const previewUrl = getStreamPreviewUrl(entry);
         previewBody.innerHTML = `<iframe class="preview-iframe" src="${previewUrl}"></iframe>`;
@@ -1506,7 +1964,7 @@ importScripts(${JSON.stringify(workerMainUrl)});
     state.textPreview.dirty = false;
     state.textPreview.isSaving = false;
     renderTextPreview();
-    
+
     // 如果是压缩包中的文件，直接使用 archiveContent
     if (entry.isArchiveEntry && entry.archiveContent) {
       try {
@@ -1524,7 +1982,7 @@ importScripts(${JSON.stringify(workerMainUrl)});
         return;
       }
     }
-    
+
     if (typeof state.request !== "function") {
       showUnsupported();
       return;
