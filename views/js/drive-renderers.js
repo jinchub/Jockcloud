@@ -582,6 +582,7 @@ const renderFileList = () => {
     const isVideoNoThumb = entry.type === "file" && isVideoEntry(entry) && !entry.hasThumbnail;
     item.className = state.viewMode === "grid" ? "grid-item" : `table-row${isCategoryTimelineMode ? " timeline-entry" : ""}`;
     if (isVideoNoThumb) item.classList.add("video-no-thumb");
+    if (entry.isPinned) item.classList.add("is-pinned");
     if (isEntrySelected(entry) || (state.selectedEntry && state.selectedEntry.id === entry.id && state.selectedEntry.type === entry.type)) {
       item.classList.add("selected");
     }
@@ -877,6 +878,14 @@ const renderFileList = () => {
       document.getElementById("menuLocateFolder").style.display = (!isRecycle && !!state.keyword && entry.type === "file") ? "" : "none";
       document.getElementById("menuGoToFolder").style.display = (!isRecycle && !!state.category && entry.type === "file") ? "" : "none";
       document.getElementById("menuShare").style.display = isRecycle ? "none" : "";
+      const pinEl = document.getElementById("menuPin");
+      if (pinEl) {
+        pinEl.style.display = isRecycle ? "none" : "";
+        const isPinned = !!entry.isPinned;
+        pinEl.innerHTML = isPinned
+          ? getContextMenuItemContent("unpin", "取消置顶")
+          : getContextMenuItemContent("pin", "置顶");
+      }
       document.getElementById("menuRename").style.display = (isRecycle || !hasUserPermission("rename")) ? "none" : "";
       document.getElementById("menuMove").style.display = (isRecycle || !hasUserPermission("move")) ? "none" : "";
       document.getElementById("menuDelete").style.display = hasUserPermission("delete") ? "" : "none";

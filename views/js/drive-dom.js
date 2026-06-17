@@ -188,7 +188,9 @@ const MENU_ICON_SVG = {
   move: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#1f2329" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v16"/><path d="m8.7 7.3 3.3-3.3 3.3 3.3"/><path d="m8.7 16.7 3.3 3.3 3.3-3.3"/><path d="M4 12h16"/><path d="m7.3 8.7-3.3 3.3 3.3 3.3"/><path d="m16.7 8.7 3.3 3.3-3.3 3.3"/></svg>',
   delete: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#1f2329" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 7.5h13"/><path d="M9.5 7.5v-2h5v2"/><path d="M8 7.5v11a1.5 1.5 0 0 0 1.5 1.5h5A1.5 1.5 0 0 0 16 18.5v-11"/><path d="M10 11v5"/><path d="M14 11v5"/></svg>',
   deleteStrong: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#f53f3f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 7.5h13"/><path d="M9.5 7.5v-2h5v2"/><path d="M8 7.5v11a1.5 1.5 0 0 0 1.5 1.5h5A1.5 1.5 0 0 0 16 18.5v-11"/><path d="M10 11v5"/><path d="M14 11v5"/></svg>',
-  restore: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#1f2329" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.2 8v4h4"/><path d="M6.4 12a6.6 6.6 0 1 0 2.2-4.9"/></svg>'
+  restore: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#1f2329" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.2 8v4h4"/><path d="M6.4 12a6.6 6.6 0 1 0 2.2-4.9"/></svg>',
+  pin: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#1f2329" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>',
+  unpin: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#f53f3f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m5.5 5.5 13 13"/></svg>'
 };
 const MENU_ICON_SRC = Object.entries(MENU_ICON_SVG).reduce((acc, [key, svg]) => {
   acc[key] = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
@@ -208,6 +210,7 @@ const initContextMenuIconItems = () => {
   const locateFolderEl = document.getElementById("menuLocateFolder");
   const goToFolderEl = document.getElementById("menuGoToFolder");
   const shareEl = document.getElementById("menuShare");
+  const pinEl = document.getElementById("menuPin");
   const copyEl = document.getElementById("menuCopy");
   const renameEl = document.getElementById("menuRename");
   const moveEl = document.getElementById("menuMove");
@@ -221,6 +224,7 @@ const initContextMenuIconItems = () => {
   if (locateFolderEl) locateFolderEl.innerHTML = getContextMenuItemContent("open", "跳转至所在目录");
   if (goToFolderEl) goToFolderEl.innerHTML = getContextMenuItemContent("open", "跳转文件目录");
   if (shareEl) shareEl.innerHTML = getContextMenuItemContent("share", "分享");
+  if (pinEl) pinEl.innerHTML = getContextMenuItemContent("pin", "置顶");
   if (copyEl) copyEl.innerHTML = getContextMenuItemContent("copy", "复制");
   if (renameEl) renameEl.innerHTML = getContextMenuItemContent("rename", "重命名");
   if (moveEl) moveEl.innerHTML = getContextMenuItemContent("move", "移动");

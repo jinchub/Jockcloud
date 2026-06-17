@@ -167,6 +167,17 @@ const initDatabase = async () => {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS pinned_entries (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      user_id INT NOT NULL,
+      entry_type VARCHAR(16) NOT NULL,
+      entry_id INT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uk_pinned_user_entry (user_id, entry_type, entry_id),
+      INDEX idx_pinned_user_created (user_id, created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS shares (
       id INT PRIMARY KEY AUTO_INCREMENT,
       user_id INT NOT NULL,

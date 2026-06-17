@@ -104,10 +104,17 @@ module.exports = (app, deps) => {
         fileParams.push(`%${keyword}%`);
       }
 
+      const [pinnedRows] = await pool.query(
+        "SELECT entry_type AS entryType, entry_id AS entryId FROM pinned_entries WHERE user_id = ?",
+        [req.user.userId]
+      );
+      const pinnedKeySet = new Set(pinnedRows.map((r) => `${String(r.entryType)}-${Number(r.entryId)}`));
       const entries = [];
       if (type === "all" || type === "folder") {
         const [folderRows] = await pool.query(folderSql, folderParams);
-        entries.push(...folderRows);
+        for (const row of folderRows) {
+          entries.push({ ...row, isPinned: pinnedKeySet.has(`folder-${Number(row.id)}`) });
+        }
       }
       if (type === "all" || type === "file") {
         const [fileRows] = await pool.query(fileSql, fileParams);
@@ -116,11 +123,14 @@ module.exports = (app, deps) => {
           const resolvedCategory = rawCategory === "other"
             ? resolveStoredFileCategory(item.name, item.mimeType)
             : rawCategory;
-          return { ...item, fileCategory: normalizeFileCategoryKey(resolvedCategory) };
+          return { ...item, fileCategory: normalizeFileCategoryKey(resolvedCategory), isPinned: pinnedKeySet.has(`file-${Number(item.id)}`) };
         });
         entries.push(...normalizedRows);
       }
       entries.sort((a, b) => {
+        if (a.isPinned !== b.isPinned) {
+          return a.isPinned ? -1 : 1;
+        }
         let left = a[sortBy];
         let right = b[sortBy];
         if (sortBy === "name" || sortBy === "type") {
@@ -496,6 +506,51 @@ module.exports = (app, deps) => {
       }
     }
     res.json({ message: "批量操作完成", successCount, failCount, errors });
+  });
+
+  app.post("/api/entries/:type/:id/pin", authRequired, async (req, res) => {
+    const spaceType = resolveStorageSpaceTypeByRequest(req);
+    const entryType = String(req.params.type || "").trim();
+    const entryId = normalizeFolderId(req.params.id);
+    if (!entryId || !["folder", "file"].includes(entryType)) {
+      res.status(400).json({ message: "参数不合法" });
+      return;
+    }
+    try {
+      const checkSql = entryType === "folder"
+        ? "SELECT id FROM folders WHERE id = ? AND user_id = ? AND space_type = ? AND deleted_at IS NULL LIMIT 1"
+        : "SELECT id FROM files WHERE id = ? AND user_id = ? AND space_type = ? AND deleted_at IS NULL LIMIT 1";
+      const [rows] = await pool.query(checkSql, [entryId, req.user.userId, spaceType]);
+      if (rows.length === 0) {
+        res.status(404).json({ message: "条目不存在" });
+        return;
+      }
+      await pool.query(
+        "INSERT IGNORE INTO pinned_entries (user_id, entry_type, entry_id) VALUES (?, ?, ?)",
+        [req.user.userId, entryType, entryId]
+      );
+      res.json({ message: "置顶成功", isPinned: true });
+    } catch (error) {
+      sendDbError(res, error);
+    }
+  });
+
+  app.post("/api/entries/:type/:id/unpin", authRequired, async (req, res) => {
+    const entryType = String(req.params.type || "").trim();
+    const entryId = normalizeFolderId(req.params.id);
+    if (!entryId || !["folder", "file"].includes(entryType)) {
+      res.status(400).json({ message: "参数不合法" });
+      return;
+    }
+    try {
+      await pool.query(
+        "DELETE FROM pinned_entries WHERE user_id = ? AND entry_type = ? AND entry_id = ?",
+        [req.user.userId, entryType, entryId]
+      );
+      res.json({ message: "取消置顶成功", isPinned: false });
+    } catch (error) {
+      sendDbError(res, error);
+    }
   });
 
   // 视频缩略图状态查询（用于前端轮询）

@@ -110,7 +110,6 @@ input[type="checkbox"] {
   width: 10px;
   height: 10px;
   border: 2px solid #e5e5e5;
-  background-color: #fdfdfd;
   border-radius: 50%;
   cursor: pointer;
   position: relative;
@@ -137,7 +136,7 @@ input[type="checkbox"]:checked::after {
 }
 
 input[type="checkbox"]:disabled {
-  opacity: 0.5;
+  opacity: 0.7;
   cursor: not-allowed;
 }
 
@@ -146,8 +145,8 @@ input[type="checkbox"]:disabled:hover {
 }
 
 input[type="checkbox"]:disabled:checked {
-  background: var(--text-quaternary);
-  border-color: var(--text-quaternary);
+  /*background: var(--text-quaternary);
+  border-color: var(--text-quaternary);*/
 }
 
 [data-theme="dark"] .timeline-card-media {
@@ -2416,6 +2415,7 @@ html {
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  position: relative;
 }
 
 .timeline-card-media .file-icon {
@@ -2473,6 +2473,12 @@ html {
 
 .quick-access-toggle.active {
   color: #f7ba1e;
+}
+
+.table-row.is-pinned .file-name-text,
+.grid-item.is-pinned .grid-item-name,
+.timeline-entry.is-pinned .timeline-card-name {
+  color: #f53f3f;
 }
 
 .grid-item {

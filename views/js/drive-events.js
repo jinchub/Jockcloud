@@ -1204,6 +1204,28 @@ document.getElementById("menuShare").onclick = () => {
   shareModal.style.display = "flex";
 };
 
+const menuPinEl = document.getElementById("menuPin");
+if (menuPinEl) {
+  menuPinEl.onclick = async () => {
+    if (!state.selectedEntry) return;
+    const entryId = Number(state.selectedEntry.id);
+    const entryType = state.selectedEntry.type;
+    const isPinned = !!state.selectedEntry.isPinned;
+    try {
+      const url = `/api/entries/${encodeURIComponent(entryType)}/${encodeURIComponent(entryId)}/${isPinned ? "unpin" : "pin"}`;
+      const res = await request(url, { method: "POST" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.message || (isPinned ? "取消置顶失败" : "置顶失败"));
+        return;
+      }
+      await refreshAll();
+    } catch (error) {
+      alert(error && error.message ? error.message : (isPinned ? "取消置顶失败" : "置顶失败"));
+    }
+  };
+}
+
 document.getElementById("menuCopy").onclick = () => {
   if (!state.selectedEntry) return;
   if (!ensurePermission("copy")) return;
