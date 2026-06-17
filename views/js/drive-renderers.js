@@ -517,6 +517,7 @@ const renderFileList = () => {
       dayGroup.style.setProperty("--timeline-day-sticky-index", String(currentTimelineDayGroupIndex));
       dayGroup.innerHTML = `
         <span class="timeline-day-dot"></span>
+        <span class="timeline-day-toggle"><i class="fa-solid fa-chevron-down"></i></span>
         <span class="timeline-day-label">${escapeHtml(timelineDayLabel === "-" ? "未知日期" : timelineDayLabel)}</span>
       `;
       fileListEl.appendChild(dayGroup);
@@ -524,26 +525,41 @@ const renderFileList = () => {
       dayEntries.className = "timeline-day-entries";
       fileListEl.appendChild(dayEntries);
       const dayLabel = dayGroup.querySelector(".timeline-day-label");
+      const dayToggle = dayGroup.querySelector(".timeline-day-toggle");
       if (dayLabel) {
         dayLabel.setAttribute("role", "button");
         dayLabel.setAttribute("tabindex", "0");
-        const revealDayEntries = () => {
-          const stickyHeight = Number.parseFloat(
-            window.getComputedStyle(fileListEl).getPropertyValue("--timeline-day-sticky-height")
-          ) || 34;
-          const stickyTopOffset = currentTimelineDayGroupIndex * stickyHeight;
-          const targetScrollTop = Math.max(0, dayEntries.offsetTop - stickyTopOffset - 4);
-          fileListEl.scrollTo({ top: targetScrollTop, behavior: "smooth" });
-        };
-        dayLabel.addEventListener("click", (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          revealDayEntries();
-        });
+      }
+      let isCollapsed = false;
+      const toggleDayEntries = () => {
+        isCollapsed = !isCollapsed;
+        dayEntries.style.display = isCollapsed ? "none" : "";
+        dayToggle.classList.toggle("collapsed", isCollapsed);
+        updateTimelineLineHeight();
+      };
+      const revealDayEntries = () => {
+        if (isCollapsed) {
+          toggleDayEntries();
+        }
+        const stickyHeight = Number.parseFloat(
+          window.getComputedStyle(fileListEl).getPropertyValue("--timeline-day-sticky-height")
+        ) || 34;
+        const stickyTopOffset = currentTimelineDayGroupIndex * stickyHeight;
+        const targetScrollTop = Math.max(0, dayEntries.offsetTop - stickyTopOffset - 4);
+        fileListEl.scrollTo({ top: targetScrollTop, behavior: "smooth" });
+      };
+      // 整个时间分组可点击
+      dayGroup.style.cursor = "pointer";
+      dayGroup.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        toggleDayEntries();
+      });
+      if (dayLabel) {
         dayLabel.addEventListener("keydown", (event) => {
           if (event.key !== "Enter" && event.key !== " ") return;
           event.preventDefault();
-          revealDayEntries();
+          toggleDayEntries();
         });
       }
       timelineDayEntriesContainer = dayEntries;

@@ -2554,6 +2554,41 @@ document.documentElement.classList.remove("mobile-secondary-init");
 bindGridDragSelect();
 bindListDragSelect();
 
+const bindTimelineScrollSync = () => {
+  if (!fileListEl) return;
+
+  const updateToggleIcons = () => {
+    if (!fileListEl.classList.contains("timeline-mode")) return;
+    const dayGroups = fileListEl.querySelectorAll(".timeline-day-group");
+    const containerRect = fileListEl.getBoundingClientRect();
+    const stickyHeight = Number.parseFloat(
+      window.getComputedStyle(fileListEl).getPropertyValue("--timeline-day-sticky-height")
+    ) || 34;
+
+    dayGroups.forEach((group, index) => {
+      const toggle = group.querySelector(".timeline-day-toggle");
+      const entries = group.nextElementSibling;
+      if (!toggle || !entries || !entries.classList.contains("timeline-day-entries")) return;
+
+      const groupRect = group.getBoundingClientRect();
+      const entriesRect = entries.getBoundingClientRect();
+
+      // 检查条目是否被遮挡（滚动到视口外或被下一个sticky header覆盖）
+      const isEntriesHidden = entriesRect.bottom <= containerRect.top + stickyHeight * (index + 1) ||
+                              entriesRect.top >= containerRect.bottom ||
+                              entriesRect.bottom <= containerRect.top;
+
+      toggle.classList.toggle("collapsed", isEntriesHidden);
+    });
+  };
+
+  fileListEl.addEventListener("scroll", updateToggleIcons);
+  // 初始执行一次
+  setTimeout(updateToggleIcons, 100);
+};
+
+bindTimelineScrollSync();
+
 if (typeof window !== "undefined") {
   window.gridDragSelectState = gridDragSelectState;
   window.hideGridSelectionBox = hideGridSelectionBox;
