@@ -1,6 +1,6 @@
 // Utils
 const formatSize = (size) => {
-  if (!size || size === "0") return "-";
+  if (size === null || size === undefined) return "-";
   const s = Number(size);
   if (s < 1024) return `${s} B`;
   if (s < 1024 * 1024) return `${(s / 1024).toFixed(1)} KB`;
@@ -3250,7 +3250,7 @@ const updateBatchActionState = () => {
     newFolderBtn.style.display = isRecycle ? "none" : "";
   }
   if (newFolderBtnMobile) {
-    newFolderBtnMobile.style.display = isRecycle ? "none" : "";
+    newFolderBtnMobile.style.display = !isRecycle && isMobileViewport() ? "" : "none";
   }
   if (batchRestoreBtn) {
     batchRestoreBtn.disabled = count === 0;

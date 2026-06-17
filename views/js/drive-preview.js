@@ -14,6 +14,13 @@
       PREVIEW_DOC_EXT_SET = new Set(Array.isArray(previewConfig.docExts) ? previewConfig.docExts : []);
     }
   };
+
+  const appendThemeParam = (url) => {
+    if (!url) return url;
+    const theme = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+    const sep = url.includes("?") ? "&" : "?";
+    return `${url}${sep}theme=${theme}`;
+  };
   const state = {
     request: null,
     buildPreviewUrl: null,
@@ -145,9 +152,9 @@
   };
 
   const formatSize = (size) => {
-    if (!size || size === "0") return "-";
+    if (size === null || size === undefined) return "-";
     const s = Number(size);
-    if (!Number.isFinite(s) || s <= 0) return "-";
+    if (!Number.isFinite(s) || s < 0) return "-";
     if (s < 1024) return `${s} B`;
     if (s < 1024 * 1024) return `${(s / 1024).toFixed(1)} KB`;
     if (s < 1024 * 1024 * 1024) return `${(s / 1024 / 1024).toFixed(1)} MB`;
@@ -582,7 +589,7 @@ importScripts(${JSON.stringify(workerMainUrl)});
     } else {
       return;
     }
-    const finalUrl = typeof state.buildPreviewUrl === "function" ? state.buildPreviewUrl(officeUrl, entry) : officeUrl;
+    const finalUrl = appendThemeParam(typeof state.buildPreviewUrl === "function" ? state.buildPreviewUrl(officeUrl, entry) : officeUrl);
     container.innerHTML = `
       <div class="document-preview">
         <div class="loading">正在转换文档，请稍候...</div>
@@ -616,7 +623,7 @@ importScripts(${JSON.stringify(workerMainUrl)});
       return;
     }
     const finalPdfUrl = typeof state.buildPreviewUrl === "function" ? state.buildPreviewUrl(pdfUrl, entry) : pdfUrl;
-    const finalFallbackUrl = typeof state.buildPreviewUrl === "function" ? state.buildPreviewUrl(fallbackHtmlUrl, entry) : fallbackHtmlUrl;
+    const finalFallbackUrl = appendThemeParam(typeof state.buildPreviewUrl === "function" ? state.buildPreviewUrl(fallbackHtmlUrl, entry) : fallbackHtmlUrl);
 
     container.innerHTML = `
       <div class="pdf-preview pptx-preview">

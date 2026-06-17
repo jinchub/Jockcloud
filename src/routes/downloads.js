@@ -302,8 +302,84 @@ module.exports = (app, deps) => {
             return;
           }
           if (ext === "docx" || ext === "doc") {
-            const result = await mammoth.convertToHtml({ buffer: contentBuffer });
-            const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${escapedOriginalName}</title><style>body { padding: 20px; font-family: Arial, sans-serif; line-height: 1.6; } img { max-width: 100%; height: auto; } table { border-collapse: collapse; width: 100%; margin: 10px 0; } table, th, td { border: 1px solid #ddd; } th, td { padding: 8px; text-align: left; } th { background-color: #f2f2f2; }</style></head><body>${result.value || "<p>文档内容为空</p>"}</body></html>`;
+            const result = await mammoth.convertToHtml({ buffer: contentBuffer }, {
+              styleMap: [
+                "p[style-name='标题 1'] => h1",
+                "p[style-name='标题 2'] => h2",
+                "p[style-name='标题 3'] => h3",
+                "p[style-name='标题 4'] => h4",
+                "p[style-name='标题 5'] => h5",
+                "p[style-name='标题 6'] => h6",
+                "p[style-name='Heading 1'] => h1",
+                "p[style-name='Heading 2'] => h2",
+                "p[style-name='Heading 3'] => h3",
+                "p[style-name='Heading 4'] => h4",
+                "p[style-name='Heading 5'] => h5",
+                "p[style-name='Heading 6'] => h6",
+              ],
+              convertImage: mammoth.images.imgElement(function(image) {
+                return image.read("base64").then(function(imageBuffer) {
+                  return {
+                    src: "data:" + image.contentType + ";base64," + imageBuffer
+                  };
+                });
+              })
+            });
+            // 从 docx 中提取段落对齐信息并注入到 HTML 中
+            try {
+              const AdmZipLocal = require("adm-zip");
+              const zip = new AdmZipLocal(contentBuffer);
+              const documentXml = zip.readFile("word/document.xml")?.toString("utf8") || "";
+              const alignmentMap = new Map();
+              const paragraphs = [...documentXml.matchAll(/<w:p[^>]*>([\s\S]*?)<\/w:p>/g)];
+              let paraIndex = 0;
+              for (const p of paragraphs) {
+                const pContent = p[1];
+                const jcMatch = pContent.match(/<w:jc\s+w:val="([^"]+)"/);
+                if (jcMatch) {
+                  const alignment = jcMatch[1];
+                  alignmentMap.set(paraIndex, alignment);
+                }
+                paraIndex++;
+              }
+              // 将对齐信息注入到 HTML 的 p 和 h1-h6 标签中
+              let enhancedHtml = result.value;
+              const blockTags = [...enhancedHtml.matchAll(/<(p|h[1-6])([^>]*)>/g)];
+              let blockIdx = 0;
+              for (const tagMatch of blockTags) {
+                const fullTag = tagMatch[0];
+                const tagName = tagMatch[1];
+                const attrs = tagMatch[2];
+                const alignment = alignmentMap.get(blockIdx);
+                if (alignment) {
+                  const cssAlign = {
+                    "center": "text-align: center;",
+                    "right": "text-align: right;",
+                    "left": "text-align: left;",
+                    "both": "text-align: justify;",
+                    "end": "text-align: right;",
+                    "start": "text-align: left;",
+                    "mediumKashida": "text-align: justify;",
+                    "distribute": "text-align: justify;",
+                    "numTab": "text-align: left;",
+                    "highKashida": "text-align: justify;",
+                    "lowKashida": "text-align: justify;",
+                    "thaiDistribute": "text-align: justify;"
+                  }[alignment] || "";
+                  if (cssAlign) {
+                    const newTag = attrs.includes("style=")
+                      ? fullTag.replace(/style="/, `style="${cssAlign} `)
+                      : fullTag.replace(`<${tagName}`, `<${tagName} style="${cssAlign}"`);
+                    enhancedHtml = enhancedHtml.replace(fullTag, newTag);
+                  }
+                }
+                blockIdx++;
+              }
+              result.value = enhancedHtml;
+            } catch (e) {
+              console.log("[docx alignment extract error]", e);
+            }
+            const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${escapedOriginalName}</title><style>body { padding: 20px; font-family: Arial, sans-serif; line-height: 1.6; } img { max-width: 100%; height: auto; } table { border-collapse: collapse; width: 100%; margin: 10px 0; } table, th, td { border: 1px solid #ddd; } th, td { padding: 8px; text-align: left; } th { background-color: #f2f2f2; } p.centered { text-align: center; } td[align='center'], th[align='center'] { text-align: center; } td[align='right'], th[align='right'] { text-align: right; } td[align='left'], th[align='left'] { text-align: left; } td[valign='middle'], th[valign='middle'] { vertical-align: middle; } td[valign='top'], th[valign='top'] { vertical-align: top; } td[valign='bottom'], th[valign='bottom'] { vertical-align: bottom; }</style></head><body>${result.value || "<p>文档内容为空</p>"}</body></html>`;
             res.setHeader("Content-Type", "text/html; charset=utf-8");
             res.send(html);
             return;

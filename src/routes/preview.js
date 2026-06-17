@@ -226,7 +226,7 @@ module.exports = (app, deps) => {
 
   const sendOfficePreviewUnsupportedHtml = (res, originalName) => {
     const escapedOriginalName = escapeHtml(originalName);
-    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${escapedOriginalName}</title><style>body { margin: 0; padding: 0; background: #f7f8fa; font-family: Arial, sans-serif; color: #333; } .preview-message { min-height: 100vh; box-sizing: border-box; display: flex; align-items: center; justify-content: center; padding: 24px; } .preview-message-card { max-width: 520px; background: #fff; border: 1px solid #e5e6eb; border-radius: 12px; padding: 24px; text-align: center; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06); } .preview-message-title { font-size: 18px; font-weight: 600; margin-bottom: 12px; } .preview-message-desc { font-size: 14px; line-height: 1.7; color: #666; }</style></head><body><div class="preview-message"><div class="preview-message-card"><div class="preview-message-title">该文档已加密</div><div class="preview-message-desc">当前暂不支持输入文档密码进行在线预览，请下载文件后输入密码打开。</div></div></div></body></html>`;
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${escapedOriginalName}</title><style>body { margin: 0; padding: 0; background: #f7f8fa; font-family: Arial, sans-serif; color: #333; } .preview-message { min-height: 100vh; box-sizing: border-box; display: flex; align-items: center; justify-content: center; padding: 24px; } .preview-message-card { max-width: 520px; background: #fff; border: 1px solid #e5e6eb; border-radius: 12px; padding: 24px; text-align: center; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06); } .preview-message-title { font-size: 18px; font-weight: 600; margin-bottom: 12px; } .preview-message-desc { font-size: 14px; line-height: 1.7; color: #666; } [data-theme="dark"] body { background: #1e1e1e !important; color: #f0f0f0 !important; } [data-theme="dark"] .preview-message-card { background: #2b2b2b !important; border-color: #3c3c3c !important; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4); } [data-theme="dark"] .preview-message-title { color: #f0f0f0 !important; } [data-theme="dark"] .preview-message-desc { color: #9a9a9a !important; }</style></head><body><div class="preview-message"><div class="preview-message-card"><div class="preview-message-title">该文档已加密</div><div class="preview-message-desc">当前暂不支持输入文档密码进行在线预览，请下载文件后输入密码打开。</div></div></div><script>function getCurrentTheme() { try { const params = new URLSearchParams(location.search); const q = params.get("theme"); if (q === "dark") return "dark"; if (q === "light") return "light"; } catch (e) {} try { if (window.parent && window.parent !== window) { const parentHtml = window.parent.document.documentElement; if (parentHtml) { if (parentHtml.getAttribute("data-theme") === "dark") return "dark"; const parentMode = parentHtml.getAttribute("data-theme-mode"); if (parentMode === "auto" || !parentMode) { const mql = window.matchMedia("(prefers-color-scheme: dark)"); if (mql.matches) return "dark"; } } } } catch (e) {} try { const mql = window.matchMedia("(prefers-color-scheme: dark)"); if (mql.matches) return "dark"; } catch (e) {} return "light"; } function applyTheme() { if (!document.documentElement) return; const theme = getCurrentTheme(); if (theme === "dark") { document.documentElement.setAttribute("data-theme", "dark"); } else { document.documentElement.removeAttribute("data-theme"); } } applyTheme(); try { window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme); } catch (e) {} setInterval(applyTheme, 2000);</script></body></html>`;
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.send(html);
   };
@@ -291,8 +291,84 @@ module.exports = (app, deps) => {
             return;
           }
           if (ext === "docx" || ext === "doc") {
-            const result = await mammoth.convertToHtml({ path: filePath });
-            const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${escapedOriginalName}</title><style>body { padding: 20px; font-family: Arial, sans-serif; line-height: 1.6; } img { max-width: 100%; height: auto; } table { border-collapse: collapse; width: 100%; margin: 10px 0; } table, th, td { border: 1px solid #ddd; } th, td { padding: 8px; text-align: left; } th { background-color: #f2f2f2; }</style></head><body>${result.value || "<p>文档内容为空</p>"}</body></html>`;
+            const result = await mammoth.convertToHtml({ path: filePath }, {
+              styleMap: [
+                "p[style-name='标题 1'] => h1",
+                "p[style-name='标题 2'] => h2",
+                "p[style-name='标题 3'] => h3",
+                "p[style-name='标题 4'] => h4",
+                "p[style-name='标题 5'] => h5",
+                "p[style-name='标题 6'] => h6",
+                "p[style-name='Heading 1'] => h1",
+                "p[style-name='Heading 2'] => h2",
+                "p[style-name='Heading 3'] => h3",
+                "p[style-name='Heading 4'] => h4",
+                "p[style-name='Heading 5'] => h5",
+                "p[style-name='Heading 6'] => h6",
+              ],
+              convertImage: mammoth.images.imgElement(function(image) {
+                return image.read("base64").then(function(imageBuffer) {
+                  return {
+                    src: "data:" + image.contentType + ";base64," + imageBuffer
+                  };
+                });
+              })
+            });
+            // 从 docx 中提取段落对齐信息并注入到 HTML 中
+            try {
+              const AdmZipLocal = require("adm-zip");
+              const zip = new AdmZipLocal(filePath);
+              const documentXml = zip.readFile("word/document.xml")?.toString("utf8") || "";
+              const alignmentMap = new Map();
+              const paragraphs = [...documentXml.matchAll(/<w:p[^>]*>([\s\S]*?)<\/w:p>/g)];
+              let paraIndex = 0;
+              for (const p of paragraphs) {
+                const pContent = p[1];
+                const jcMatch = pContent.match(/<w:jc\s+w:val="([^"]+)"/);
+                if (jcMatch) {
+                  const alignment = jcMatch[1];
+                  alignmentMap.set(paraIndex, alignment);
+                }
+                paraIndex++;
+              }
+              // 将对齐信息注入到 HTML 的 p 和 h1-h6 标签中
+              let enhancedHtml = result.value;
+              const blockTags = [...enhancedHtml.matchAll(/<(p|h[1-6])([^>]*)>/g)];
+              let blockIdx = 0;
+              for (const tagMatch of blockTags) {
+                const fullTag = tagMatch[0];
+                const tagName = tagMatch[1];
+                const attrs = tagMatch[2];
+                const alignment = alignmentMap.get(blockIdx);
+                if (alignment) {
+                  const cssAlign = {
+                    "center": "text-align: center;",
+                    "right": "text-align: right;",
+                    "left": "text-align: left;",
+                    "both": "text-align: justify;",
+                    "end": "text-align: right;",
+                    "start": "text-align: left;",
+                    "mediumKashida": "text-align: justify;",
+                    "distribute": "text-align: justify;",
+                    "numTab": "text-align: left;",
+                    "highKashida": "text-align: justify;",
+                    "lowKashida": "text-align: justify;",
+                    "thaiDistribute": "text-align: justify;"
+                  }[alignment] || "";
+                  if (cssAlign) {
+                    const newTag = attrs.includes("style=")
+                      ? fullTag.replace(/style="/, `style="${cssAlign} `)
+                      : fullTag.replace(`<${tagName}`, `<${tagName} style="${cssAlign}"`);
+                    enhancedHtml = enhancedHtml.replace(fullTag, newTag);
+                  }
+                }
+                blockIdx++;
+              }
+              result.value = enhancedHtml;
+            } catch (e) {
+              console.log("[docx alignment extract error]", e);
+            }
+            const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${escapedOriginalName}</title><style>body { padding: 20px; font-family: Arial, sans-serif; line-height: 1.6; background: #fff; color: #333; } img { max-width: 100%; height: auto; } table { border-collapse: collapse; width: 100%; margin: 10px 0; } table, th, td { border: 1px solid #ddd; color: #333; } th, td { padding: 8px; text-align: left; } th { background-color: #f2f2f2; color: #333; } h1, h2, h3, h4, h5, h6 { color: #333; } a { color: #007cba; } p.centered { text-align: center; } td[align='center'], th[align='center'] { text-align: center; } td[align='right'], th[align='right'] { text-align: right; } td[align='left'], th[align='left'] { text-align: left; } td[valign='middle'], th[valign='middle'] { vertical-align: middle; } td[valign='top'], th[valign='top'] { vertical-align: top; } td[valign='bottom'], th[valign='bottom'] { vertical-align: bottom; } [data-theme="dark"] body { background: #2b2b2b !important; color: #f0f0f0 !important; } [data-theme="dark"] h1, [data-theme="dark"] h2, [data-theme="dark"] h3, [data-theme="dark"] h4, [data-theme="dark"] h5, [data-theme="dark"] h6 { color: #f0f0f0 !important; } [data-theme="dark"] table, [data-theme="dark"] th, [data-theme="dark"] td { border-color: #3c3c3c !important; color: #f0f0f0 !important; } [data-theme="dark"] th { background-color: #303030 !important; } [data-theme="dark"] td { background-color: transparent !important; } [data-theme="dark"] a { color: #60a5fa !important; }</style></head><body>${result.value || "<p>文档内容为空</p>"}<script>function getCurrentTheme() { try { const params = new URLSearchParams(location.search); const q = params.get("theme"); if (q === "dark") return "dark"; if (q === "light") return "light"; } catch (e) {} try { if (window.parent && window.parent !== window) { const parentHtml = window.parent.document.documentElement; if (parentHtml && parentHtml.getAttribute("data-theme") === "dark") return "dark"; const parentMode = parentHtml ? parentHtml.getAttribute("data-theme-mode") : null; if (parentMode === "auto" || !parentMode) { const mql = window.matchMedia("(prefers-color-scheme: dark)"); if (mql.matches) return "dark"; } } } catch (e) {} try { const mql = window.matchMedia("(prefers-color-scheme: dark)"); if (mql.matches) return "dark"; } catch (e) {} return "light"; } function applyTheme() { if (!document.documentElement || !document.body) return; const theme = getCurrentTheme(); if (theme === "dark") { document.documentElement.setAttribute("data-theme", "dark"); } else { document.documentElement.removeAttribute("data-theme"); } } applyTheme(); try { window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme); } catch (e) {} setInterval(applyTheme, 2000);</script></body></html>`;
             res.setHeader("Content-Type", "text/html; charset=utf-8");
             res.send(html);
             return;
@@ -319,7 +395,7 @@ module.exports = (app, deps) => {
                 contentHtml += `<div class="sheet-content ${index === 0 ? "active" : ""}" id="sheet-${index}">${sheetHtml}</div>`;
               });
             }
-            const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${escapedOriginalName}</title><style>body { font-family: Arial, sans-serif; margin: 0; padding: 20px; } .tabs { border-bottom: 1px solid #ccc; margin-bottom: 20px; } .tab-button { background: #f1f1f1; border: none; padding: 10px 20px; cursor: pointer; margin-right: 5px; border-top-left-radius: 5px; border-top-right-radius: 5px; } .tab-button.active { background: #007cba; color: white; } .sheet-content { display: none; overflow: auto; } .sheet-content.active { display: block; } table { border-collapse: collapse; width: 100%; font-size: 12px; } td, th { border: 1px solid #ddd; padding: 4px 8px; text-align: left; white-space: nowrap; } th { background-color: #f2f2f2; font-weight: bold; }</style><script>function showSheet(index) { const sheets = document.querySelectorAll(".sheet-content"); const buttons = document.querySelectorAll(".tab-button"); sheets.forEach((sheet) => sheet.classList.remove("active")); buttons.forEach((button) => button.classList.remove("active")); const target = document.getElementById("sheet-" + index); if (target) target.classList.add("active"); if (buttons[index]) buttons[index].classList.add("active"); }</script></head><body><div class="tabs">${tabsHtml}</div><div class="content">${contentHtml}</div></body></html>`;
+            const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${escapedOriginalName}</title><style>body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #fff; color: #333; } .tabs { border-bottom: 1px solid #ccc; margin-bottom: 20px; display: flex; flex-wrap: wrap; align-items: center; } .tab-button { background: #f1f1f1; border: none; padding: 10px 20px; cursor: pointer; margin-right: 5px; border-top-left-radius: 5px; border-top-right-radius: 5px; color: #333; } .tab-button.active { background: #007cba; color: white; } .sheet-content { display: none; overflow: auto; } .sheet-content.active { display: block; } table { border-collapse: collapse; width: 100%; font-size: 12px; background: #fff; } td, th { border: 1px solid #ddd; padding: 4px 8px; text-align: left; white-space: nowrap; color: #333; } th { background-color: #f2f2f2; font-weight: bold; } [data-theme="dark"] body { background: #2b2b2b !important; color: #f0f0f0 !important; } [data-theme="dark"] .tabs { border-bottom-color: #353535 !important; } [data-theme="dark"] .tab-button { background: #303030 !important; color: #f0f0f0 !important; border: 1px solid #3c3c3c !important; } [data-theme="dark"] .tab-button:hover { background: #3a3a3a !important; } [data-theme="dark"] .tab-button.active { background: #2b93ff !important; color: #fff !important; } [data-theme="dark"] table { background: #252525 !important; color: #f0f0f0 !important; } [data-theme="dark"] td, [data-theme="dark"] th, [data-theme="dark"] tr, [data-theme="dark"] tbody, [data-theme="dark"] thead { color: #f0f0f0 !important; background: transparent; border-color: #3c3c3c !important; } [data-theme="dark"] td { background-color: #252525 !important; } [data-theme="dark"] th { background-color: #303030 !important; color: #d8d8d8 !important; } [data-theme="dark"] tr:nth-child(even) td { background-color: #2f2f2f !important; }</style></head><body><div class="tabs">${tabsHtml}</div><div class="content">${contentHtml}</div><script>function getCurrentTheme() { try { const params = new URLSearchParams(location.search); const q = params.get("theme"); if (q === "dark") return "dark"; if (q === "light") return "light"; } catch (e) {} try { if (window.parent && window.parent !== window) { const parentHtml = window.parent.document.documentElement; if (parentHtml) { if (parentHtml.getAttribute("data-theme") === "dark") return "dark"; const parentMode = parentHtml.getAttribute("data-theme-mode"); if (parentMode === "auto" || !parentMode) { const mql = window.matchMedia("(prefers-color-scheme: dark)"); if (mql.matches) return "dark"; } } } } catch (e) {} try { const mql = window.matchMedia("(prefers-color-scheme: dark)"); if (mql.matches) return "dark"; } catch (e) {} return "light"; } function clearInlineColors() { const elements = document.querySelectorAll("table, tr, td, th, tbody, thead"); elements.forEach((el) => { try { if (el.style) { el.style.color = ""; el.style.backgroundColor = ""; el.style.background = ""; } } catch (e) {} }); } let _currentTheme = null; function applyTheme() { if (!document.documentElement || !document.body) return; const theme = getCurrentTheme(); if (_currentTheme === theme) return; _currentTheme = theme; if (theme === "dark") { document.documentElement.setAttribute("data-theme", "dark"); clearInlineColors(); } else { document.documentElement.removeAttribute("data-theme"); } } function showSheet(index) { const sheets = document.querySelectorAll(".sheet-content"); const buttons = document.querySelectorAll(".tab-button"); sheets.forEach((sheet) => sheet.classList.remove("active")); buttons.forEach((button) => button.classList.remove("active")); const target = document.getElementById("sheet-" + index); if (target) target.classList.add("active"); if (buttons[index]) buttons[index].classList.add("active"); } applyTheme(); try { window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme); } catch (e) {} setInterval(applyTheme, 2000);</script></body></html>`;
             res.setHeader("Content-Type", "text/html; charset=utf-8");
             res.send(html);
             return;
@@ -413,7 +489,7 @@ module.exports = (app, deps) => {
                 .metadata-summary { display: none; }
               `;
             }
-            const fullHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${escapedOriginalName}</title><style>body { padding: 20px; font-family: Arial, sans-serif; line-height: 1.6; } img { max-width: 100%; height: auto; } table { border-collapse: collapse; width: 100%; margin: 10px 0; } table, th, td { border: 1px solid #ddd; } th, td { padding: 8px; text-align: left; } th { background-color: #f2f2f2; }${themeCSS}</style></head><body>${html || "<p>演示文稿内容为空</p>"}</body></html>`;
+            const fullHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${escapedOriginalName}</title><style>body { padding: 20px; font-family: Arial, sans-serif; line-height: 1.6; background: #fff; color: #333; } img { max-width: 100%; height: auto; } table { border-collapse: collapse; width: 100%; margin: 10px 0; } table, th, td { border: 1px solid #ddd; color: #333; } th, td { padding: 8px; text-align: left; } th { background-color: #f2f2f2; color: #333; } [data-theme="dark"] body { background: #2b2b2b !important; color: #f0f0f0 !important; } [data-theme="dark"] table, [data-theme="dark"] th, [data-theme="dark"] td { border-color: #3c3c3c !important; color: #f0f0f0 !important; } [data-theme="dark"] th { background-color: #303030 !important; } [data-theme="dark"] td { background-color: transparent !important; } [data-theme="dark"] .slide { box-shadow: 0 4px 16px rgba(0,0,0,0.4) !important; }${themeCSS}</style></head><body>${html || "<p>演示文稿内容为空</p>"}<script>function getCurrentTheme() { try { const params = new URLSearchParams(location.search); const q = params.get("theme"); if (q === "dark") return "dark"; if (q === "light") return "light"; } catch (e) {} try { if (window.parent && window.parent !== window) { const parentHtml = window.parent.document.documentElement; if (parentHtml) { if (parentHtml.getAttribute("data-theme") === "dark") return "dark"; const parentMode = parentHtml.getAttribute("data-theme-mode"); if (parentMode === "auto" || !parentMode) { const mql = window.matchMedia("(prefers-color-scheme: dark)"); if (mql.matches) return "dark"; } } } } catch (e) {} try { const mql = window.matchMedia("(prefers-color-scheme: dark)"); if (mql.matches) return "dark"; } catch (e) {} return "light"; } function applyTheme() { if (!document.documentElement) return; const theme = getCurrentTheme(); if (theme === "dark") { document.documentElement.setAttribute("data-theme", "dark"); } else { document.documentElement.removeAttribute("data-theme"); } } applyTheme(); try { window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme); } catch (e) {} setInterval(applyTheme, 2000);</script></body></html>`;
             res.setHeader("Content-Type", "text/html; charset=utf-8");
             res.send(fullHtml);
             return;
