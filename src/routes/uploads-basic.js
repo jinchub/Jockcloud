@@ -411,7 +411,16 @@ module.exports = (app, deps) => {
       const normalizedName = normalizeUploadName(meta.fileName || "file");
       const finalStorageName = `${Date.now()}-${crypto.randomBytes(8).toString("hex")}-${safeFileName(normalizedName)}`;
       finalFilePath = path.join(targetDir, finalStorageName);
-      fs.renameSync(dataPath, finalFilePath);
+      try {
+        fs.renameSync(dataPath, finalFilePath);
+      } catch (renameErr) {
+        if (renameErr.code === "EXDEV") {
+          fs.copyFileSync(dataPath, finalFilePath);
+          fs.unlinkSync(dataPath);
+        } else {
+          throw renameErr;
+        }
+      }
       const storageName = resolveStorageNameFromPath(finalFilePath, finalStorageName, targetRootDir, selectedStorage.diskId);
       const thumbnailDataUrl = String(req.body && req.body.thumbnailDataUrl ? req.body.thumbnailDataUrl : "");
       const resolvedFileCategory = resolveUploadCategory({ originalname: meta.fileName, mimetype: meta.mimeType }, uploadCategoryRuntimeOptions);

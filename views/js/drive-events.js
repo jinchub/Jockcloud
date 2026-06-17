@@ -2598,10 +2598,13 @@ const bindTimelineScrollSync = () => {
       const entries = group.nextElementSibling;
       if (!toggle || !entries || !entries.classList.contains("timeline-day-entries")) return;
 
-      const groupRect = group.getBoundingClientRect();
-      const entriesRect = entries.getBoundingClientRect();
+      const isActuallyCollapsed = group.dataset.isCollapsed === "true";
+      if (isActuallyCollapsed) {
+        toggle.classList.add("collapsed");
+        return;
+      }
 
-      // 检查条目是否被遮挡（滚动到视口外或被下一个sticky header覆盖）
+      const entriesRect = entries.getBoundingClientRect();
       const isEntriesHidden = entriesRect.bottom <= containerRect.top + stickyHeight * (index + 1) ||
                               entriesRect.top >= containerRect.bottom ||
                               entriesRect.bottom <= containerRect.top;

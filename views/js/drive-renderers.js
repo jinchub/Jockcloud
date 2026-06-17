@@ -531,10 +531,12 @@ const renderFileList = () => {
         dayLabel.setAttribute("tabindex", "0");
       }
       let isCollapsed = false;
+      dayGroup.dataset.isCollapsed = "false";
       const toggleDayEntries = () => {
         isCollapsed = !isCollapsed;
         dayEntries.style.display = isCollapsed ? "none" : "";
         dayToggle.classList.toggle("collapsed", isCollapsed);
+        dayGroup.dataset.isCollapsed = isCollapsed ? "true" : "false";
         updateTimelineLineHeight();
       };
       const revealDayEntries = () => {
@@ -545,21 +547,31 @@ const renderFileList = () => {
           window.getComputedStyle(fileListEl).getPropertyValue("--timeline-day-sticky-height")
         ) || 34;
         const stickyTopOffset = currentTimelineDayGroupIndex * stickyHeight;
-        const targetScrollTop = Math.max(0, dayEntries.offsetTop - stickyTopOffset - 4);
-        fileListEl.scrollTo({ top: targetScrollTop, behavior: "smooth" });
+        requestAnimationFrame(() => {
+          const targetScrollTop = Math.max(0, dayEntries.offsetTop - stickyTopOffset - 4);
+          fileListEl.scrollTo({ top: targetScrollTop, behavior: "smooth" });
+        });
       };
       // 整个时间分组可点击
       dayGroup.style.cursor = "pointer";
       dayGroup.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
-        toggleDayEntries();
+        if (isCollapsed) {
+          revealDayEntries();
+        } else {
+          toggleDayEntries();
+        }
       });
       if (dayLabel) {
         dayLabel.addEventListener("keydown", (event) => {
           if (event.key !== "Enter" && event.key !== " ") return;
           event.preventDefault();
-          toggleDayEntries();
+          if (isCollapsed) {
+            revealDayEntries();
+          } else {
+            toggleDayEntries();
+          }
         });
       }
       timelineDayEntriesContainer = dayEntries;
