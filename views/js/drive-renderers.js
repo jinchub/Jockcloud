@@ -275,6 +275,9 @@ const getEntryVisualHtml = (entry, variant = "list") => {
         : `<i class="${iconClass} file-icon"></i>`;
     }
     const escapedName = escapeHtml(entry.name || "图片");
+    if (variant === "grid") {
+      return `<div class="file-thumb-grid file-thumb-image-wrap"><img class="file-thumb file-thumb-grid" src="${previewUrl}" alt="${escapedName}" loading="lazy" /></div>`;
+    }
     return `<img class="file-thumb file-thumb-${variant}" src="${previewUrl}" alt="${escapedName}" loading="lazy" />`;
   }
   if (isVideoEntry(entry)) {
@@ -496,7 +499,7 @@ const renderFileList = () => {
   currentPageEntries.forEach(entry => {
     const isFolder = entry.type === "folder";
     const entryName = String(entry.name || "");
-    const displayEntryName = state.viewMode === "grid" ? truncateNameWithDots(entryName, 16) : entryName;
+    const displayEntryName = entryName;
     const escapedEntryName = escapeHtml(entryName);
     const escapedDisplayEntryName = escapeHtml(displayEntryName);
     const timeValue = state.view === "recycle" ? entry.deletedAt : entry.updatedAt;
