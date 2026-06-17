@@ -206,6 +206,7 @@ const initContextMenuIconItems = () => {
   const zipExtractCurrentEl = document.getElementById("menuZipExtractCurrent");
   const zipExtractTargetEl = document.getElementById("menuZipExtractTarget");
   const locateFolderEl = document.getElementById("menuLocateFolder");
+  const goToFolderEl = document.getElementById("menuGoToFolder");
   const shareEl = document.getElementById("menuShare");
   const copyEl = document.getElementById("menuCopy");
   const renameEl = document.getElementById("menuRename");
@@ -218,6 +219,7 @@ const initContextMenuIconItems = () => {
   if (zipExtractCurrentEl) zipExtractCurrentEl.innerHTML = getContextMenuItemContent("unzip", "解压到当前目录");
   if (zipExtractTargetEl) zipExtractTargetEl.innerHTML = getContextMenuItemContent("unzipTarget", "解压到指定目录");
   if (locateFolderEl) locateFolderEl.innerHTML = getContextMenuItemContent("open", "跳转至所在目录");
+  if (goToFolderEl) goToFolderEl.innerHTML = getContextMenuItemContent("open", "跳转文件目录");
   if (shareEl) shareEl.innerHTML = getContextMenuItemContent("share", "分享");
   if (copyEl) copyEl.innerHTML = getContextMenuItemContent("copy", "复制");
   if (renameEl) renameEl.innerHTML = getContextMenuItemContent("rename", "重命名");

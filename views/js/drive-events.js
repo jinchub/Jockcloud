@@ -1168,6 +1168,34 @@ document.getElementById("menuLocateFolder").onclick = async () => {
   }
 };
 
+document.getElementById("menuGoToFolder").onclick = async () => {
+  if (!state.selectedEntry || state.selectedEntry.type !== "file" || !state.category) return;
+  const targetFileId = Number(state.selectedEntry.id);
+  const targetParentId = state.selectedEntry.parentId === null || state.selectedEntry.parentId === undefined
+    ? null
+    : Number(state.selectedEntry.parentId);
+  clearSelection();
+  state.view = "files";
+  state.currentFolderId = Number.isFinite(targetParentId) ? targetParentId : null;
+  state.category = "";
+  state.keyword = "";
+  state.selectedEntry = null;
+  if (searchInput) {
+    searchInput.value = "";
+  }
+  updateRouteQuery({ main: "files", side: "myFiles", category: null });
+  await refreshAll();
+  const matchedEntry = state.entries.find((entry) => entry.type === "file" && Number(entry.id) === targetFileId) || null;
+  if (matchedEntry) {
+    state.selectedEntry = matchedEntry;
+    renderFileList();
+    renderDetails(matchedEntry);
+    showDetailsSidebar();
+  } else {
+    renderDetails(null);
+  }
+};
+
 document.getElementById("menuShare").onclick = () => {
   if (!state.selectedEntry) return;
   if (!ensurePermission("download")) return;

@@ -65,7 +65,11 @@ const state = {
   hiddenSpaceUnlocked: hiddenSpaceManager ? hiddenSpaceManager.getInitialUnlocked() : false,
   hiddenSpaceAutoExitMinutes: hiddenSpaceManager && typeof hiddenSpaceManager.getAutoExitMinutes === "function"
     ? hiddenSpaceManager.getAutoExitMinutes()
-    : 10
+    : 10,
+  // 可视区域懒加载状态
+  lazyRenderEnabled: true,
+  lazyRenderedEntryIds: new Set(),
+  lazyRenderScrollTop: 0
 };
 
 const LOGOUT_REASON_STORAGE_KEY = "jc_logout_reason";

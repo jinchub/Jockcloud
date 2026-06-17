@@ -440,7 +440,589 @@ const showDetailsSidebar = () => {
   detailsSidebar.classList.remove("hidden");
 };
 
+// 单条文件/文件夹DOM创建函数（提取出来供懒加载复用）
+const createEntryItemElement = (entry, quickAccessEntryKeySet, isCategoryTimelineMode, timelineDayEntriesContainer) => {
+  const isFolder = entry.type === "folder";
+  const entryName = String(entry.name || "");
+  const displayEntryName = entryName;
+  const escapedEntryName = escapeHtml(entryName);
+  const escapedDisplayEntryName = escapeHtml(displayEntryName);
+  const timeValue = state.view === "recycle" ? entry.deletedAt : entry.updatedAt;
+  const timeLabel = formatDate(timeValue);
+  const timelineDayLabel = formatDateDay(timeValue);
+  const originalDir = state.view === "recycle" ? String(entry.originalDir || "我的文件") : "";
+  const expireLabel = state.view === "recycle" ? formatRecycleAutoDeleteText(entry.deletedAt) : "";
+
+  const item = document.createElement("div");
+  const isVideoNoThumb = entry.type === "file" && isVideoEntry(entry) && !entry.hasThumbnail;
+  item.className = state.viewMode === "grid" ? "grid-item" : `table-row${isCategoryTimelineMode ? " timeline-entry" : ""}`;
+  if (isVideoNoThumb) item.classList.add("video-no-thumb");
+  if (isEntrySelected(entry) || (state.selectedEntry && state.selectedEntry.id === entry.id && state.selectedEntry.type === entry.type)) {
+    item.classList.add("selected");
+  }
+
+  if (state.viewMode === "grid") {
+    item.setAttribute("data-entry-id", String(entry.id));
+    item.setAttribute("data-entry-type", entry.type);
+    item.innerHTML = `
+      <div class="grid-check"><input type="checkbox" ${isEntrySelected(entry) ? "checked" : ""}></div>
+      ${getEntryVisualHtml(entry, "grid")}
+      <div class="grid-item-name" title="${escapedEntryName}">${escapedDisplayEntryName}</div>
+    `;
+    const checkWrap = item.querySelector(".grid-check");
+    const checkInput = item.querySelector(".grid-check input");
+    if (checkWrap && checkInput) {
+      checkWrap.onclick = (event) => {
+        event.stopPropagation();
+        if (event.target !== checkInput) {
+          checkInput.click();
+        }
+      };
+      checkInput.onclick = (event) => {
+        event.stopPropagation();
+      };
+      checkInput.onchange = () => {
+        setEntrySelected(entry, checkInput.checked);
+        if (checkInput.checked) {
+          state.selectedEntry = entry;
+        } else if (state.selectedEntry && state.selectedEntry.id === entry.id && state.selectedEntry.type === entry.type) {
+          state.selectedEntry = null;
+        }
+        item.classList.toggle("selected", checkInput.checked);
+        updateBatchActionState();
+      };
+    }
+  } else if (isCategoryTimelineMode) {
+    item.setAttribute("data-entry-id", String(entry.id));
+    item.setAttribute("data-entry-type", entry.type);
+    item.innerHTML = `
+      <div class="timeline-check"><input type="checkbox" ${isEntrySelected(entry) ? "checked" : ""}></div>
+      <div class="timeline-card-media">${getEntryVisualHtml(entry, "timeline")}</div>
+      <div class="timeline-card-name" title="${escapedEntryName}">${escapedDisplayEntryName}</div>
+      <div class="timeline-card-time">${escapeHtml(timeLabel)}</div>
+    `;
+    const checkWrap = item.querySelector(".timeline-check");
+    const checkInput = item.querySelector(".timeline-check input");
+    if (checkWrap && checkInput) {
+      checkWrap.onclick = (event) => {
+        event.stopPropagation();
+        if (event.target !== checkInput) {
+          checkInput.click();
+        }
+      };
+      checkInput.onclick = (event) => {
+        event.stopPropagation();
+      };
+      checkInput.onchange = () => {
+        setEntrySelected(entry, checkInput.checked);
+        if (checkInput.checked) {
+          state.selectedEntry = entry;
+        } else if (state.selectedEntry && state.selectedEntry.id === entry.id && state.selectedEntry.type === entry.type) {
+          state.selectedEntry = null;
+        }
+        item.classList.toggle("selected", checkInput.checked);
+        updateBatchActionState();
+      };
+    }
+  } else {
+    item.setAttribute("data-entry-id", String(entry.id));
+    item.setAttribute("data-entry-type", entry.type);
+    const canQuickToggle = state.view !== "recycle" && (entry.type === "folder" || entry.type === "file");
+    const isQuickAccess = canQuickToggle && quickAccessEntryKeySet.has(getQuickAccessEntryKey(entry.type, Number(entry.id)));
+    item.innerHTML = `
+      <div class="cell-check"><input type="checkbox" ${isEntrySelected(entry) ? "checked" : ""}></div>
+      <div class="cell-name name-wrapper">
+        ${getEntryVisualHtml(entry, "list")}
+        <span class="file-name-text" title="${escapedEntryName}">${escapedDisplayEntryName}</span>
+      </div>
+      <div class="cell-size">${isFolder ? "-" : formatSize(entry.size)}</div>
+      <div class="cell-type">${getEntryTypeLabel(entry)}</div>
+      <div class="cell-time">${timeLabel}</div>
+      <div class="cell-quick">${canQuickToggle ? `<button type="button" class="quick-access-toggle${isQuickAccess ? " active" : ""}" title="${isQuickAccess ? "取消收藏" : "加入收藏"}"><i class="${isQuickAccess ? "fa-solid" : "fa-regular"} fa-star"></i></button>` : ""}</div>
+      ${state.view === "recycle" ? `<div class="cell-origin" title="${escapeHtml(originalDir)}">${escapeHtml(originalDir)}</div>` : ""}
+      ${state.view === "recycle" ? `<div class="cell-expire">${expireLabel}</div>` : ""}
+    `;
+    const checkWrap = item.querySelector(".cell-check");
+    const checkInput = item.querySelector(".cell-check input");
+    if (checkWrap && checkInput) {
+      checkWrap.onclick = (event) => {
+        event.stopPropagation();
+        if (event.target !== checkInput) {
+          checkInput.click();
+        }
+      };
+      checkInput.onclick = (event) => {
+        event.stopPropagation();
+      };
+      checkInput.onchange = () => {
+        setEntrySelected(entry, checkInput.checked);
+        if (checkInput.checked) {
+          state.selectedEntry = entry;
+        } else if (state.selectedEntry && state.selectedEntry.id === entry.id && state.selectedEntry.type === entry.type) {
+          state.selectedEntry = null;
+        }
+        item.classList.toggle("selected", checkInput.checked);
+        updateBatchActionState();
+      };
+    }
+    const quickAccessBtn = item.querySelector(".quick-access-toggle");
+    if (quickAccessBtn) {
+      quickAccessBtn.onclick = async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        await toggleQuickAccessEntry(entry);
+      };
+    }
+  }
+
+  // 移动端长按选择
+  const toggleMobileEntrySelection = () => {
+    const nextChecked = !isEntrySelected(entry);
+    setEntrySelected(entry, nextChecked);
+    if (nextChecked) {
+      state.selectedEntry = entry;
+    } else if (state.selectedEntry && state.selectedEntry.id === entry.id && state.selectedEntry.type === entry.type) {
+      state.selectedEntry = null;
+    }
+    item.classList.toggle("selected", nextChecked);
+    const checkInput = item.querySelector(".cell-check input, .grid-check input, .timeline-check input");
+    if (checkInput) checkInput.checked = nextChecked;
+    updateBatchActionState();
+  };
+  let mobileLongPressTimer = null;
+  let mobileLongPressTriggered = false;
+  let mobileTouchStartX = 0;
+  let mobileTouchStartY = 0;
+  const clearMobileLongPressTimer = () => {
+    if (!mobileLongPressTimer) return;
+    clearTimeout(mobileLongPressTimer);
+    mobileLongPressTimer = null;
+  };
+  item.addEventListener("touchstart", (event) => {
+    if (!isMobileViewport() || state.view !== "files") return;
+    if (event.touches.length !== 1) return;
+    const target = event.target instanceof Element ? event.target : null;
+    if (target && target.closest("input, button, .quick-access-toggle, .cell-check, .grid-check")) return;
+    mobileLongPressTriggered = false;
+    const touch = event.touches[0];
+    mobileTouchStartX = touch.clientX;
+    mobileTouchStartY = touch.clientY;
+    clearMobileLongPressTimer();
+    mobileLongPressTimer = setTimeout(() => {
+      mobileLongPressTriggered = true;
+      toggleMobileEntrySelection();
+    }, 380);
+  }, { passive: true });
+  item.addEventListener("touchmove", (event) => {
+    if (!isMobileViewport() || state.view !== "files") return;
+    if (!mobileLongPressTimer || event.touches.length !== 1) return;
+    const touch = event.touches[0];
+    if (Math.abs(touch.clientX - mobileTouchStartX) > 10 || Math.abs(touch.clientY - mobileTouchStartY) > 10) {
+      clearMobileLongPressTimer();
+    }
+  }, { passive: true });
+  item.addEventListener("touchend", (event) => {
+    if (!isMobileViewport() || state.view !== "files") return;
+    clearMobileLongPressTimer();
+    if (mobileLongPressTriggered) {
+      event.preventDefault();
+      event.stopPropagation();
+      mobileLongPressTriggered = false;
+      return;
+    }
+  }, { passive: false });
+  item.addEventListener("touchcancel", () => {
+    clearMobileLongPressTimer();
+    mobileLongPressTriggered = false;
+  }, { passive: true });
+
+  item.onclick = async (e) => {
+    if (e.button !== 0) return;
+    if (state.view !== "recycle" && isFolder) {
+      state.currentFolderId = entry.id;
+      state.selectedEntry = null;
+      state.category = "";
+      state.keyword = "";
+      if (searchInput) {
+        searchInput.value = "";
+      }
+      updateRouteQuery({ main: "files", side: "myFiles", category: null, folderId: entry.id });
+      refreshAll(true);
+      return;
+    }
+    state.selectedEntry = entry;
+    document.querySelectorAll(".table-row, .grid-item").forEach(r => r.classList.remove("selected"));
+    item.classList.add("selected");
+    if (state.view === "recycle") return;
+    if (isMobileViewport()) {
+      if (isArchiveFileEntry(entry)) {
+        if (hasUserPermission("viewArchive")) {
+          const confirmed = await showDeleteConfirm({
+            title: "查看压缩包",
+            message: "是否查看该压缩包内容？",
+            desc: "将以文件列表方式展示压缩包内容",
+            okText: "查看",
+            cancelText: "取消"
+          });
+          if (!confirmed) return;
+          await viewZipArchiveEntries(entry);
+        } else {
+          const confirmed = await showDeleteConfirm({
+            title: "查看压缩包",
+            message: "在线查看压缩包功能需要升级为VIP",
+            desc: "升级VIP后可享受在线查看、解压等更多功能",
+            okText: "升级VIP",
+            cancelText: "取消"
+          });
+          if (!confirmed) return;
+          return;
+        }
+      }
+      openFilePreview(entry);
+      return;
+    }
+    if (isFolder) {
+      renderDetails(entry, true);
+      showDetailsSidebar();
+      try {
+        const res = await request(`/api/entries/${entry.type}/${entry.id}`);
+        if (res.ok) {
+          const data = await res.json().catch(() => ({}));
+          const updatedEntry = { ...entry, ...data };
+          state.selectedEntry = updatedEntry;
+          renderDetails(updatedEntry);
+        }
+      } catch (error) {
+        void error;
+      }
+    } else {
+      renderDetails(entry);
+      showDetailsSidebar();
+    }
+  };
+
+  item.ondblclick = async (e) => {
+    if (state.view !== "recycle" && isFolder) {
+      return;
+    }
+    if (state.view === "recycle") return;
+    if (isArchiveFileEntry(entry)) {
+      if (hasUserPermission("viewArchive")) {
+        const confirmed = await showDeleteConfirm({
+          title: "查看压缩包",
+          message: "是否查看该压缩包内容？",
+          desc: "将以文件列表方式展示压缩包内容",
+          okText: "查看",
+          cancelText: "取消"
+        });
+        if (!confirmed) return;
+        await viewZipArchiveEntries(entry);
+      } else {
+        const confirmed = await showDeleteConfirm({
+          title: "查看压缩包",
+          message: "在线查看压缩包功能需要升级为VIP",
+          desc: "升级VIP后可享受在线查看、解压等更多功能",
+          okText: "升级VIP",
+          cancelText: "取消"
+        });
+        if (!confirmed) return;
+        return;
+      }
+    }
+    openFilePreview(entry);
+  };
+
+  item.oncontextmenu = (e) => {
+    e.preventDefault();
+    state.selectedEntry = entry;
+    document.querySelectorAll(".table-row, .grid-item").forEach(r => r.classList.remove("selected"));
+    item.classList.add("selected");
+
+    const menu = document.getElementById("contextMenu");
+    const isRecycle = state.view === "recycle";
+    const isArchiveFile = !isRecycle && isArchiveFileEntry(entry);
+    
+    document.getElementById("menuOpen").style.display = isRecycle ? "none" : "";
+    document.getElementById("menuDetail").style.display = "";
+    document.getElementById("menuCopy").style.display = (isRecycle || !hasUserPermission("copy")) ? "none" : "";
+    document.getElementById("menuDownload").style.display = (isRecycle || !hasUserPermission("download")) ? "none" : "";
+    document.getElementById("menuZipView").style.display = (isArchiveFile && hasUserPermission("viewArchive")) ? "" : "none";
+    document.getElementById("menuZipExtractCurrent").style.display = (isArchiveFile && hasUserPermission("extract")) ? "" : "none";
+    document.getElementById("menuZipExtractTarget").style.display = (isArchiveFile && hasUserPermission("extract")) ? "" : "none";
+    document.getElementById("menuLocateFolder").style.display = (!isRecycle && !!state.keyword && entry.type === "file") ? "" : "none";
+    document.getElementById("menuGoToFolder").style.display = (!isRecycle && !!state.category && entry.type === "file") ? "" : "none";
+    document.getElementById("menuShare").style.display = isRecycle ? "none" : "";
+    document.getElementById("menuRename").style.display = (isRecycle || !hasUserPermission("rename")) ? "none" : "";
+    document.getElementById("menuMove").style.display = (isRecycle || !hasUserPermission("move")) ? "none" : "";
+    document.getElementById("menuDelete").style.display = hasUserPermission("delete") ? "" : "none";
+    document.getElementById("menuDelete").innerHTML = isRecycle
+      ? getContextMenuItemContent("deleteStrong", "彻底删除")
+      : getContextMenuItemContent("delete", "删除");
+    
+    let restoreBtn = document.getElementById("menuRestore");
+    if (isRecycle) {
+      if (!restoreBtn) {
+        restoreBtn = document.createElement("div");
+        restoreBtn.id = "menuRestore";
+        restoreBtn.className = "menu-item";
+        restoreBtn.innerHTML = getContextMenuItemContent("restore", "还原");
+        menu.appendChild(restoreBtn);
+      }
+      restoreBtn.style.display = "";
+    } else if (restoreBtn) {
+      restoreBtn.style.display = "none";
+    }
+
+    restoreBtn.onclick = async () => {
+      hideContextMenu();
+      const res = await request(`/api/recycle/${entry.id}`, { method: "PUT" });
+      if (res.ok) refreshAll();
+    };
+
+    document.getElementById("menuOpen").onclick = async () => {
+      hideContextMenu();
+      if (isFolder) {
+        state.currentFolderId = entry.id;
+        state.selectedEntry = null;
+        state.category = "";
+        state.keyword = "";
+        if (searchInput) {
+          searchInput.value = "";
+        }
+        updateRouteQuery({ main: "files", side: "myFiles", category: null, folderId: entry.id });
+        refreshAll(true);
+        return;
+      }
+      if (isArchiveFileEntry(entry)) {
+        if (hasUserPermission("viewArchive")) {
+          const confirmed = await showDeleteConfirm({
+            title: "查看压缩包",
+            message: "是否查看该压缩包内容？",
+            desc: "将以文件列表方式展示压缩包内容",
+            okText: "查看",
+            cancelText: "取消"
+          });
+          if (!confirmed) return;
+          await viewZipArchiveEntries(entry);
+        } else {
+          const confirmed = await showDeleteConfirm({
+            title: "查看压缩包",
+            message: "在线查看压缩包功能需要升级为VIP",
+            desc: "升级VIP后可享受在线查看、解压等更多功能",
+            okText: "升级VIP",
+            cancelText: "取消"
+          });
+          if (!confirmed) return;
+          return;
+        }
+      }
+      openFilePreview(entry);
+    };
+
+    document.getElementById("menuDetail").onclick = () => {
+      hideContextMenu();
+      state.selectedEntry = entry;
+      if (isFolder) {
+        renderDetails(entry, true);
+        showDetailsSidebar();
+        request(`/api/entries/${entry.type}/${entry.id}`)
+          .then(res => res.ok ? res.json() : null)
+          .then(data => {
+            if (data) {
+              state.selectedEntry = { ...entry, ...data };
+              renderDetails(state.selectedEntry);
+            }
+          })
+          .catch(() => {});
+      } else {
+        renderDetails(entry);
+        showDetailsSidebar();
+      }
+    };
+
+    document.getElementById("menuCopy").onclick = () => {
+      hideContextMenu();
+      if (!ensurePermission("copy")) return;
+      state.clipboardAction = "copy";
+      state.clipboardEntries = [entry];
+      updateBatchActionState();
+    };
+
+    document.getElementById("menuDownload").onclick = () => {
+      hideContextMenu();
+      if (!ensurePermission("download")) return;
+      startDownloadTask(entry);
+    };
+
+    document.getElementById("menuZipView").onclick = async () => {
+      hideContextMenu();
+      if (hasUserPermission("viewArchive")) {
+        const confirmed = await showDeleteConfirm({
+          title: "查看压缩包",
+          message: "是否查看该压缩包内容？",
+          desc: "将以文件列表方式展示压缩包内容",
+          okText: "查看",
+          cancelText: "取消"
+        });
+        if (!confirmed) return;
+        await viewZipArchiveEntries(entry);
+      }
+    };
+
+    document.getElementById("menuZipExtractCurrent").onclick = async () => {
+      hideContextMenu();
+      if (!ensurePermission("extract")) return;
+      await extractArchiveToCurrentFolder(entry);
+    };
+
+    document.getElementById("menuZipExtractTarget").onclick = async () => {
+      hideContextMenu();
+      if (!ensurePermission("extract")) return;
+      await extractArchiveToTargetFolder(entry);
+    };
+
+    document.getElementById("menuLocateFolder").onclick = async () => {
+      hideContextMenu();
+      const targetFolderId = Number(entry.folderId || entry.parentId);
+      if (!targetFolderId) return;
+      state.currentFolderId = targetFolderId;
+      state.keyword = "";
+      state.searchOriginFolderId = null;
+      state.category = "";
+      state.selectedEntry = null;
+      updateRouteQuery({ main: "files", side: "myFiles", category: null, folderId: targetFolderId });
+      await refreshAll();
+      const matchedEntry = state.entries.find((e) => e.type === "file" && Number(e.id) === Number(entry.id)) || null;
+      if (matchedEntry) {
+        state.selectedEntry = matchedEntry;
+        renderFileList();
+        renderDetails(matchedEntry);
+        showDetailsSidebar();
+      }
+    };
+
+    document.getElementById("menuGoToFolder").onclick = async () => {
+      hideContextMenu();
+      const targetFolderId = Number(entry.folderId || entry.parentId);
+      if (!targetFolderId) return;
+      state.currentFolderId = targetFolderId;
+      state.category = "";
+      state.keyword = "";
+      state.searchOriginFolderId = null;
+      state.selectedEntry = null;
+      updateRouteQuery({ main: "files", side: "myFiles", category: null, folderId: targetFolderId });
+      await refreshAll();
+      const matchedEntry = state.entries.find((e) => e.type === "file" && Number(e.id) === Number(entry.id)) || null;
+      if (matchedEntry) {
+        state.selectedEntry = matchedEntry;
+        renderFileList();
+        renderDetails(matchedEntry);
+        showDetailsSidebar();
+      }
+    };
+
+    document.getElementById("menuShare").onclick = async () => {
+      hideContextMenu();
+      await shareEntry(entry);
+    };
+
+    document.getElementById("menuRename").onclick = async () => {
+      hideContextMenu();
+      if (!ensurePermission("rename")) return;
+      await renameEntry(entry);
+    };
+
+    document.getElementById("menuMove").onclick = () => {
+      hideContextMenu();
+      if (!ensurePermission("move")) return;
+      state.clipboardAction = "move";
+      state.clipboardEntries = [entry];
+      updateBatchActionState();
+    };
+
+    document.getElementById("menuDelete").onclick = async () => {
+      hideContextMenu();
+      if (!ensurePermission("delete")) return;
+      if (isRecycle) {
+        const confirmed = await showDeleteConfirm({
+          title: "彻底删除",
+          message: "确定彻底删除该文件/文件夹吗？",
+          desc: "删除后将无法恢复"
+        });
+        if (!confirmed) return;
+        const res = await request(`/api/recycle/${entry.id}`, { method: "DELETE" });
+        if (res.ok) refreshAll();
+        return;
+      }
+      const confirmed = await showDeleteConfirm({
+        title: "删除",
+        message: `确定删除 ${entry.name} 吗？`,
+        desc: "删除后可在回收站中恢复"
+      });
+      if (!confirmed) return;
+      const res = await request(`/api/entries/${entry.type}/${entry.id}`, { method: "DELETE" });
+      if (res.ok) refreshAll();
+    };
+
+    showContextMenu();
+  };
+
+  return item;
+};
+
+// 可视区域懒加载：滚动时渲染可见的占位符
+let lazyRenderScrollHandler = null;
+const setupLazyRenderScrollHandler = () => {
+  if (lazyRenderScrollHandler) {
+    fileListEl.removeEventListener("scroll", lazyRenderScrollHandler);
+  }
+  lazyRenderScrollHandler = () => {
+    if (!state.lazyRenderEnabled) return;
+    renderVisiblePlaceholders();
+  };
+  fileListEl.addEventListener("scroll", lazyRenderScrollHandler, { passive: true });
+};
+
+const renderVisiblePlaceholders = () => {
+  if (!fileListEl) return;
+  const containerRect = fileListEl.getBoundingClientRect();
+  const containerTop = containerRect.top + fileListEl.scrollTop;
+  const containerBottom = containerTop + containerRect.height;
+  const buffer = 200; // 上下各多渲染200px缓冲区
+
+  const placeholders = fileListEl.querySelectorAll(".entry-placeholder");
+  placeholders.forEach((placeholder) => {
+    const placeholderTop = placeholder.offsetTop;
+    const placeholderBottom = placeholderTop + placeholder.offsetHeight;
+    // 检查是否在可视区域内
+    if (placeholderBottom < containerTop - buffer || placeholderTop > containerBottom + buffer) {
+      return; // 不在可视区域，跳过
+    }
+    // 在可视区域内，替换为真实DOM
+    const entryIndex = Number(placeholder.dataset.entryIndex);
+    const entry = state.entries[entryIndex];
+    if (!entry) return;
+    replacePlaceholderWithEntry(placeholder, entry, entryIndex);
+  });
+};
+
+const replacePlaceholderWithEntry = (placeholder, entry, entryIndex) => {
+  const quickAccessEntryKeySet = getQuickAccessEntryKeySet();
+  const isCategoryTimelineMode = state.view === "files" && state.viewMode !== "grid" && state.categoryTimelineEnabled;
+  const item = createEntryItemElement(entry, quickAccessEntryKeySet, isCategoryTimelineMode, null);
+  item.dataset.entryIndex = String(entryIndex);
+  placeholder.replaceWith(item);
+  state.lazyRenderedEntryIds.add(String(entry.id));
+};
+
 const renderFileList = () => {
+  // 重置懒加载状态
+  state.lazyRenderedEntryIds.clear();
+  state.lazyRenderScrollTop = 0;
+  if (fileListEl) {
+    fileListEl.scrollTop = 0;
+  }
+
   fileListEl.innerHTML = "";
   updateViewModeUI();
   const isRecycleListMode = state.view === "recycle" && state.viewMode !== "grid";
@@ -499,17 +1081,22 @@ const renderFileList = () => {
   let lastTimelineDay = "";
   let timelineDayEntriesContainer = null;
   let timelineDayGroupIndex = 0;
-  currentPageEntries.forEach(entry => {
+
+  // 计算可视区域范围
+  const containerHeight = fileListEl ? fileListEl.clientHeight : 600;
+  const estimatedItemHeight = state.viewMode === "grid" ? 140 : 48;
+  const itemsInView = Math.ceil(containerHeight / estimatedItemHeight);
+  const bufferItems = 5; // 上下各多渲染5个
+  const visibleStart = 0;
+  const visibleEnd = Math.min(currentPageEntries.length, itemsInView + bufferItems);
+
+  currentPageEntries.forEach((entry, index) => {
     const isFolder = entry.type === "folder";
     const entryName = String(entry.name || "");
-    const displayEntryName = entryName;
-    const escapedEntryName = escapeHtml(entryName);
-    const escapedDisplayEntryName = escapeHtml(displayEntryName);
     const timeValue = state.view === "recycle" ? entry.deletedAt : entry.updatedAt;
-    const timeLabel = formatDate(timeValue);
     const timelineDayLabel = formatDateDay(timeValue);
-    const originalDir = state.view === "recycle" ? String(entry.originalDir || "我的文件") : "";
-    const expireLabel = state.view === "recycle" ? formatRecycleAutoDeleteText(entry.deletedAt) : "";
+
+    // 时光轴模式的时间分组
     if (isCategoryTimelineMode && timelineDayLabel !== lastTimelineDay) {
       const dayGroup = document.createElement("div");
       dayGroup.className = "timeline-day-group";
@@ -548,7 +1135,6 @@ const renderFileList = () => {
         const targetScrollTop = Math.max(0, dayEntries.offsetTop - stickyTopOffset - 4);
         fileListEl.scrollTo({ top: targetScrollTop, behavior: "smooth" });
       };
-      // 整个时间分组可点击
       dayGroup.style.cursor = "pointer";
       dayGroup.addEventListener("click", (event) => {
         event.preventDefault();
@@ -566,352 +1152,54 @@ const renderFileList = () => {
       lastTimelineDay = timelineDayLabel;
       timelineDayGroupIndex += 1;
     }
-    const item = document.createElement("div");
-    const isVideoNoThumb = entry.type === "file" && isVideoEntry(entry) && !entry.hasThumbnail;
-    item.className = state.viewMode === "grid" ? "grid-item" : `table-row${isCategoryTimelineMode ? " timeline-entry" : ""}`;
-    if (isVideoNoThumb) item.classList.add("video-no-thumb");
-    if (isEntrySelected(entry) || (state.selectedEntry && state.selectedEntry.id === entry.id && state.selectedEntry.type === entry.type)) {
-      item.classList.add("selected");
-    }
 
-    if (state.viewMode === "grid") {
-      item.setAttribute("data-entry-id", String(entry.id));
-      item.setAttribute("data-entry-type", entry.type);
-      item.innerHTML = `
-        <div class="grid-check"><input type="checkbox" ${isEntrySelected(entry) ? "checked" : ""}></div>
-        ${getEntryVisualHtml(entry, "grid")}
-        <div class="grid-item-name" title="${escapedEntryName}">${escapedDisplayEntryName}</div>
-      `;
-      const checkWrap = item.querySelector(".grid-check");
-      const checkInput = item.querySelector(".grid-check input");
-      if (checkWrap && checkInput) {
-        checkWrap.onclick = (event) => {
-          event.stopPropagation();
-          if (event.target !== checkInput) {
-            checkInput.click();
-          }
-        };
-        checkInput.onclick = (event) => {
-          event.stopPropagation();
-        };
-        checkInput.onchange = () => {
-          setEntrySelected(entry, checkInput.checked);
-          if (checkInput.checked) {
-            state.selectedEntry = entry;
-          } else if (state.selectedEntry && state.selectedEntry.id === entry.id && state.selectedEntry.type === entry.type) {
-            state.selectedEntry = null;
-          }
-          item.classList.toggle("selected", checkInput.checked);
-          updateBatchActionState();
-        };
-      }
-    } else if (isCategoryTimelineMode) {
-      item.setAttribute("data-entry-id", String(entry.id));
-      item.setAttribute("data-entry-type", entry.type);
-      item.innerHTML = `
-        <div class="timeline-check"><input type="checkbox" ${isEntrySelected(entry) ? "checked" : ""}></div>
-        <div class="timeline-card-media">${getEntryVisualHtml(entry, "timeline")}</div>
-        <div class="timeline-card-name" title="${escapedEntryName}">${escapedDisplayEntryName}</div>
-        <div class="timeline-card-time">${escapeHtml(timeLabel)}</div>
-      `;
-      const checkWrap = item.querySelector(".timeline-check");
-      const checkInput = item.querySelector(".timeline-check input");
-      if (checkWrap && checkInput) {
-        checkWrap.onclick = (event) => {
-          event.stopPropagation();
-          if (event.target !== checkInput) {
-            checkInput.click();
-          }
-        };
-        checkInput.onclick = (event) => {
-          event.stopPropagation();
-        };
-        checkInput.onchange = () => {
-          setEntrySelected(entry, checkInput.checked);
-          if (checkInput.checked) {
-            state.selectedEntry = entry;
-          } else if (state.selectedEntry && state.selectedEntry.id === entry.id && state.selectedEntry.type === entry.type) {
-            state.selectedEntry = null;
-          }
-          item.classList.toggle("selected", checkInput.checked);
-          updateBatchActionState();
-        };
-      }
-    } else {
-      item.setAttribute("data-entry-id", String(entry.id));
-      item.setAttribute("data-entry-type", entry.type);
-      const canQuickToggle = state.view !== "recycle" && (entry.type === "folder" || entry.type === "file");
-      const isQuickAccess = canQuickToggle && quickAccessEntryKeySet.has(getQuickAccessEntryKey(entry.type, Number(entry.id)));
-      item.innerHTML = `
-        <div class="cell-check"><input type="checkbox" ${isEntrySelected(entry) ? "checked" : ""}></div>
-        <div class="cell-name name-wrapper">
-          ${getEntryVisualHtml(entry, "list")}
-          <span class="file-name-text" title="${escapedEntryName}">${escapedDisplayEntryName}</span>
-        </div>
-        <div class="cell-size">${isFolder ? "-" : formatSize(entry.size)}</div>
-        <div class="cell-type">${getEntryTypeLabel(entry)}</div>
-        <div class="cell-time">${timeLabel}</div>
-        <div class="cell-quick">${canQuickToggle ? `<button type="button" class="quick-access-toggle${isQuickAccess ? " active" : ""}" title="${isQuickAccess ? "取消收藏" : "加入收藏"}"><i class="${isQuickAccess ? "fa-solid" : "fa-regular"} fa-star"></i></button>` : ""}</div>
-        ${state.view === "recycle" ? `<div class="cell-origin" title="${escapeHtml(originalDir)}">${escapeHtml(originalDir)}</div>` : ""}
-        ${state.view === "recycle" ? `<div class="cell-expire">${expireLabel}</div>` : ""}
-      `;
-      const checkWrap = item.querySelector(".cell-check");
-      const checkInput = item.querySelector(".cell-check input");
-      if (checkWrap && checkInput) {
-        checkWrap.onclick = (event) => {
-          event.stopPropagation();
-          if (event.target !== checkInput) {
-            checkInput.click();
-          }
-        };
-        checkInput.onclick = (event) => {
-          event.stopPropagation();
-        };
-        checkInput.onchange = () => {
-          setEntrySelected(entry, checkInput.checked);
-          if (checkInput.checked) {
-            state.selectedEntry = entry;
-          } else if (state.selectedEntry && state.selectedEntry.id === entry.id && state.selectedEntry.type === entry.type) {
-            state.selectedEntry = null;
-          }
-          item.classList.toggle("selected", checkInput.checked);
-          updateBatchActionState();
-        };
-      }
-      const quickAccessBtn = item.querySelector(".quick-access-toggle");
-      if (quickAccessBtn) {
-        quickAccessBtn.onclick = async (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          await toggleQuickAccessEntry(entry);
-        };
-      }
-    }
-
-    const toggleMobileEntrySelection = () => {
-      const nextChecked = !isEntrySelected(entry);
-      setEntrySelected(entry, nextChecked);
-      if (nextChecked) {
-        state.selectedEntry = entry;
-      } else if (state.selectedEntry && state.selectedEntry.id === entry.id && state.selectedEntry.type === entry.type) {
-        state.selectedEntry = null;
-      }
-      item.classList.toggle("selected", nextChecked);
-      const checkInput = item.querySelector(".cell-check input, .grid-check input, .timeline-check input");
-      if (checkInput) checkInput.checked = nextChecked;
-      updateBatchActionState();
-    };
-    let mobileLongPressTimer = null;
-    let mobileLongPressTriggered = false;
-    let mobileTouchStartX = 0;
-    let mobileTouchStartY = 0;
-    const clearMobileLongPressTimer = () => {
-      if (!mobileLongPressTimer) return;
-      clearTimeout(mobileLongPressTimer);
-      mobileLongPressTimer = null;
-    };
-    item.addEventListener("touchstart", (event) => {
-      if (!isMobileViewport() || state.view !== "files") return;
-      if (event.touches.length !== 1) return;
-      const target = event.target instanceof Element ? event.target : null;
-      if (target && target.closest("input, button, .quick-access-toggle, .cell-check, .grid-check")) return;
-      mobileLongPressTriggered = false;
-      const touch = event.touches[0];
-      mobileTouchStartX = touch.clientX;
-      mobileTouchStartY = touch.clientY;
-      clearMobileLongPressTimer();
-      mobileLongPressTimer = setTimeout(() => {
-        mobileLongPressTriggered = true;
-        toggleMobileEntrySelection();
-      }, 380);
-    }, { passive: true });
-    item.addEventListener("touchmove", (event) => {
-      if (!isMobileViewport() || state.view !== "files") return;
-      if (!mobileLongPressTimer || event.touches.length !== 1) return;
-      const touch = event.touches[0];
-      if (Math.abs(touch.clientX - mobileTouchStartX) > 10 || Math.abs(touch.clientY - mobileTouchStartY) > 10) {
-        clearMobileLongPressTimer();
-      }
-    }, { passive: true });
-    item.addEventListener("touchend", (event) => {
-      if (!isMobileViewport() || state.view !== "files") return;
-      clearMobileLongPressTimer();
-      if (mobileLongPressTriggered) {
-        event.preventDefault();
-        event.stopPropagation();
-        mobileLongPressTriggered = false;
-        return;
-      }
-    }, { passive: false });
-    item.addEventListener("touchcancel", () => {
-      clearMobileLongPressTimer();
-      mobileLongPressTriggered = false;
-    }, { passive: true });
-
-    item.onclick = async (e) => {
-      if (e.button !== 0) return;
-      if (state.view !== "recycle" && isFolder) {
-        state.currentFolderId = entry.id;
-        state.selectedEntry = null;
-        state.category = "";
-        state.keyword = "";
-        if (searchInput) {
-          searchInput.value = "";
-        }
-        updateRouteQuery({ main: "files", side: "myFiles", category: null, folderId: entry.id });
-        refreshAll(true);
-        return;
-      }
-      state.selectedEntry = entry;
-      document.querySelectorAll(".table-row, .grid-item").forEach(r => r.classList.remove("selected"));
-      item.classList.add("selected");
-      if (state.view === "recycle") return;
-      if (isMobileViewport()) {
-        if (isArchiveFileEntry(entry)) {
-          if (hasUserPermission("viewArchive")) {
-            const confirmed = await showDeleteConfirm({
-              title: "查看压缩包",
-              message: "是否查看该压缩包内容？",
-              desc: "将以文件列表方式展示压缩包内容",
-              okText: "查看",
-              cancelText: "取消"
-            });
-            if (!confirmed) return;
-            await viewZipArchiveEntries(entry);
-          } else {
-            const confirmed = await showDeleteConfirm({
-              title: "查看压缩包",
-              message: "在线查看压缩包功能需要升级为VIP",
-              desc: "升级VIP后可享受在线查看、解压等更多功能",
-              okText: "升级VIP",
-              cancelText: "取消"
-            });
-            if (!confirmed) return;
-            return;
-          }
-        }
-        openFilePreview(entry);
-        return;
-      }
-      // 文件夹先显示"正在统计大小"，然后异步获取最新数据
-      if (isFolder) {
-        renderDetails(entry, true);
-        showDetailsSidebar();
-        try {
-          const res = await request(`/api/entries/${entry.type}/${entry.id}`);
-          if (res.ok) {
-            const data = await res.json().catch(() => ({}));
-            const updatedEntry = { ...entry, ...data };
-            state.selectedEntry = updatedEntry;
-            renderDetails(updatedEntry);
-          }
-        } catch (error) {
-          void error;
-        }
+    // 可视区域内的条目渲染真实DOM，否则渲染占位符
+    if (index >= visibleStart && index < visibleEnd) {
+      const item = createEntryItemElement(entry, quickAccessEntryKeySet, isCategoryTimelineMode, timelineDayEntriesContainer);
+      item.dataset.entryIndex = String(index);
+      if (isCategoryTimelineMode && timelineDayEntriesContainer) {
+        timelineDayEntriesContainer.appendChild(item);
       } else {
-        renderDetails(entry);
-        showDetailsSidebar();
+        fileListEl.appendChild(item);
       }
-    };
-
-    item.ondblclick = async (e) => {
-      if (state.view !== "recycle" && isFolder) {
-        return;
-      }
-      if (state.view === "recycle") return;
-      if (isArchiveFileEntry(entry)) {
-        if (hasUserPermission("viewArchive")) {
-          const confirmed = await showDeleteConfirm({
-            title: "查看压缩包",
-            message: "是否查看该压缩包内容？",
-            desc: "将以文件列表方式展示压缩包内容",
-            okText: "查看",
-            cancelText: "取消"
-          });
-          if (!confirmed) return;
-          await viewZipArchiveEntries(entry);
-        } else {
-          const confirmed = await showDeleteConfirm({
-            title: "查看压缩包",
-            message: "在线查看压缩包功能需要升级为VIP",
-            desc: "升级VIP后可享受在线查看、解压等更多功能",
-            okText: "升级VIP",
-            cancelText: "取消"
-          });
-          if (!confirmed) return;
-          return;
-        }
-      }
-      openFilePreview(entry);
-    };
-
-    item.oncontextmenu = (e) => {
-      e.preventDefault();
-      state.selectedEntry = entry;
-      document.querySelectorAll(".table-row, .grid-item").forEach(r => r.classList.remove("selected"));
-      item.classList.add("selected");
-
-      const menu = document.getElementById("contextMenu");
-      const isRecycle = state.view === "recycle";
-      const isArchiveFile = !isRecycle && isArchiveFileEntry(entry);
-      
-      document.getElementById("menuOpen").style.display = isRecycle ? "none" : "";
-      document.getElementById("menuDetail").style.display = "";
-      document.getElementById("menuCopy").style.display = (isRecycle || !hasUserPermission("copy")) ? "none" : "";
-      document.getElementById("menuDownload").style.display = (isRecycle || !hasUserPermission("download")) ? "none" : "";
-      document.getElementById("menuZipView").style.display = (isArchiveFile && hasUserPermission("viewArchive")) ? "" : "none";
-      document.getElementById("menuZipExtractCurrent").style.display = (isArchiveFile && hasUserPermission("extract")) ? "" : "none";
-      document.getElementById("menuZipExtractTarget").style.display = (isArchiveFile && hasUserPermission("extract")) ? "" : "none";
-      document.getElementById("menuLocateFolder").style.display = (!isRecycle && !!state.keyword && entry.type === "file") ? "" : "none";
-      document.getElementById("menuShare").style.display = isRecycle ? "none" : "";
-      document.getElementById("menuRename").style.display = (isRecycle || !hasUserPermission("rename")) ? "none" : "";
-      document.getElementById("menuMove").style.display = (isRecycle || !hasUserPermission("move")) ? "none" : "";
-      document.getElementById("menuDelete").style.display = hasUserPermission("delete") ? "" : "none";
-      document.getElementById("menuDelete").innerHTML = isRecycle
-        ? getContextMenuItemContent("deleteStrong", "彻底删除")
-        : getContextMenuItemContent("delete", "删除");
-      
-      let restoreBtn = document.getElementById("menuRestore");
-      if (isRecycle) {
-        if (!restoreBtn) {
-          restoreBtn = document.createElement("div");
-          restoreBtn.id = "menuRestore";
-          restoreBtn.className = "menu-item";
-          restoreBtn.innerHTML = getContextMenuItemContent("restore", "还原");
-          restoreBtn.onclick = restoreEntry;
-          menu.insertBefore(restoreBtn, menu.firstChild);
-        }
-        restoreBtn.style.display = "";
-      } else if (restoreBtn) {
-        restoreBtn.style.display = "none";
-      }
-
-      menu.style.display = "block";
-      const menuWidth = menu.offsetWidth;
-      const menuHeight = menu.offsetHeight;
-      const viewportWidth = window.innerWidth;
-      const viewportHeight = window.innerHeight;
-      const scrollX = window.scrollX || window.pageXOffset || 0;
-      const scrollY = window.scrollY || window.pageYOffset || 0;
-      let left = e.pageX;
-      let top = e.pageY;
-      const maxLeft = scrollX + viewportWidth - menuWidth - 8;
-      const maxTop = scrollY + viewportHeight - menuHeight - 8;
-      if (left > maxLeft) left = Math.max(scrollX + 8, maxLeft);
-      if (top > maxTop) top = Math.max(scrollY + 8, maxTop);
-      menu.style.left = `${left}px`;
-      menu.style.top = `${top}px`;
-    };
-
-    if (isCategoryTimelineMode && timelineDayEntriesContainer) {
-      timelineDayEntriesContainer.appendChild(item);
+      state.lazyRenderedEntryIds.add(String(entry.id));
     } else {
-      fileListEl.appendChild(item);
+      // 创建占位符
+      const placeholder = document.createElement("div");
+      placeholder.className = `entry-placeholder ${state.viewMode === "grid" ? "grid-item" : "table-row"}`;
+      placeholder.dataset.entryIndex = String(index);
+      placeholder.dataset.entryId = String(entry.id);
+      placeholder.dataset.entryType = entry.type;
+      // 占位符需要显示文件名，方便全选时识别
+      placeholder.innerHTML = `<div class="placeholder-name" title="${escapeHtml(entry.name)}">${escapeHtml(entry.name)}</div>`;
+      // 占位符点击可选中
+      placeholder.onclick = (e) => {
+        e.stopPropagation();
+        const isCurrentlySelected = isEntrySelected(entry);
+        setEntrySelected(entry, !isCurrentlySelected);
+        if (!isCurrentlySelected) {
+          state.selectedEntry = entry;
+        } else if (state.selectedEntry && state.selectedEntry.id === entry.id && state.selectedEntry.type === entry.type) {
+          state.selectedEntry = null;
+        }
+        placeholder.classList.toggle("selected", !isCurrentlySelected);
+        updateBatchActionState();
+      };
+      if (isEntrySelected(entry)) {
+        placeholder.classList.add("selected");
+      }
+      if (isCategoryTimelineMode && timelineDayEntriesContainer) {
+        timelineDayEntriesContainer.appendChild(placeholder);
+      } else {
+        fileListEl.appendChild(placeholder);
+      }
     }
   });
   renderFilePagination();
   updateBatchActionState();
   updateTimelineLineHeight();
+  // 设置滚动监听
+  setupLazyRenderScrollHandler();
 };
 
 const updateTimelineLineHeight = () => {
