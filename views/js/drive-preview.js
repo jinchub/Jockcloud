@@ -1842,9 +1842,16 @@ importScripts(${JSON.stringify(workerMainUrl)});
       ? mediaEntries.map((item, index) => {
         const activeClass = index === activeIndex ? " is-active" : "";
         const name = state.escapeHtml(item && item.name ? item.name : "");
+        const thumbUrl = previewType === "video"
+          ? `/api/preview/${encodeURIComponent(item.id)}?mode=stream&variant=thumb`
+          : "";
+        const thumbHtml = previewType === "video" && thumbUrl
+          ? `<img class="preview-media-item-thumb" src="${thumbUrl}" alt="" loading="lazy" onerror="this.style.display='none'" />`
+          : "";
         return `
           <button type="button" class="preview-media-item${activeClass}" data-index="${index}" title="${name}">
             <span class="preview-media-item-index">${index + 1}.</span>
+            ${thumbHtml}
             <span class="preview-media-item-name">${name}</span>
           </button>
         `;
@@ -2197,7 +2204,7 @@ importScripts(${JSON.stringify(workerMainUrl)});
       ? imageEntries.map((item, index) => {
         const activeClass = index === activeIndex ? " is-active" : "";
         const name = state.escapeHtml(item && item.name ? item.name : "");
-        const thumbUrl = getStreamPreviewUrl(item);
+        const thumbUrl = `/api/preview/${encodeURIComponent(item.id)}?mode=stream&variant=thumb`;
         return `
           <button type="button" class="preview-image-item${activeClass}" data-index="${index}" title="${name}">
             <span class="preview-image-item-index">${index + 1}.</span>
