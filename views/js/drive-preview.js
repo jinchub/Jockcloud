@@ -1555,9 +1555,9 @@ importScripts(${JSON.stringify(workerMainUrl)});
     const audioCurrentTimeText = previewBody.querySelector("#previewAudioCurrentTime");
     const audioDurationText = previewBody.querySelector("#previewAudioDuration");
     const audioArcActivePath = previewBody.querySelector("#previewAudioArcActivePath");
-    const audioMuteBtn = previewBody.querySelector("#previewAudioMuteBtn");
-    const audioMuteIcon = previewBody.querySelector("#previewAudioMuteIcon");
-    const audioLowMuteBtn = previewBody.querySelector("#previewAudioLowMuteBtn");
+    const audioVolumeBtn = previewBody.querySelector("#previewAudioVolumeBtn");
+    const audioVolumeIcon = previewBody.querySelector("#previewAudioVolumeIcon");
+    const audioVolumePopup = previewBody.querySelector("#previewAudioVolumePopup");
     const audioEl = previewBody.querySelector("audio.preview-audio");
     const stageEl = previewBody.querySelector("#previewMediaStage");
     const toggleSidebarBtn = previewBody.querySelector("#previewMediaToggleSidebarBtn");
@@ -1599,12 +1599,18 @@ importScripts(${JSON.stringify(workerMainUrl)});
       };
     }
     if (audioPlayBtn && audioEl) {
-      const syncPlayIcon = () => {
-        audioPlayBtn.innerHTML = audioEl.paused
+      const audioCover = previewBody.querySelector("#previewAudioCover");
+      const syncPlayState = () => {
+        const isPaused = audioEl.paused;
+        audioPlayBtn.innerHTML = isPaused
           ? '<i class="fa-solid fa-play"></i>'
           : '<i class="fa-solid fa-pause"></i>';
+        if (audioCover) {
+          audioCover.classList.add("is-rotating");
+          audioCover.style.animationPlayState = isPaused ? "paused" : "running";
+        }
       };
-      syncPlayIcon();
+      syncPlayState();
       audioPlayBtn.onclick = () => {
         if (audioEl.paused) {
           const playResult = audioEl.play();
@@ -1615,10 +1621,13 @@ importScripts(${JSON.stringify(workerMainUrl)});
         }
         audioEl.pause();
       };
-      audioEl.onplay = syncPlayIcon;
-      audioEl.onpause = syncPlayIcon;
+      audioEl.onplay = syncPlayState;
+      audioEl.onpause = syncPlayState;
     }
     if (audioProgressRange && audioEl) {
+      const audioProgressFill = previewBody.querySelector("#previewAudioProgressFill");
+      const audioProgressThumb = previewBody.querySelector("#previewAudioProgressThumb");
+      const audioProgressBar = previewBody.querySelector("#previewAudioProgressBar");
       const formatAudioTime = (value) => {
         const totalSeconds = Math.max(0, Math.floor(Number(value) || 0));
         const minute = Math.floor(totalSeconds / 60);
@@ -1633,50 +1642,66 @@ importScripts(${JSON.stringify(workerMainUrl)});
         audioProgressRange.value = String(percent);
         if (audioCurrentTimeText) audioCurrentTimeText.textContent = formatAudioTime(current);
         if (audioDurationText) audioDurationText.textContent = formatAudioTime(hasDuration ? duration : 0);
-        if (audioArcActivePath) {
-          const totalLength = 295;
-          const activeLength = (percent / 100) * totalLength;
-          audioArcActivePath.style.strokeDasharray = `${activeLength} ${totalLength}`;
-        }
+        if (audioProgressFill) audioProgressFill.style.width = `${percent}%`;
+        if (audioProgressThumb) audioProgressThumb.style.left = `${percent}%`;
       };
       syncProgress();
-      audioProgressRange.oninput = () => {
-        const duration = Number(audioEl.duration);
-        if (!Number.isFinite(duration) || duration <= 0) return;
-        const percent = Math.max(0, Math.min(100, Number(audioProgressRange.value) || 0));
-        audioEl.currentTime = duration * (percent / 100);
-        syncProgress();
-      };
+      if (audioProgressRange) {
+        audioProgressRange.oninput = () => {
+          const duration = Number(audioEl.duration);
+          if (!Number.isFinite(duration) || duration <= 0) return;
+          const percent = Math.max(0, Math.min(100, Number(audioProgressRange.value) || 0));
+          audioEl.currentTime = duration * (percent / 100);
+          syncProgress();
+        };
+      }
+      if (audioProgressBar) {
+        audioProgressBar.addEventListener("pointerdown", () => audioProgressBar.classList.add("is-dragging"));
+        document.addEventListener("pointerup", () => audioProgressBar.classList.remove("is-dragging"));
+      }
       audioEl.ontimeupdate = syncProgress;
       audioEl.onloadedmetadata = syncProgress;
       audioEl.ondurationchange = syncProgress;
     }
     if (audioVolumeRange && audioEl) {
-      const syncVolumeRange = () => {
+      const syncVolumeIcon = () => {
         const currentVolume = audioEl.muted ? 0 : Number(audioEl.volume);
         const volumePercent = Math.round(Math.max(0, Math.min(1, currentVolume)) * 100);
         audioVolumeRange.value = String(volumePercent);
         audioVolumeRange.style.setProperty("--volume-percent", `${volumePercent}%`);
-        if (audioMuteIcon) {
-          audioMuteIcon.className = audioEl.muted || currentVolume <= 0
-            ? "fa-solid fa-volume-xmark"
-            : "fa-solid fa-volume-high";
+        if (audioVolumeIcon) {
+          let iconClass = "fa-solid fa-volume-high";
+          if (audioEl.muted || currentVolume <= 0) {
+            iconClass = "fa-solid fa-volume-xmark";
+          } else if (currentVolume < 0.5) {
+            iconClass = "fa-solid fa-volume-low";
+          }
+          audioVolumeIcon.className = iconClass;
         }
       };
-      const toggleMute = () => {
-        audioEl.muted = !audioEl.muted;
-        syncVolumeRange();
+      const togglePopup = (event) => {
+        if (event) event.stopPropagation();
+        if (audioVolumePopup) {
+          audioVolumePopup.classList.toggle("is-open");
+        }
       };
-      syncVolumeRange();
+      syncVolumeIcon();
       audioVolumeRange.oninput = () => {
         const value = Number(audioVolumeRange.value);
         const volume = Math.max(0, Math.min(1, value / 100));
         audioEl.volume = volume;
         audioEl.muted = volume <= 0;
       };
-      if (audioMuteBtn) audioMuteBtn.onclick = toggleMute;
-      if (audioLowMuteBtn) audioLowMuteBtn.onclick = toggleMute;
-      audioEl.onvolumechange = syncVolumeRange;
+      if (audioVolumeBtn) audioVolumeBtn.onclick = togglePopup;
+      audioEl.onvolumechange = syncVolumeIcon;
+      if (audioVolumePopup) {
+        const closePopup = (event) => {
+          if (!audioVolumePopup.contains(event.target) && (!audioVolumeBtn || !audioVolumeBtn.contains(event.target))) {
+            audioVolumePopup.classList.remove("is-open");
+          }
+        };
+        document.addEventListener("click", closePopup);
+      }
     }
     if (stageEl) {
       stageEl.onwheel = (event) => {
@@ -1765,31 +1790,37 @@ importScripts(${JSON.stringify(workerMainUrl)});
       const mediaUrl = getStreamPreviewUrl(currentEntry);
       const mediaEl = previewBody.querySelector(previewType === "video" ? "video.preview-video" : "audio.preview-audio");
       if (mediaEl) {
-        // 保存当前播放状态
+        // 只保留音量/静音/播放/暂停偏好，新歌曲从 0 秒开始
         const wasPaused = mediaEl.paused;
-        const currentTime = mediaEl.currentTime;
         const volume = mediaEl.volume;
         const muted = mediaEl.muted;
 
-        // 添加错误处理，避免 ERR_ABORTED 日志
         const handleError = (e) => {
-          // 忽略加载错误（通常是切换时的正常中止）
           if (mediaEl.error && mediaEl.error.code === MediaError.MEDIA_ERR_ABORTED) {
             return;
           }
         };
 
-        // 更新源并恢复状态
         mediaEl.src = mediaUrl;
         mediaEl.onerror = handleError;
         mediaEl.load();
 
-        // 恢复播放状态
-        if (!wasPaused && previewType === "video") {
-          mediaEl.play().catch(() => { });
-        }
-        if (currentTime) {
-          mediaEl.currentTime = currentTime;
+        // 新歌曲重置到 0 秒
+        const resetAndPlay = () => {
+          try {
+            mediaEl.currentTime = 0;
+          } catch (error) { }
+          if (!wasPaused) {
+            const playResult = mediaEl.play();
+            if (playResult && typeof playResult.catch === "function") {
+              playResult.catch(() => { });
+            }
+          }
+        };
+        if (mediaEl.readyState >= 1) {
+          resetAndPlay();
+        } else {
+          mediaEl.addEventListener("loadedmetadata", resetAndPlay, { once: true });
         }
         mediaEl.volume = volume;
         mediaEl.muted = muted;
@@ -1816,10 +1847,15 @@ importScripts(${JSON.stringify(workerMainUrl)});
 
     // 更新文件名显示
     const toolbarName = previewBody.querySelector(".preview-media-toolbar-name");
+    const audioTitleEl = previewBody.querySelector(".preview-audio-title");
     if (toolbarName && currentEntry) {
       const mediaName = state.escapeHtml(currentEntry.name || "预览文件");
       toolbarName.textContent = mediaName;
       toolbarName.title = mediaName;
+    }
+    if (audioTitleEl && currentEntry) {
+      audioTitleEl.textContent = state.escapeHtml(currentEntry.name || "预览文件");
+      audioTitleEl.title = state.escapeHtml(currentEntry.name || "预览文件");
     }
   };
 
@@ -1859,18 +1895,28 @@ importScripts(${JSON.stringify(workerMainUrl)});
       : `<div class="preview-media-empty">${emptyText}</div>`;
     const mediaUrl = getStreamPreviewUrl(currentEntry);
     const mediaName = state.escapeHtml(currentEntry.name || "预览文件");
+    const existingAvatarImg = document.querySelector(".user-avatar-img");
+    const profileAvatarImg = document.querySelector("#profileCenterAvatar img");
+    let avatarUrlRaw =
+      (existingAvatarImg && existingAvatarImg.tagName === "IMG" && existingAvatarImg.getAttribute("src")) ||
+      (profileAvatarImg && profileAvatarImg.tagName === "IMG" && profileAvatarImg.getAttribute("src")) ||
+      "";
+    const avatarUrl = String(avatarUrlRaw || "").trim();
     const playerHtml = previewType === "video"
       ? `<video class="preview-video preview-media-main-video" src="${mediaUrl}" controls autoplay preload="metadata" playsinline></video>`
       : `
         <div class="preview-media-audio-wrap">
           <audio class="preview-audio" src="${mediaUrl}" autoplay preload="metadata"></audio>
+          <div class="preview-audio-cover" id="previewAudioCover">
+            ${avatarUrl ? `<img class="preview-audio-avatar" src="${state.escapeHtml(avatarUrl)}" alt="" />` : `<div class="preview-audio-avatar-preview"></div>`}
+          </div>
+          <div class="preview-audio-title">${mediaName}</div>
+          <div class="preview-audio-subtitle">云盘音乐</div>
           <div class="preview-audio-progress-wrap">
             <span class="preview-audio-time" id="previewAudioCurrentTime">0:00</span>
-            <div class="preview-audio-progress-arc">
-              <svg viewBox="0 0 280 70" aria-hidden="true">
-                <path d="M10 60 Q140 0 270 60" class="preview-audio-arc-track"></path>
-                <path d="M10 60 Q140 0 270 60" class="preview-audio-arc-active" id="previewAudioArcActivePath"></path>
-              </svg>
+            <div class="preview-audio-progress-bar" id="previewAudioProgressBar">
+              <div class="preview-audio-progress-bar-fill" id="previewAudioProgressFill"></div>
+              <div class="preview-audio-progress-bar-thumb" id="previewAudioProgressThumb"></div>
               <input id="previewAudioProgressRange" type="range" min="0" max="100" step="0.1" value="0" />
             </div>
             <span class="preview-audio-time" id="previewAudioDuration">0:00</span>
@@ -1879,10 +1925,11 @@ importScripts(${JSON.stringify(workerMainUrl)});
             <button type="button" class="preview-audio-btn" id="previewAudioPrevBtn" ${hasPrev ? "" : "disabled"} aria-label="上一首" title="上一首"><i class="fa-solid fa-backward-step"></i></button>
             <button type="button" class="preview-audio-btn is-primary" id="previewAudioPlayBtn" aria-label="播放/暂停" title="播放/暂停"><i class="fa-solid fa-pause"></i></button>
             <button type="button" class="preview-audio-btn" id="previewAudioNextBtn" ${hasNext ? "" : "disabled"} aria-label="下一首" title="下一首"><i class="fa-solid fa-forward-step"></i></button>
-            <div class="preview-audio-volume-wrap">
-              <button type="button" class="preview-audio-mute-btn" id="previewAudioLowMuteBtn" aria-label="静音" title="静音"><i class="fa-solid fa-volume-low"></i></button>
+          </div>
+          <div class="preview-audio-volume-wrap">
+            <button type="button" class="preview-audio-volume-btn" id="previewAudioVolumeBtn" aria-label="音量" title="音量"><i class="fa-solid fa-volume-high" id="previewAudioVolumeIcon"></i></button>
+            <div class="preview-audio-volume-popup" id="previewAudioVolumePopup">
               <input id="previewAudioVolumeRange" type="range" min="0" max="100" step="1" value="100" />
-              <button type="button" class="preview-audio-mute-btn" id="previewAudioMuteBtn" aria-label="静音" title="静音"><i class="fa-solid fa-volume-high" id="previewAudioMuteIcon"></i></button>
             </div>
           </div>
         </div>
@@ -1897,7 +1944,7 @@ importScripts(${JSON.stringify(workerMainUrl)});
           <div class="preview-media-list" id="previewMediaList">${listHtml}</div>
         </aside>
         <section class="preview-media-main">
-          <div class="preview-media-stage" id="previewMediaStage">
+          <div class="preview-media-stage${previewType === "audio" ? " is-audio-stage" : ""}" id="previewMediaStage">
             ${sidebarCollapsed ? `<button type="button" class="preview-sidebar-expand-btn" id="previewMediaExpandSidebarBtn">展开列表</button>` : ""}
             ${previewType === "video" && !mobileNav ? `<button type="button" class="preview-media-nav prev" id="previewMediaPrevBtn" ${hasPrev ? "" : "disabled"}>上一项</button>` : ""}
             ${playerHtml}
