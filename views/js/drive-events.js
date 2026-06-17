@@ -2335,6 +2335,7 @@ const getListRows = () => {
 const selectListRowsInRect = (selectionRect, containerRect) => {
   const rows = getListRows();
   const inRectIds = new Set();
+  const isTimelineMode = state.view === "files" && state.viewMode !== "grid" && state.categoryTimelineEnabled;
   
   rows.forEach(row => {
     const rowRect = row.getBoundingClientRect();
@@ -2348,7 +2349,9 @@ const selectListRowsInRect = (selectionRect, containerRect) => {
 
     if (intersects && entryId && entryType) {
       inRectIds.add(`${entryType}-${entryId}`);
-      const checkbox = row.querySelector(".cell-check input");
+      // 时间线模式使用 .timeline-check，普通列表模式使用 .cell-check
+      const checkboxSelector = isTimelineMode ? ".timeline-check input" : ".cell-check input";
+      const checkbox = row.querySelector(checkboxSelector);
 
       if (checkbox && !checkbox.checked) {
         checkbox.checked = true;
@@ -2374,7 +2377,8 @@ const selectListRowsInRect = (selectionRect, containerRect) => {
         r.getAttribute("data-entry-type") === entryType
       );
       if (row) {
-        const checkbox = row.querySelector(".cell-check input");
+        const checkboxSelector = isTimelineMode ? ".timeline-check input" : ".cell-check input";
+        const checkbox = row.querySelector(checkboxSelector);
         if (checkbox) {
           checkbox.checked = false;
           row.classList.remove("selected");
@@ -2418,8 +2422,14 @@ const bindListDragSelect = () => {
     if (target.closest(".cell-check") ||
         target.closest("input") ||
         target.closest("button") ||
-        target.closest(".quick-access-toggle") ||
-        target.closest(".table-row")) {
+        target.closest(".quick-access-toggle")) {
+      return;
+    }
+
+    // 列表模式下，点击 .table-row 内部元素时不触发拖拽
+    // 但时间线模式下允许拖拽选择
+    const isTimelineMode = state.view === "files" && state.viewMode !== "grid" && state.categoryTimelineEnabled;
+    if (!isTimelineMode && target.closest(".table-row")) {
       return;
     }
 

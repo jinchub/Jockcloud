@@ -301,6 +301,9 @@ const getEntryVisualHtml = (entry, variant = "list") => {
     if (variant === "detail") {
       return `<div class="file-thumb-video-detail-wrap"><img class="file-thumb file-thumb-detail" src="${previewUrl}" alt="${escapedName}" loading="lazy" /></div>`;
     }
+    if (variant === "timeline") {
+      return `<div class="timeline-card-media"><img class="file-thumb file-thumb-timeline" src="${previewUrl}" alt="${escapedName}" loading="lazy" /></div>`;
+    }
     return `<div class="file-thumb-video-list"><img class="file-thumb file-thumb-${variant} file-thumb-video-list-video" src="${previewUrl}" alt="${escapedName}" loading="lazy" /><i class="fa-solid fa-play file-thumb-video-list-play-icon"></i></div>`;
   }
   return variant === "detail"
@@ -587,6 +590,8 @@ const renderFileList = () => {
         };
       }
     } else if (isCategoryTimelineMode) {
+      item.setAttribute("data-entry-id", String(entry.id));
+      item.setAttribute("data-entry-type", entry.type);
       item.innerHTML = `
         <div class="timeline-check"><input type="checkbox" ${isEntrySelected(entry) ? "checked" : ""}></div>
         <div class="timeline-card-media">${getEntryVisualHtml(entry, "timeline")}</div>
@@ -890,6 +895,14 @@ const renderFileList = () => {
   });
   renderFilePagination();
   updateBatchActionState();
+  updateTimelineLineHeight();
+};
+
+const updateTimelineLineHeight = () => {
+  if (!fileListEl || !fileListEl.classList.contains("timeline-mode")) return;
+  const contentHeight = fileListEl.scrollHeight;
+  // 减去底部 padding 和最后一个条目的间距，让竖线不延伸到底部
+  fileListEl.style.setProperty("--timeline-line-height", `${contentHeight - 20}px`);
 };
 
 const submitBatchAction = async (action, targetFolderId = undefined) => {

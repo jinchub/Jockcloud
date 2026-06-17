@@ -1157,6 +1157,23 @@ a {
 .info-sidebar-overlay.show {
   display: block;
 }
+.timeline-card-media .file-icon {
+    font-size: 3.2rem;
+}
+.table-row.timeline-entry {
+  padding: 5px;
+}
+.timeline-day-entries {
+  padding: 5px 5px 14px 20px;
+}
+.file-thumb-timeline {
+    max-width: 75%;
+}
+.timeline-card-media {
+    width: 80px;
+    height: 80px;
+    align-items: flex-end;
+}
 
 /* 下拉刷新 */
 .pull-to-refresh-indicator {
