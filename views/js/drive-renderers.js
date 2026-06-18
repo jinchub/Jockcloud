@@ -302,7 +302,7 @@ const getEntryVisualHtml = (entry, variant = "list") => {
       return `<div class="file-thumb-video-detail-wrap"><img class="file-thumb file-thumb-detail" src="${previewUrl}" alt="${escapedName}" loading="lazy" /></div>`;
     }
     if (variant === "timeline") {
-      return `<div class="timeline-card-media"><img class="file-thumb file-thumb-timeline" src="${previewUrl}" alt="${escapedName}" loading="lazy" /></div>`;
+      return `<div class="timeline-card-media timeline-card-video-wrap"><img class="file-thumb file-thumb-timeline" src="${previewUrl}" alt="${escapedName}" loading="lazy" /><i class="fa-solid fa-play file-thumb-timeline-play-icon"></i></div>`;
     }
     return `<div class="file-thumb-video-list"><img class="file-thumb file-thumb-${variant} file-thumb-video-list-video" src="${previewUrl}" alt="${escapedName}" loading="lazy" /><i class="fa-solid fa-play file-thumb-video-list-play-icon"></i></div>`;
   }

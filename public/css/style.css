@@ -2449,6 +2449,30 @@ html {
   font-size: 6rem;
 }
 
+.timeline-card-video-wrap .file-thumb-timeline-play-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #fff;
+  background: rgb(0 0 0 / 100%);
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.timeline-card-video-wrap .file-thumb-timeline-play-icon:before {
+  font-size: 0.8em;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
 .timeline-card-name {
   margin-top: 8px;
   font-size: 12px;
@@ -6612,7 +6636,7 @@ video.file-thumb-list {
   align-items: center;
   justify-content: center;
   width: 36px;
-  height: 120px;
+  height: 130px;
 }
 
 .preview-audio-volume-popup.is-open {
