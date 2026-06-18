@@ -156,6 +156,29 @@ a {
   font-size: 13px;
 }
 
+.login-extra-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.remember-me {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-secondary);
+  user-select: none;
+}
+
+.remember-me input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--primary-color);
+}
+
 .agreement {
   margin-top: 18px;
   font-size: 13px;
@@ -431,16 +454,10 @@ a {
   min-width: 130px;
   min-height: 130px;
   margin-bottom: 0;
-  background: radial-gradient(circle at 30% 30%, #d8d8d8, #b0b0b0);
-  box-shadow:
-    0 14px 40px rgba(194, 12, 12, 0.15),
-    0 6px 20px rgba(0, 0, 0, 0.12),
-    inset 0 0 0 8px #f5f6f7,
-    inset 0 0 0 10px #cfd2d7;
 }
 
 .preview-audio-cover::before {
-  inset: 25px;
+  inset: 14px;
   background:
     repeating-radial-gradient(circle at 50% 50%, rgba(140, 140, 140, 0.45) 0 1px, transparent 1px 5px),
     linear-gradient(135deg, #e5e6eb, #c9ccd1);
@@ -457,19 +474,13 @@ a {
 
 .preview-audio-avatar {
   position: absolute;
-  width: 45%;
-  height: 45%;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
   border-radius: 50%;
   object-fit: cover;
-  background: #c20c0c;
-  box-shadow:
-    0 0 0 2px #fff,
-    0 0 0 4px #cfd2d7,
-    0 4px 12px rgba(0, 0, 0, 0.2);
   z-index: 2;
+  box-shadow: 0 0 0 18px #000000, 0 0 0 5px #cfd2d7, 0 6px 16px rgba(0, 0, 0, 0.25);
   display: block;
 }
 

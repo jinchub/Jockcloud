@@ -1920,17 +1920,17 @@ importScripts(${JSON.stringify(workerMainUrl)});
               <input id="previewAudioProgressRange" type="range" min="0" max="100" step="0.1" value="0" />
             </div>
             <span class="preview-audio-time" id="previewAudioDuration">0:00</span>
+            <div class="preview-audio-volume-wrap">
+              <button type="button" class="preview-audio-volume-btn" id="previewAudioVolumeBtn" aria-label="音量" title="音量"><i class="fa-solid fa-volume-high" id="previewAudioVolumeIcon"></i></button>
+              <div class="preview-audio-volume-popup" id="previewAudioVolumePopup">
+                <input id="previewAudioVolumeRange" type="range" min="0" max="100" step="1" value="100" />
+              </div>
+            </div>
           </div>
           <div class="preview-audio-controls">
             <button type="button" class="preview-audio-btn" id="previewAudioPrevBtn" ${hasPrev ? "" : "disabled"} aria-label="上一首" title="上一首"><i class="fa-solid fa-backward-step"></i></button>
             <button type="button" class="preview-audio-btn is-primary" id="previewAudioPlayBtn" aria-label="播放/暂停" title="播放/暂停"><i class="fa-solid fa-pause"></i></button>
             <button type="button" class="preview-audio-btn" id="previewAudioNextBtn" ${hasNext ? "" : "disabled"} aria-label="下一首" title="下一首"><i class="fa-solid fa-forward-step"></i></button>
-          </div>
-          <div class="preview-audio-volume-wrap">
-            <button type="button" class="preview-audio-volume-btn" id="previewAudioVolumeBtn" aria-label="音量" title="音量"><i class="fa-solid fa-volume-high" id="previewAudioVolumeIcon"></i></button>
-            <div class="preview-audio-volume-popup" id="previewAudioVolumePopup">
-              <input id="previewAudioVolumeRange" type="range" min="0" max="100" step="1" value="100" />
-            </div>
           </div>
         </div>
       `;

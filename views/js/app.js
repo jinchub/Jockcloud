@@ -30,6 +30,40 @@ const userSelectModal = document.getElementById("userSelectModal");
 const userSelectHint = document.getElementById("userSelectHint");
 const userSelectList = document.getElementById("userSelectList");
 const userSelectCancelBtn = document.getElementById("userSelectCancelBtn");
+const rememberMeCheckbox = document.getElementById("rememberMe");
+
+const REMEMBERED_CREDENTIALS_KEY = "jc_remembered_credentials";
+
+const loadRememberedCredentials = () => {
+  try {
+    const stored = localStorage.getItem(REMEMBERED_CREDENTIALS_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (_error) {}
+  return null;
+};
+
+const saveRememberedCredentials = (username, password) => {
+  try {
+    localStorage.setItem(REMEMBERED_CREDENTIALS_KEY, JSON.stringify({ username, password }));
+  } catch (_error) {}
+};
+
+const clearRememberedCredentials = () => {
+  try {
+    localStorage.removeItem(REMEMBERED_CREDENTIALS_KEY);
+  } catch (_error) {}
+};
+
+const applyRememberedCredentials = () => {
+  const creds = loadRememberedCredentials();
+  if (creds && creds.username) {
+    if (usernameInput) usernameInput.value = creds.username;
+    if (passwordInput) passwordInput.value = creds.password || "";
+    if (rememberMeCheckbox) rememberMeCheckbox.checked = true;
+  }
+};
 
 const runtime = {
   loginCaptchaEnabled: false,
@@ -611,6 +645,11 @@ loginForm.addEventListener("submit", async (event) => {
       return;
     }
     persistLoginSession(data);
+    if (rememberMeCheckbox && rememberMeCheckbox.checked) {
+      saveRememberedCredentials(username, password);
+    } else {
+      clearRememberedCredentials();
+    }
     setStatus("登录成功，正在跳转");
     window.location.href = "/drive.html";
   } catch (_error) {
@@ -727,6 +766,7 @@ if (resetForm) {
 
 (async () => {
   await loadPublicSettings();
+  applyRememberedCredentials();
   const hasPendingLogoutReason = applyPendingLogoutReason();
   if (!hasPendingLogoutReason) {
     await checkLoggedIn();
