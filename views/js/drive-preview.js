@@ -191,6 +191,20 @@
         previewMeta.appendChild(btn);
       }
     }
+    // 如果是 PPTX 预览，添加图片预览按钮到 meta 中
+    if (state.activeType === "document" && getFileExt(state.activeEntry?.name) === "pptx") {
+      const existingBtn = previewMeta.querySelector("#pptxBackToImageBtn");
+      if (!existingBtn) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.id = "pptxBackToImageBtn";
+        btn.className = "pdf-tool-btn pdf-meta-btn";
+        btn.title = "切换回图片预览模式";
+        btn.textContent = "图片预览";
+        btn.style.display = "none";
+        previewMeta.appendChild(btn);
+      }
+    }
   };
 
   const clampImageZoom = (zoom) => {
@@ -640,6 +654,7 @@ importScripts(${JSON.stringify(workerMainUrl)});
           <input type="text" class="pdf-zoom-input" id="pptxZoomInput" value="100%" />
           <button type="button" class="pdf-tool-btn" id="pptxZoomInBtn">+</button>
           <button type="button" class="pdf-tool-btn" id="pptxFitWidthBtn" title="适应宽度">适应宽度</button>
+          <button type="button" class="pdf-tool-btn" id="pptxFallbackBtn" title="切换原始样式预览" style="display:none;">原始样式</button>
         </div>
       </div>
     `;
@@ -656,8 +671,9 @@ importScripts(${JSON.stringify(workerMainUrl)});
     const zoomInBtn = container.querySelector("#pptxZoomInBtn");
     const zoomInput = container.querySelector("#pptxZoomInput");
     const fitWidthBtn = container.querySelector("#pptxFitWidthBtn");
+    const fallbackBtn = container.querySelector("#pptxFallbackBtn");
 
-    const fallbackToHtml = (message) => {
+    const fallbackToHtml = (message, showImageBtn = false) => {
       container.innerHTML = `
         <div class="document-preview">
           <div class="loading" style="display:${message ? "block" : "none"};color:#666;padding:12px;">${message || "正在加载..."}</div>
@@ -666,6 +682,11 @@ importScripts(${JSON.stringify(workerMainUrl)});
       `;
       const iframe = container.querySelector("iframe");
       const fallbackLoading = container.querySelector(".loading");
+      // 仅手动切换时显示 meta 区域的图片预览按钮
+      if (showImageBtn) {
+        const backToImageBtn = previewMeta ? previewMeta.querySelector("#pptxBackToImageBtn") : null;
+        if (backToImageBtn) backToImageBtn.style.display = "inline-block";
+      }
       if (iframe) {
         iframe.onload = () => {
           iframe.style.display = "block";
@@ -861,6 +882,8 @@ importScripts(${JSON.stringify(workerMainUrl)});
       updatePageInfo(1);
       updateZoomInfo();
       onScroll();
+      // 图片模式加载成功，显示原始样式切换按钮
+      if (fallbackBtn) fallbackBtn.style.display = "inline-block";
     } catch (e) {
       console.log("[pptx] load error:", e);
       fallbackToHtml("PPT 转换失败，正在使用原始样式预览...");
@@ -947,6 +970,32 @@ importScripts(${JSON.stringify(workerMainUrl)});
     zoomInput.addEventListener("blur", () => {
       applyZoomInput();
     });
+
+    // 原始样式切换按钮
+    let isFallbackMode = false;
+    fallbackBtn.onclick = () => {
+      isFallbackMode = !isFallbackMode;
+      if (isFallbackMode) {
+        fallbackBtn.textContent = "图片预览";
+        fallbackBtn.title = "切换回图片预览模式";
+        fallbackToHtml("已切换到原始样式预览", true);
+      } else {
+        fallbackBtn.textContent = "原始样式";
+        fallbackBtn.title = "切换原始样式预览";
+        // 重新渲染 PDF.js 预览
+        renderPptxPreview(entry, container);
+      }
+    };
+
+    // meta 区域的图片预览按钮
+    const metaBackToImageBtn = previewMeta ? previewMeta.querySelector("#pptxBackToImageBtn") : null;
+    if (metaBackToImageBtn) {
+      metaBackToImageBtn.onclick = () => {
+        // 隐藏 meta 按钮，重新渲染图片预览
+        metaBackToImageBtn.style.display = "none";
+        renderPptxPreview(entry, container);
+      };
+    }
   };
 
   const renderPdfPreview = async (entry, container) => {
