@@ -6579,7 +6579,7 @@ video.file-thumb-list {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 28px;
+  gap: 70px;
   flex-shrink: 0;
   position: absolute;
   bottom: 40px;
