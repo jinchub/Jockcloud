@@ -1933,10 +1933,13 @@ importScripts(${JSON.stringify(workerMainUrl)});
         const thumbHtml = previewType === "video" && thumbUrl
           ? `<img class="preview-media-item-thumb" src="${thumbUrl}" alt="" loading="lazy" onerror="this.style.display='none'" />`
           : "";
+        const audioIconHtml = previewType === "audio"
+          ? `<i class="fa-solid fa-music file-audio file-icon preview-media-item-icon"></i>`
+          : "";
         return `
           <button type="button" class="preview-media-item${activeClass}" data-index="${index}" title="${name}">
             <span class="preview-media-item-index">${index + 1}.</span>
-            ${thumbHtml}
+            ${audioIconHtml}${thumbHtml}
             <span class="preview-media-item-name">${name}</span>
           </button>
         `;

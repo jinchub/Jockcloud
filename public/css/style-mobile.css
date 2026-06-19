@@ -1,23 +1,24 @@
-
 /* 触摸设备：禁用 hover 效果，避免点击后样式粘滞 */
 @media (hover: none) {
+
   .table-row:hover,
   .grid-item:hover {
     background-color: transparent !important;
     background: unset !important;
   }
-  
+
   /* 同时确保点击时有反馈 */
   .table-row:active,
   .grid-item:active {
-    background-color: rgba(0,0,0,0.05);
-        background: unset !important;
+    background-color: rgba(0, 0, 0, 0.05);
+    background: unset !important;
   }
 }
 
 .login-header {
   padding: 0 20px;
 }
+
 a {
   -webkit-tap-highlight-color: transparent;
 }
@@ -142,9 +143,11 @@ a {
   font-size: 14px;
   letter-spacing: 0;
 }
-.table-row:hover{
+
+.table-row:hover {
   background: unset
 }
+
 .submit-btn {
   height: 40px;
   font-size: 16px;
@@ -202,7 +205,8 @@ a {
 .main-content {
   height: 100dvh;
   padding-bottom: var(--mobile-tabbar-offset);
-  background: radial-gradient(circle at right center, rgba(64, 158, 255, 0.2), transparent 32%), radial-gradient(circle at left center, rgba(137, 87, 255, 0.14), transparent 28%);
+  /*background: radial-gradient(circle at right center, rgba(64, 158, 255, 0.2), transparent 32%), radial-gradient(circle at left center, rgba(137, 87, 255, 0.14), transparent 28%);*/
+
 }
 
 .sidebar-primary {
@@ -227,9 +231,11 @@ a {
   z-index: 20;
   overflow: visible;
 }
-.pagination-controls{
+
+.pagination-controls {
   gap: 4px;
 }
+
 .logo-box {
   order: 99;
   flex: 1 1 0;
@@ -269,9 +275,7 @@ a {
 }
 
 .logo-box.active .user-avatar-img,
-.logo-box.active .user-avatar-default {
-  
-}
+.logo-box.active .user-avatar-default {}
 
 .logo-box-groups {
   display: none;
@@ -303,11 +307,12 @@ a {
   flex: 0 1 auto;
   order: 1;
 }
-.file-icon.file-folder{
+
+.file-icon.file-folder {
   margin-bottom: -4px;
 }
 
-.file-icon.file-audio{
+.file-icon.file-audio {
   margin-bottom: -4px;
 }
 
@@ -320,12 +325,15 @@ a {
   min-width: 20px;
   padding-left: 2px;
 }
-.grid-check input,.cell-check input{
+
+.grid-check input,
+.cell-check input {
   width: 10px;
   height: 10px;
   border: 1.5px solid #dbdbdb;
   background: transparent;
 }
+
 .view-switch {
   flex-shrink: 0;
   margin-top: 0;
@@ -379,6 +387,7 @@ a {
   color: #dc2626;
   background: #fee2e2;
 }
+
 .preview-media-toolbar-tip,
 .preview-image-toolbar-tip {
   display: none;
@@ -483,12 +492,14 @@ a {
   box-shadow: 0 0 0 18px #000000, 0 0 0 5px #cfd2d7, 0 6px 16px rgba(0, 0, 0, 0.25);
   display: block;
 }
+
 .timeline-card-video-wrap .file-thumb-timeline-play-icon {
-  left:50%;
-  top:63%;
+  left: 50%;
+  top: 63%;
   width: 25px;
   height: 25px;
 }
+
 .preview-audio-avatar-preview {
   position: absolute;
   width: 45%;
@@ -516,7 +527,7 @@ a {
     0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
-[data-theme="dark"]  .timeline-day-group {
+[data-theme="dark"] .timeline-day-group {
   background: linear-gradient(90deg, #313131 30%, transparent);
 }
 
@@ -737,8 +748,8 @@ a {
   padding: 0 12px;
 }
 
-.mobile-upload-label{
-  margin-bottom:-3px;
+.mobile-upload-label {
+  margin-bottom: -3px;
 }
 
 .search-wrapper,
@@ -764,8 +775,12 @@ a {
   gap: 2px;
 }
 
-.modal {
-  max-width: 90vw;
+.modal,.preview-modal {
+  width: 100%;
+  height: 100%;
+  max-width: 100vw;
+  max-height: 100vh;
+  border-radius: 0;
 }
 
 #profileCenterModal {
@@ -1266,9 +1281,11 @@ a {
 #myFilesMoreBtn {
   display: inline-flex !important;
 }
+
 .timeline-day-group {
   background: linear-gradient(90deg, white 30%, transparent);
 }
+
 .mobile-category-fixed {
   position: sticky;
   top: 0;
@@ -1364,6 +1381,7 @@ a {
 #appPromptTitle {
   font-size: 16px;
 }
+
 #appPromptCancelBtn,
 #appPromptOkBtn {
   font-size: 14px;
@@ -1428,22 +1446,27 @@ a {
 .info-sidebar-overlay.show {
   display: block;
 }
+
 .timeline-card-media .file-icon {
-    font-size: 3.2rem;
+  font-size: 3.2rem;
 }
+
 .table-row.timeline-entry {
   padding: 5px;
 }
+
 .timeline-day-entries {
   padding: 5px 5px 14px 20px;
 }
+
 .file-thumb-timeline {
-    max-width: 75%;
+  max-width: 75%;
 }
+
 .timeline-card-media {
-    width: 80px;
-    height: 80px;
-    align-items: flex-end;
+  width: 80px;
+  height: 80px;
+  align-items: flex-end;
 }
 
 /* 下拉刷新 */
@@ -1484,7 +1507,23 @@ a {
   transform: rotate(180deg);
 }
 
+.preview-media-sidebar {
+  position: absolute;
+  height: calc(100% - 44px);
+  top: 0;
+  z-index: 100;
+}
+
+.table-body.grid-mode.grid-size-large .grid-item {
+  margin: 0;
+}
+
 @keyframes pull-refresh-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
