@@ -8,6 +8,11 @@
   display: none; /* Chrome, Safari, Opera */
 }
 
+/* 手机版隐藏自动退出提示 */
+#hiddenSpaceAutoExitTip,#themeToggleBtn {
+  display: none !important;
+}
+
 /* 触摸设备：禁用 hover 效果，避免点击后样式粘滞 */
 @media (hover: none) {
 
@@ -828,9 +833,9 @@ body.has-mobile-selection .mobile-bottom-actions {
 
 .search-wrapper,
 .search-wrapper {
-  width: calc(100% - 130px);
+  width: calc(100% - 90px);
   margin-left: 42px;
-  height: 30px;
+  height: 40px;
 }
 
 .collapsed #toggleSecondaryBtn {
@@ -838,7 +843,7 @@ body.has-mobile-selection .mobile-bottom-actions {
 }
 
 #searchBtn {
-  padding: 12px 10px;
+  padding: 16px 10px;
 }
 
 #addMountBtn {

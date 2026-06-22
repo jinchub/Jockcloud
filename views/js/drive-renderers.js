@@ -105,7 +105,7 @@ const renderPath = () => {
   };
 
   if (state.path.length === 0) {
-    currentPathEl.innerHTML = `<i class="fa-solid fa-house" style="margin-right:6px;"></i>${getRootLabelBySpace()}`;
+    currentPathEl.innerHTML = `<i class="fa-solid fa-house" style="font-size:12px;"></i>${getRootLabelBySpace()}`;
   } else {
     currentPathEl.appendChild(createLink(getRootLabelBySpace(), null, "fa-solid fa-house"));
     state.path.forEach((item, index) => {
@@ -872,6 +872,7 @@ const renderFileList = () => {
     };
 
     item.oncontextmenu = (e) => {
+      if (window.matchMedia("(max-width: 768px)").matches) return;
       e.preventDefault();
       state.selectedEntry = entry;
       document.querySelectorAll(".table-row, .grid-item").forEach(r => r.classList.remove("selected"));

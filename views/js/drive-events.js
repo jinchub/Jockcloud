@@ -660,6 +660,64 @@ if (mobileBatchArchiveBtn) {
   mobileBatchArchiveBtn.onclick = () => batchArchiveBtn && batchArchiveBtn.click();
 }
 
+if (mobileBatchLocateBtn) {
+  mobileBatchLocateBtn.onclick = async () => {
+    const selected = getSelectedEntries();
+    if (selected.length === 0) return;
+    const entry = selected[0];
+    if (entry.type === "folder") {
+      state.currentFolderId = entry.id;
+      state.keyword = "";
+      state.category = "";
+      state.searchOriginFolderId = null;
+      state.selectedEntry = null;
+      state.filePageSize = 0; // 显示所有文件，不分页
+      if (searchInput) searchInput.value = "";
+      updateRouteQuery({ main: "files", side: "myFiles", category: null, folderId: entry.id });
+      refreshAll(true);
+    } else {
+      // For files, navigate to parent folder
+      const targetFileId = Number(entry.id);
+      const targetParentId = entry.parentId === null || entry.parentId === undefined
+        ? null
+        : Number(entry.parentId);
+      state.view = "files";
+      state.currentFolderId = Number.isFinite(targetParentId) ? targetParentId : null;
+      state.category = "";
+      state.keyword = "";
+      state.searchOriginFolderId = null;
+      state.selectedEntry = null;
+      state.selectedEntries = [];
+      state.filePageSize = 0; // 显示所有文件，不分页
+      if (searchInput) searchInput.value = "";
+      updateRouteQuery({ main: "files", side: "myFiles", category: null, folderId: state.currentFolderId });
+      await refreshAll(true);
+      // Find and highlight the original file in the new context
+      const matchedEntry = state.entries.find((e) => e.type === "file" && Number(e.id) === targetFileId) || null;
+      if (matchedEntry) {
+        state.selectedEntry = matchedEntry;
+        setEntrySelected(matchedEntry, true);
+        renderFileList();
+        updateBatchActionState();
+        // Scroll to the matched entry
+        setTimeout(() => {
+          const tableBody = document.querySelector(".table-body");
+          const rowEl = tableBody?.querySelector(`[data-entry-id="${matchedEntry.id}"]`);
+          if (rowEl && tableBody) {
+            const rowTop = rowEl.offsetTop;
+            const rowHeight = rowEl.offsetHeight;
+            const containerHeight = tableBody.clientHeight;
+            tableBody.scrollTo({
+              top: rowTop - containerHeight / 2 + rowHeight / 2,
+              behavior: "smooth"
+            });
+          }
+        }, 100);
+      }
+    }
+  };
+}
+
 if (mobileClearSelectionBtn) {
   mobileClearSelectionBtn.onclick = () => {
     clearSelection();
@@ -985,6 +1043,7 @@ const triggerSearch = () => {
   state.keyword = nextKeyword;
   state.view = "files";
   state.category = "";
+  state.filePageSize = 0; // 搜索结果显示所有文件，不分页
   refreshAll();
 };
 
@@ -1322,6 +1381,7 @@ document.getElementById("menuLocateFolder").onclick = async () => {
   state.category = "";
   state.keyword = "";
   state.selectedEntry = null;
+  state.filePageSize = 0; // 显示所有文件，不分页
   if (searchInput) {
     searchInput.value = "";
   }
@@ -1350,6 +1410,7 @@ document.getElementById("menuGoToFolder").onclick = async () => {
   state.category = "";
   state.keyword = "";
   state.selectedEntry = null;
+  state.filePageSize = 0; // 显示所有文件，不分页
   if (searchInput) {
     searchInput.value = "";
   }

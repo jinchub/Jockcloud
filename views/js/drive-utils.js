@@ -3178,7 +3178,7 @@ const setEntrySelected = (entry, checked) => {
   const key = entryKey(entry);
   const map = new Map(state.selectedEntries.map((item) => [entryKey(item), item]));
   if (checked) {
-    map.set(key, { id: entry.id, type: entry.type, name: entry.name, isPinned: entry.isPinned, is_favorite: entry.is_favorite });
+    map.set(key, { id: entry.id, type: entry.type, name: entry.name, isPinned: entry.isPinned, is_favorite: entry.is_favorite, parentId: entry.parentId });
   } else {
     map.delete(key);
   }
@@ -3302,6 +3302,12 @@ const updateBatchActionState = () => {
   }
   if (mobileBatchFavoriteBtn) {
     mobileBatchFavoriteBtn.disabled = isMultiSelect;
+  }
+  // 手机版跳转目录按钮：搜索/分类模式下选中单个文件时显示
+  if (mobileBatchLocateBtn) {
+    const selected = getSelectedEntries();
+    const isSearchOrCategory = !!state.keyword || !!state.category;
+    mobileBatchLocateBtn.style.display = (isSearchOrCategory && selected.length === 1) ? "" : "none";
   }
   // 手机版粘贴按钮显示/隐藏
   if (mobileBatchPasteBtn) {

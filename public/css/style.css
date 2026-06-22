@@ -978,7 +978,6 @@ html {
   gap: 4px;
   padding-top: 10px;
   margin-top: 10px;
-  border-top: 1px solid var(--border-tertiary);
 }
 
 .menu-group {
@@ -1605,7 +1604,6 @@ html {
 .content-container {
   flex: 1;
   display: flex;
-  border-top: 1px solid var(--border-tertiary);
   overflow: hidden;
   min-height: 0;
 }

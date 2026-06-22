@@ -90,6 +90,7 @@ const mobileBatchPasteBtn = document.getElementById("mobileBatchPasteBtn");
 const mobileBatchDeleteBtn = document.getElementById("mobileBatchDeleteBtn");
 const mobileBatchFavoriteBtn = document.getElementById("mobileBatchFavoriteBtn");
 const mobileBatchArchiveBtn = document.getElementById("mobileBatchArchiveBtn");
+const mobileBatchLocateBtn = document.getElementById("mobileBatchLocateBtn");
 const mobileClearSelectionBtn = document.getElementById("mobileClearSelectionBtn");
 const batchDownloadBtn = document.getElementById("batchDownloadBtn");
 const batchArchiveBtn = document.getElementById("batchArchiveBtn");

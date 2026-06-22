@@ -25,7 +25,7 @@ module.exports = (app, deps) => {
     const pageRaw = Number.parseInt(String(req.query.page || "1"), 10);
     const pageSizeRaw = Number.parseInt(String(req.query.pageSize || "50"), 10);
     const page = Number.isFinite(pageRaw) && pageRaw > 0 ? pageRaw : 1;
-    const pageSize = [20, 50, 100, 150, 200].includes(pageSizeRaw) ? pageSizeRaw : 50;
+    const pageSize = pageSizeRaw === 0 ? 0 : ([20, 50, 100, 150, 200].includes(pageSizeRaw) ? pageSizeRaw : 50);
     if (!["all", "folder", "file"].includes(type)) {
       res.status(400).json({ message: "类型参数不合法" });
       return;
@@ -92,10 +92,11 @@ module.exports = (app, deps) => {
         return { ...rest, hasThumbnail: !!String(thumbnailStorageName || "").trim() };
       });
       const total = output.length;
-      const totalPages = Math.max(1, Math.ceil(total / pageSize));
+      const effectivePageSize = pageSize === 0 ? total : pageSize;
+      const totalPages = Math.max(1, Math.ceil(total / effectivePageSize));
       const safePage = Math.min(page, totalPages);
-      const startIndex = total === 0 ? 0 : (safePage - 1) * pageSize;
-      const items = output.slice(startIndex, startIndex + pageSize);
+      const startIndex = total === 0 ? 0 : (safePage - 1) * effectivePageSize;
+      const items = output.slice(startIndex, pageSize === 0 ? total : startIndex + pageSize);
       res.json({ items, total, page: safePage, pageSize, totalPages });
     } catch (error) {
       sendDbError(res, error);
