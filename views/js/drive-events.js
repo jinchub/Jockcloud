@@ -521,16 +521,17 @@ if (mobileUploadFileBtn && mobileUploadPopover) {
   };
 }
 
-if (mobileUploadDirBtn && mobileUploadPopover) {
-  mobileUploadDirBtn.onclick = () => {
+if (mobileNewFolderPopoverBtn && mobileUploadPopover) {
+  mobileNewFolderPopoverBtn.onclick = () => {
     if (!ensurePermission("upload")) return;
     if (isRecycleUploadRestricted()) {
-      alert("回收站中无法上传");
+      alert("回收站中无法创建目录");
       return;
     }
     mobileUploadPopover.classList.remove("show");
     mobileUploadMenuBtn.classList.remove("active");
-    dirInput.click();
+    if (newFolderModal) newFolderModal.style.display = "block";
+    if (newFolderNameInput) newFolderNameInput.focus();
   };
 }
 
@@ -565,13 +566,105 @@ if (selectAllCheckbox) {
   };
 }
 
-if (gridSelectAllBtn) {
-  gridSelectAllBtn.onclick = () => {
-    const currentPageEntries = getCurrentFilePageEntries();
-    const visible = currentPageEntries.length;
-    if (visible === 0) return;
-    const selectedVisible = currentPageEntries.filter((entry) => isEntrySelected(entry)).length;
-    setCurrentPageSelection(selectedVisible !== visible);
+if (mobileSelectAllCheckbox) {
+  mobileSelectAllCheckbox.onchange = () => {
+    setCurrentPageSelection(!!mobileSelectAllCheckbox.checked);
+  };
+}
+
+// 手机版底部操作栏按钮事件
+if (mobileBatchOpenBtn) {
+  mobileBatchOpenBtn.onclick = () => {
+    const selected = getSelectedEntries();
+    if (selected.length === 0) return;
+    state.selectedEntry = selected[0];
+    document.getElementById("menuOpen").click();
+  };
+}
+
+if (mobileBatchDetailBtn) {
+  mobileBatchDetailBtn.onclick = () => {
+    const selected = getSelectedEntries();
+    if (selected.length === 0) return;
+    state.selectedEntry = selected[0];
+    document.getElementById("menuDetail").click();
+  };
+}
+
+if (mobileBatchRenameBtn) {
+  mobileBatchRenameBtn.onclick = () => {
+    const selected = getSelectedEntries();
+    if (selected.length === 0) return;
+    state.selectedEntry = selected[0];
+    document.getElementById("menuRename").click();
+  };
+}
+
+if (mobileBatchPinBtn) {
+  mobileBatchPinBtn.onclick = () => {
+    const selected = getSelectedEntries();
+    if (selected.length === 0) return;
+    state.selectedEntry = selected[0];
+    document.getElementById("menuPin").click();
+  };
+}
+
+if (mobileBatchDownloadBtn) {
+  mobileBatchDownloadBtn.onclick = () => batchDownloadBtn && batchDownloadBtn.click();
+}
+
+if (mobileBatchShareBtn) {
+  mobileBatchShareBtn.onclick = () => {
+    const selected = getSelectedEntries();
+    if (selected.length === 0) return;
+    state.selectedEntry = selected[0];
+    document.getElementById("menuShare").click();
+  };
+}
+
+if (mobileBatchCopyBtn) {
+  mobileBatchCopyBtn.onclick = () => batchCopyBtn && batchCopyBtn.click();
+}
+
+if (mobileBatchMoveBtn) {
+  mobileBatchMoveBtn.onclick = () => batchMoveBtn && batchMoveBtn.click();
+}
+
+if (mobileBatchPasteBtn) {
+  mobileBatchPasteBtn.onclick = () => batchPasteBtn && batchPasteBtn.click();
+}
+
+if (mobileBatchDeleteBtn) {
+  mobileBatchDeleteBtn.onclick = () => batchDeleteBtn && batchDeleteBtn.click();
+}
+
+if (mobileBatchFavoriteBtn) {
+  mobileBatchFavoriteBtn.onclick = async () => {
+    const selected = getSelectedEntries();
+    if (selected.length === 0) return;
+    const hasFav = selected.some(e => e.is_favorite);
+    const action = hasFav ? '取消收藏' : '收藏';
+    if (!confirm(`确定要${action}选中的 ${selected.length} 个文件吗？`)) return;
+    try {
+      await api.favoriteFiles(selected.map(e => e.id), !hasFav);
+      clearSelection();
+      await loadEntries();
+      renderFileList();
+    } catch (err) {
+      alert("操作失败: " + (err.message || err));
+    }
+  };
+}
+
+if (mobileBatchArchiveBtn) {
+  mobileBatchArchiveBtn.onclick = () => batchArchiveBtn && batchArchiveBtn.click();
+}
+
+if (mobileClearSelectionBtn) {
+  mobileClearSelectionBtn.onclick = () => {
+    clearSelection();
+    clearBatchClipboard();
+    renderFileList();
   };
 }
 
@@ -754,27 +847,6 @@ newFolderBtn.onclick = async () => {
     newFolderNameInput.select();
   }
 };
-
-if (newFolderBtnMobile) {
-  newFolderBtnMobile.onclick = async () => {
-    if (state.view === 'recycle') {
-      alert("回收站中无法创建文件夹");
-      return;
-    }
-    if (state.category) {
-      state.category = "";
-      state.view = "files";
-      refreshAll();
-    }
-    if (newFolderForm && newFolderModal && newFolderNameInput) {
-      newFolderForm.reset();
-      newFolderNameInput.value = "新建文件夹";
-      newFolderModal.style.display = "flex";
-      newFolderNameInput.focus();
-      newFolderNameInput.select();
-    }
-  };
-}
 
 if (refreshDirBtn) {
   refreshDirBtn.onclick = async () => {
@@ -1009,6 +1081,104 @@ if (timelineModeToggleBtn) {
       state.categoryTimelineEnabled = !state.categoryTimelineEnabled;
       localStorage.setItem(CATEGORY_TIMELINE_MODE_STORAGE_KEY, state.categoryTimelineEnabled ? "1" : "0");
     }
+    renderFileList();
+  };
+}
+
+// 手机版排序弹窗
+const SORT_LABEL_MAP = {
+  updatedAt: "修改时间",
+  createdAt: "打开时间",
+  name: "文件名",
+  type: "文件类型",
+  size: "文件大小"
+};
+
+const updateMobileSortLabel = () => {
+  if (!mobileSortLabel) return;
+  const label = SORT_LABEL_MAP[state.sortBy] || "智能排序";
+  mobileSortLabel.textContent = label;
+  // 更新外部排序按钮的箭头图标
+  if (mobileSortIcon) {
+    if (state.order === "desc") {
+      mobileSortIcon.className = "fa-solid fa-arrow-down-wide-short";
+    } else {
+      mobileSortIcon.className = "fa-solid fa-arrow-up-wide-short";
+    }
+  }
+};
+
+const openMobileSortModal = () => {
+  if (!mobileSortModal) return;
+  mobileSortModal.style.display = "flex";
+  // 更新选中状态和箭头
+  if (mobileSortOptions) {
+    mobileSortOptions.querySelectorAll(".mobile-sort-option").forEach(opt => {
+      const sort = opt.dataset.sort;
+      const order = opt.dataset.order;
+      const isActive = state.sortBy === sort && state.order === order;
+      opt.classList.toggle("active", isActive);
+      // 更新箭头图标
+      const icon = opt.querySelector(".sort-order-icon");
+      if (icon) {
+        if (state.sortBy === sort) {
+          // 当前选中的排序字段，显示实际顺序
+          icon.className = state.order === "desc" 
+            ? "fa-solid fa-arrow-down-wide-short sort-order-icon"
+            : "fa-solid fa-arrow-up-wide-short sort-order-icon";
+        } else {
+          // 非当前排序字段，显示默认顺序
+          icon.className = order === "desc"
+            ? "fa-solid fa-arrow-down-wide-short sort-order-icon"
+            : "fa-solid fa-arrow-up-wide-short sort-order-icon";
+        }
+      }
+    });
+  }
+};
+
+const closeMobileSortModal = () => {
+  if (!mobileSortModal) return;
+  mobileSortModal.style.display = "none";
+};
+
+if (mobileSortBtn) {
+  mobileSortBtn.onclick = () => {
+    openMobileSortModal();
+  };
+}
+
+if (mobileSortOverlay) {
+  mobileSortOverlay.onclick = () => {
+    closeMobileSortModal();
+  };
+}
+
+if (mobileSortClose) {
+  mobileSortClose.onclick = () => {
+    closeMobileSortModal();
+  };
+}
+
+if (mobileSortOptions) {
+  mobileSortOptions.onclick = async (e) => {
+    const option = e.target.closest(".mobile-sort-option");
+    if (!option) return;
+    const sort = option.dataset.sort;
+    const order = option.dataset.order;
+    if (!sort) return;
+    
+    // 如果点击的是当前排序字段，切换正序/倒序
+    if (state.sortBy === sort) {
+      state.order = state.order === "desc" ? "asc" : "desc";
+    } else {
+      state.sortBy = sort;
+      state.order = order;
+    }
+    
+    updateMobileSortLabel();
+    closeMobileSortModal();
+    await loadEntries();
     renderFileList();
   };
 }
@@ -2641,6 +2811,9 @@ const bindTimelineScrollSync = () => {
 };
 
 bindTimelineScrollSync();
+
+// 初始化手机版排序标签
+updateMobileSortLabel();
 
 if (typeof window !== "undefined") {
   window.gridDragSelectState = gridDragSelectState;

@@ -26,7 +26,6 @@
         <div class="list-view">
           <div class="list-toolbar">
             <div class="list-toolbar-actions">
-              <button class="btn-action" id="newFolderBtnMobile" style="display:none;"><i class="fa-regular fa-square-plus"></i> 新建文件夹</button>
               <button class="btn-action" id="clearSelectionBtn" disabled><i class="fa-solid fa-xmark"></i> 取消</button>
               <button class="btn-action" id="batchDownloadBtn" disabled><i class="fa-solid fa-download"></i> 下载</button>
               <button class="btn-action" id="batchCopyBtn" disabled><i class="fa-regular fa-copy"></i> 复制</button>
@@ -39,13 +38,32 @@
               <button class="btn-action" id="resetHiddenSpacePwdBtn" disabled style="display:none;"><i class="fa-solid fa-key"></i> 重置密码</button>
               <button class="btn-action" id="closeHiddenSpaceBtn" disabled style="display:none;"><i class="fa-solid fa-lock"></i> 退出</button>
             </div>
+
+            <!-- 手机版底部操作栏 -->
+            <div class="mobile-bottom-actions" id="mobileBottomActions">
+              <div class="mobile-action-grid">
+                <button class="mobile-action-btn" id="mobileBatchOpenBtn"><i class="fa-solid fa-folder-open"></i><span>打开</span></button>
+                <button class="mobile-action-btn" id="mobileBatchDetailBtn"><i class="fa-solid fa-circle-info"></i><span>详情</span></button>
+                <button class="mobile-action-btn" id="mobileBatchRenameBtn"><i class="fa-solid fa-pen"></i><span>重命名</span></button>
+                <button class="mobile-action-btn" id="mobileBatchPinBtn"><i class="fa-solid fa-thumbtack"></i><span>置顶</span></button>
+                <button class="mobile-action-btn" id="mobileBatchDownloadBtn"><i class="fa-solid fa-download"></i><span>下载</span></button>
+                <button class="mobile-action-btn" id="mobileBatchShareBtn"><i class="fa-solid fa-share-nodes"></i><span>分享</span></button>
+                <button class="mobile-action-btn" id="mobileBatchCopyBtn"><i class="fa-regular fa-copy"></i><span>复制</span></button>
+                <button class="mobile-action-btn" id="mobileBatchMoveBtn"><i class="fa-solid fa-right-left"></i><span>移动</span></button>
+                <button class="mobile-action-btn" id="mobileBatchPasteBtn" style="display:none;"><i class="fa-regular fa-clipboard"></i><span>粘贴</span></button>
+                <button class="mobile-action-btn" id="mobileBatchDeleteBtn"><i class="fa-regular fa-trash-can"></i><span>删除</span></button>
+                <button class="mobile-action-btn" id="mobileBatchFavoriteBtn"><i class="fa-regular fa-star"></i><span>收藏</span></button>
+                <button class="mobile-action-btn" id="mobileBatchArchiveBtn"><i class="fa-solid fa-file-zipper"></i><span>压缩</span></button>
+                <button class="mobile-action-btn" id="mobileClearSelectionBtn"><i class="fa-solid fa-xmark"></i><span>取消</span></button>
+              </div>
+            </div>
             <div class="current-path-wrapper">
               <span class="current-path">全部文件</span>
               <span id="hiddenSpaceAutoExitTip" style="display:none; margin-left:10px; color:#86909c; font-size:12px;">
                 私密空间长时间无操作将自动退出
               </span>
               <div class="view-switch">
-                <i class="fa-solid fa-circle-info" id="toggleDetailsBtn" style="cursor: pointer; margin-left: 10px;" title="显示/隐藏详情"></i>
+                <i class="fa-solid fa-circle-info" id="toggleDetailsBtn" style="cursor: pointer; margin-left: 10px; display: none;" title="显示/隐藏详情"></i>
                 <div style="width: 6px; display: inline-block;"></div>
                 <i class="fa-solid fa-table-cells-large" id="viewModeBtn" title="切换视图"></i>
                 <button type="button" class="timeline-mode-toggle-btn" id="timelineModeToggleBtn" style="display:none;">时光轴</button>
@@ -54,7 +72,6 @@
                   <button type="button" class="grid-size-option" data-size="medium">中</button>
                   <button type="button" class="grid-size-option" data-size="large">大</button>
                 </div>
-                <button type="button" class="grid-select-all-btn" id="gridSelectAllBtn">全选</button>
               </div>
             </div>
           </div>
@@ -68,6 +85,20 @@
             <a href="#" class="sub-nav-item mobile-category-link" data-category="archive"><i class="fa-regular fa-file-zipper"></i>压缩</a>
             <a href="#" class="sub-nav-item mobile-category-link" data-category="program"><i class="fa-solid fa-download"></i>程序</a>
             <a href="#" class="sub-nav-item mobile-category-link" data-category="other"><i class="fa-solid fa-ellipsis"></i>其它</a>
+          </div>
+
+          <!-- 手机版排序栏 -->
+          <div class="mobile-sort-bar" id="mobileSortBar">
+            <div class="mobile-sort-bar-left">
+              <button type="button" class="mobile-sort-trigger" id="mobileSortBtn">
+                <span id="mobileSortLabel">智能排序</span>
+                <i class="fa-solid fa-arrow-down-wide-short" id="mobileSortIcon"></i>
+              </button>
+              <span class="mobile-selection-count" id="mobileSelectionCount"></span>
+            </div>
+            <div class="mobile-sort-bar-check">
+              <input type="checkbox" id="mobileSelectAllCheckbox">
+            </div>
           </div>
           
           <div class="file-table">
@@ -95,6 +126,7 @@
                 <option value="100">100 / 页</option>
                 <option value="150">150 / 页</option>
                 <option value="200">200 / 页</option>
+                <option value="0">显示所有</option>
               </select>
             </div>
           </div>
@@ -200,4 +232,41 @@
           </div>
         </div>
       </div>
+      </div>
+
+      <!-- 手机版排序弹窗 -->
+      <div class="mobile-sort-modal" id="mobileSortModal" style="display:none;">
+        <div class="mobile-sort-overlay" id="mobileSortOverlay"></div>
+        <div class="mobile-sort-sheet">
+          <div class="mobile-sort-header">
+            <span class="mobile-sort-title">排序</span>
+            <i class="fa-solid fa-xmark mobile-sort-close" id="mobileSortClose"></i>
+          </div>
+          <div class="mobile-sort-options" id="mobileSortOptions">
+            <div class="mobile-sort-option active" data-sort="updatedAt" data-order="desc">
+              <span>智能排序</span>
+              <i class="fa-solid fa-arrow-down-wide-short sort-order-icon"></i>
+            </div>
+            <div class="mobile-sort-option" data-sort="updatedAt" data-order="asc">
+              <span>按修改时间</span>
+              <i class="fa-solid fa-arrow-up-wide-short sort-order-icon"></i>
+            </div>
+            <div class="mobile-sort-option" data-sort="createdAt" data-order="desc">
+              <span>按打开时间</span>
+              <i class="fa-solid fa-arrow-down-wide-short sort-order-icon"></i>
+            </div>
+            <div class="mobile-sort-option" data-sort="name" data-order="asc">
+              <span>按文件名</span>
+              <i class="fa-solid fa-arrow-up-wide-short sort-order-icon"></i>
+            </div>
+            <div class="mobile-sort-option" data-sort="type" data-order="asc">
+              <span>按文件类型</span>
+              <i class="fa-solid fa-arrow-up-wide-short sort-order-icon"></i>
+            </div>
+            <div class="mobile-sort-option" data-sort="size" data-order="desc">
+              <span>按文件大小</span>
+              <i class="fa-solid fa-arrow-down-wide-short sort-order-icon"></i>
+            </div>
+          </div>
+        </div>
       </div>

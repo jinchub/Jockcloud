@@ -117,7 +117,26 @@ const refreshAll = async (keepSelection = false) => {
     await Promise.all(promises);
     if (!keepSelection) {
       const visibleMap = new Map(state.entries.map((entry) => [entryKey(entry), entry]));
-      state.selectedEntries = state.selectedEntries.filter((item) => visibleMap.has(entryKey(item)));
+      state.selectedEntries = state.selectedEntries.filter((item) => {
+        const visible = visibleMap.get(entryKey(item));
+        if (visible) {
+          // 更新选中条目的最新数据
+          item.isPinned = visible.isPinned;
+          item.is_favorite = visible.is_favorite;
+          item.name = visible.name;
+          return true;
+        }
+        return false;
+      });
+      // 更新 state.selectedEntry 的最新数据
+      if (state.selectedEntry) {
+        const updated = visibleMap.get(entryKey(state.selectedEntry));
+        if (updated) {
+          state.selectedEntry.isPinned = updated.isPinned;
+          state.selectedEntry.is_favorite = updated.is_favorite;
+          state.selectedEntry.name = updated.name;
+        }
+      }
     }
     renderPath();
     renderFileList();

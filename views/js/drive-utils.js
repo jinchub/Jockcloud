@@ -552,7 +552,7 @@ const schedulePersistUploadTasks = () => {
 const normalizePageSize = (value) => {
   const next = Number(value);
   if (PAGE_SIZE_OPTIONS.includes(next)) return next;
-  return 20;
+  return 50;
 };
 
 const getFileQueryKey = () => JSON.stringify({
@@ -566,10 +566,11 @@ const getFileQueryKey = () => JSON.stringify({
 });
 
 const getPaginationInfo = (total, currentPage, pageSize) => {
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const effectivePageSize = pageSize === 0 ? (total || 1) : pageSize;
+  const totalPages = Math.max(1, Math.ceil(total / effectivePageSize));
   const page = Math.min(Math.max(1, currentPage), totalPages);
-  const startIndex = total === 0 ? 0 : (page - 1) * pageSize;
-  const endIndex = Math.min(total, startIndex + pageSize);
+  const startIndex = total === 0 ? 0 : (page - 1) * effectivePageSize;
+  const endIndex = Math.min(total, startIndex + effectivePageSize);
   return { totalPages, page, startIndex, endIndex };
 };
 
@@ -3177,7 +3178,7 @@ const setEntrySelected = (entry, checked) => {
   const key = entryKey(entry);
   const map = new Map(state.selectedEntries.map((item) => [entryKey(item), item]));
   if (checked) {
-    map.set(key, { id: entry.id, type: entry.type, name: entry.name });
+    map.set(key, { id: entry.id, type: entry.type, name: entry.name, isPinned: entry.isPinned, is_favorite: entry.is_favorite });
   } else {
     map.delete(key);
   }
@@ -3249,9 +3250,6 @@ const updateBatchActionState = () => {
   if (newFolderBtn) {
     newFolderBtn.style.display = isRecycle ? "none" : "";
   }
-  if (newFolderBtnMobile) {
-    newFolderBtnMobile.style.display = !isRecycle && isMobileViewport() ? "" : "none";
-  }
   if (batchRestoreBtn) {
     batchRestoreBtn.disabled = count === 0;
     const suffix = count > 0 ? ` (${count})` : "";
@@ -3279,6 +3277,52 @@ const updateBatchActionState = () => {
   if (listToolbar && isMobileViewport()) {
     listToolbar.classList.add("has-selection");
   }
+  // 手机版底部操作栏显示/隐藏
+  if (mobileBottomActions) {
+    document.body.classList.toggle("has-mobile-selection", count > 0);
+  }
+  // 手机版选中数量显示
+  const mobileSelectionCount = document.getElementById("mobileSelectionCount");
+  if (mobileSelectionCount) {
+    mobileSelectionCount.textContent = count > 0 ? `已选 ${count} 项` : "";
+  }
+  // 手机版底部操作栏按钮状态：多选时禁用部分按钮
+  const isMultiSelect = count > 1;
+  if (mobileBatchOpenBtn) {
+    mobileBatchOpenBtn.disabled = isMultiSelect;
+  }
+  if (mobileBatchDetailBtn) {
+    mobileBatchDetailBtn.disabled = isMultiSelect;
+  }
+  if (mobileBatchRenameBtn) {
+    mobileBatchRenameBtn.disabled = isMultiSelect;
+  }
+  if (mobileBatchShareBtn) {
+    mobileBatchShareBtn.disabled = isMultiSelect;
+  }
+  if (mobileBatchFavoriteBtn) {
+    mobileBatchFavoriteBtn.disabled = isMultiSelect;
+  }
+  // 手机版粘贴按钮显示/隐藏
+  if (mobileBatchPasteBtn) {
+    mobileBatchPasteBtn.style.display = hasClipboard ? "" : "none";
+  }
+  // 手机版置顶按钮文字/图标切换
+  if (mobileBatchPinBtn) {
+    const selected = getSelectedEntries();
+    const isMultiSelect = selected.length > 1;
+    // 多选时禁用置顶按钮
+    mobileBatchPinBtn.disabled = isMultiSelect;
+    if (selected.length === 1) {
+      const entry = selected[0];
+      const isPinned = !!entry.isPinned;
+      mobileBatchPinBtn.querySelector("span").textContent = isPinned ? "取消置顶" : "置顶";
+      mobileBatchPinBtn.querySelector("i").className = isPinned ? "fa-solid fa-thumbtack-slash" : "fa-solid fa-thumbtack";
+    } else {
+      mobileBatchPinBtn.querySelector("span").textContent = "置顶";
+      mobileBatchPinBtn.querySelector("i").className = "fa-solid fa-thumbtack";
+    }
+  }
   const currentPageEntries = getCurrentFilePageEntries();
   const visible = currentPageEntries.length;
   const selectedVisible = currentPageEntries.filter((entry) => isEntrySelected(entry)).length;
@@ -3291,10 +3335,14 @@ const updateBatchActionState = () => {
       selectAllCheckbox.indeterminate = selectedVisible > 0 && selectedVisible < visible;
     }
   }
-  if (gridSelectAllBtn) {
-    gridSelectAllBtn.disabled = visible === 0;
-    gridSelectAllBtn.classList.toggle("active", visible > 0 && selectedVisible === visible);
-    gridSelectAllBtn.textContent = visible > 0 && selectedVisible === visible ? "取消全选" : "全选";
+  if (mobileSelectAllCheckbox) {
+    if (visible === 0) {
+      mobileSelectAllCheckbox.checked = false;
+      mobileSelectAllCheckbox.indeterminate = false;
+    } else {
+      mobileSelectAllCheckbox.checked = selectedVisible === visible;
+      mobileSelectAllCheckbox.indeterminate = selectedVisible > 0 && selectedVisible < visible;
+    }
   }
 };
 

@@ -110,7 +110,7 @@ const renderPath = () => {
     currentPathEl.appendChild(createLink(getRootLabelBySpace(), null, "fa-solid fa-house"));
     state.path.forEach((item, index) => {
       const sep = document.createElement("span");
-      sep.textContent = " > ";
+      sep.textContent = " / ";
       sep.style.color = "#8a8f99";
       currentPathEl.appendChild(sep);
       
@@ -381,9 +381,6 @@ const updateViewModeUI = () => {
       option.classList.toggle("active", state.viewMode === "grid" && size === state.gridSize);
     });
   }
-  if (gridSelectAllBtn) {
-    gridSelectAllBtn.style.display = state.viewMode === "grid" ? "inline-flex" : "none";
-  }
   if (timelineModeToggleBtn) {
     const shouldShowTimelineToggle = state.viewMode !== "grid" && state.view === "files";
     timelineModeToggleBtn.style.display = shouldShowTimelineToggle ? "inline-flex" : "none";
@@ -590,10 +587,12 @@ const renderFileList = () => {
     if (state.viewMode === "grid") {
       item.setAttribute("data-entry-id", String(entry.id));
       item.setAttribute("data-entry-type", entry.type);
+      const gridTimeLabel = formatDateDay(timeValue);
       item.innerHTML = `
         <div class="grid-check"><input type="checkbox" ${isEntrySelected(entry) ? "checked" : ""}></div>
         ${getEntryVisualHtml(entry, "grid")}
         <div class="grid-item-name" title="${escapedEntryName}">${escapedDisplayEntryName}</div>
+        <div class="grid-item-time">${escapeHtml(gridTimeLabel)}</div>
       `;
       const checkWrap = item.querySelector(".grid-check");
       const checkInput = item.querySelector(".grid-check input");
@@ -655,21 +654,35 @@ const renderFileList = () => {
       item.setAttribute("data-entry-type", entry.type);
       const canQuickToggle = state.view !== "recycle" && (entry.type === "folder" || entry.type === "file");
       const isQuickAccess = canQuickToggle && quickAccessEntryKeySet.has(getQuickAccessEntryKey(entry.type, Number(entry.id)));
-      item.innerHTML = `
-        <div class="cell-check"><input type="checkbox" ${isEntrySelected(entry) ? "checked" : ""}></div>
-        <div class="cell-name name-wrapper">
-          ${getEntryVisualHtml(entry, "list")}
-          <span class="file-name-text" title="${escapedEntryName}">${escapedDisplayEntryName}</span>
-        </div>
-        <div class="cell-size">${isFolder ? "-" : formatSize(entry.size)}</div>
-        <div class="cell-type">${getEntryTypeLabel(entry)}</div>
-        <div class="cell-time">${timeLabel}</div>
-        <div class="cell-quick">${canQuickToggle ? `<button type="button" class="quick-access-toggle${isQuickAccess ? " active" : ""}" title="${isQuickAccess ? "取消收藏" : "加入收藏"}"><i class="${isQuickAccess ? "fa-solid" : "fa-regular"} fa-star"></i></button>` : ""}</div>
-        ${state.view === "recycle" ? `<div class="cell-origin" title="${escapeHtml(originalDir)}">${escapeHtml(originalDir)}</div>` : ""}
-        ${state.view === "recycle" ? `<div class="cell-expire">${expireLabel}</div>` : ""}
-      `;
-      const checkWrap = item.querySelector(".cell-check");
-      const checkInput = item.querySelector(".cell-check input");
+      const isMobile = isMobileViewport();
+      if (isMobile) {
+        item.classList.add("mobile-list-item");
+        item.innerHTML = `
+          <div class="mobile-list-icon">${getEntryVisualHtml(entry, "list")}</div>
+          <div class="mobile-list-info">
+            <div class="mobile-list-name" title="${escapedEntryName}">${escapedDisplayEntryName}</div>
+            <div class="mobile-list-time">${timeLabel}</div>
+          </div>
+          <div class="mobile-list-check"><input type="checkbox" ${isEntrySelected(entry) ? "checked" : ""}></div>
+        `;
+      } else {
+        item.innerHTML = `
+          <div class="cell-check"><input type="checkbox" ${isEntrySelected(entry) ? "checked" : ""}></div>
+          <div class="cell-name name-wrapper">
+            ${getEntryVisualHtml(entry, "list")}
+            <span class="file-name-text" title="${escapedEntryName}">${escapedDisplayEntryName}</span>
+          </div>
+          <div class="cell-size">${isFolder ? "-" : formatSize(entry.size)}</div>
+          <div class="cell-type">${getEntryTypeLabel(entry)}</div>
+          <div class="cell-time">${timeLabel}</div>
+          <div class="cell-quick">${canQuickToggle ? `<button type="button" class="quick-access-toggle${isQuickAccess ? " active" : ""}" title="${isQuickAccess ? "取消收藏" : "加入收藏"}"><i class="${isQuickAccess ? "fa-solid" : "fa-regular"} fa-star"></i></button>` : ""}</div>
+          ${state.view === "recycle" ? `<div class="cell-origin" title="${escapeHtml(originalDir)}">${escapeHtml(originalDir)}</div>` : ""}
+          ${state.view === "recycle" ? `<div class="cell-expire">${expireLabel}</div>` : ""}
+        `;
+      }
+      const checkSelector = isMobile ? ".mobile-list-check input" : ".cell-check input";
+      const checkWrap = item.querySelector(isMobile ? ".mobile-list-check" : ".cell-check");
+      const checkInput = item.querySelector(checkSelector);
       if (checkWrap && checkInput) {
         checkWrap.onclick = (event) => {
           event.stopPropagation();
@@ -710,7 +723,7 @@ const renderFileList = () => {
         state.selectedEntry = null;
       }
       item.classList.toggle("selected", nextChecked);
-      const checkInput = item.querySelector(".cell-check input, .grid-check input, .timeline-check input");
+      const checkInput = item.querySelector(".cell-check input, .grid-check input, .timeline-check input, .mobile-list-check input");
       if (checkInput) checkInput.checked = nextChecked;
       updateBatchActionState();
     };
@@ -727,7 +740,7 @@ const renderFileList = () => {
       if (!isMobileViewport() || state.view !== "files") return;
       if (event.touches.length !== 1) return;
       const target = event.target instanceof Element ? event.target : null;
-      if (target && target.closest("input, button, .quick-access-toggle, .cell-check, .grid-check")) return;
+      if (target && target.closest("input, button, .quick-access-toggle, .cell-check, .grid-check, .mobile-list-check")) return;
       mobileLongPressTriggered = false;
       const touch = event.touches[0];
       mobileTouchStartX = touch.clientX;
