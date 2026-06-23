@@ -789,9 +789,6 @@ const renderFileList = () => {
         return;
       }
       state.selectedEntry = entry;
-      setEntrySelected(entry, true);
-      document.querySelectorAll(".table-row, .grid-item, .mobile-list-item").forEach(r => r.classList.remove("selected"));
-      item.classList.add("selected");
       updateBatchActionState();
       if (state.view === "recycle") return;
       if (isMobileViewport()) {
@@ -839,6 +836,15 @@ const renderFileList = () => {
       } else {
         renderDetails(entry);
         showDetailsSidebar();
+        try {
+          const res = await request(`/api/entries/${entry.type}/${entry.id}`);
+          if (res.ok) {
+            const data = await res.json().catch(() => ({}));
+            const updatedEntry = { ...entry, ...data };
+            state.selectedEntry = updatedEntry;
+            renderDetails(updatedEntry);
+          }
+        } catch (error) { void error; }
       }
     };
 
@@ -1118,6 +1124,15 @@ const renderDetails = (entry, loading = false) => {
   const folderTotalSize = Number(entry.totalSize);
   const folderSizeText = loading ? "正在统计大小..." : (Number.isFinite(folderTotalSize) && folderTotalSize > 0 ? formatSize(folderTotalSize) : "0 B");
 
+  // Construct file path from state.path breadcrumb (immediate, no API call needed)
+  let filePath = entry.path || "";
+  if (!filePath && state && Array.isArray(state.path)) {
+    const rootLabel = getRootLabelBySpace();
+    const segments = state.path.map(p => p.name);
+    filePath = segments.length === 0
+      ? rootLabel + "/" + entry.name
+      : rootLabel + "/" + segments.join("/") + "/" + entry.name;
+  }
   detailsContent.innerHTML = `
     <div class="info-detail-box">
       ${getEntryVisualHtml(entry, "detail")}
@@ -1139,6 +1154,11 @@ const renderDetails = (entry, loading = false) => {
       <div class="info-prop-label">修改时间</div>
       <div class="info-prop-value">${formatDate(entry.updatedAt)}</div>
     </div>
+    ${filePath ? `
+    <div class="info-prop">
+      <div class="info-prop-label">文件路径</div>
+      <div class="info-prop-value">${filePath}</div>
+    </div>` : ''}
     ${state.view === 'recycle' ? `
     <div class="info-prop">
       <div class="info-prop-label">原始路径</div>

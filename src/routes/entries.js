@@ -204,6 +204,10 @@ module.exports = (app, deps) => {
         if (isRecycle) {
           const resolveLogicalPath = await buildFolderLogicalPathResolver(req.user.userId, spaceType);
           result.originalDir = rows[0].parentId === null ? "我的文件" : resolveLogicalPath(rows[0].parentId);
+        } else {
+          const resolveLogicalPath = await buildFolderLogicalPathResolver(req.user.userId, spaceType);
+          const parentPath = rows[0].parentId === null ? "我的文件" : resolveLogicalPath(rows[0].parentId);
+          result.path = parentPath + "/" + rows[0].name;
         }
         res.json(result);
         return;
@@ -225,6 +229,10 @@ module.exports = (app, deps) => {
       if (isRecycle) {
         const resolveLogicalPath = await buildFolderLogicalPathResolver(req.user.userId, spaceType);
         result.originalDir = rows[0].parentId === null ? "我的文件" : resolveLogicalPath(rows[0].parentId);
+      } else {
+        const resolveLogicalPath = await buildFolderLogicalPathResolver(req.user.userId, spaceType);
+        const parentPath = rows[0].parentId === null ? "我的文件" : resolveLogicalPath(rows[0].parentId);
+        result.path = parentPath + "/" + result.name;
       }
       res.json(result);
     } catch (error) {
