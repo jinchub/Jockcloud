@@ -638,6 +638,13 @@ if (mobileBatchDeleteBtn) {
   mobileBatchDeleteBtn.onclick = () => batchDeleteBtn && batchDeleteBtn.click();
 }
 
+if (mobileBatchRestoreBtn) {
+  mobileBatchRestoreBtn.onclick = async () => {
+    if (state.view !== "recycle") return;
+    await restoreSelectedEntries();
+  };
+}
+
 if (mobileBatchFavoriteBtn) {
   mobileBatchFavoriteBtn.onclick = async () => {
     const selected = getSelectedEntries();
@@ -1253,12 +1260,6 @@ if (detailsSidebarOverlay) {
     detailsSidebarOverlay.classList.remove("show");
   };
 }
-if (closeUploadTasksBtn) {
-  closeUploadTasksBtn.onclick = () => {
-    setUploadTasksViewVisible(false);
-    syncRouteByCurrentState();
-  };
-}
 if (closeMySharesBtn) {
   closeMySharesBtn.onclick = () => {
     setMySharesViewVisible(false);
@@ -1678,14 +1679,6 @@ if (shareForm && shareModal) {
 
 if (uploadTaskList) {
   uploadTaskList.onclick = async (event) => {
-    const selectInput = event.target.closest("input[data-upload-select]");
-    if (selectInput) {
-      const taskId = String(selectInput.dataset.uploadSelect || "").trim();
-      if (!taskId) return;
-      setUploadTaskSelected(taskId, !!selectInput.checked);
-      renderUploadTasks();
-      return;
-    }
     const pauseBtn = event.target.closest("[data-upload-pause]");
     if (pauseBtn) {
       const taskId = pauseBtn.dataset.uploadPause;
@@ -1712,14 +1705,6 @@ if (uploadTaskList) {
 
 if (downloadTaskList) {
   downloadTaskList.onclick = async (event) => {
-    const selectInput = event.target.closest("input[data-download-select]");
-    if (selectInput) {
-      const taskId = String(selectInput.dataset.downloadSelect || "").trim();
-      if (!taskId) return;
-      setDownloadTaskSelected(taskId, !!selectInput.checked);
-      renderDownloadTasks();
-      return;
-    }
     const pauseBtn = event.target.closest("[data-download-pause]");
     if (pauseBtn) {
       const taskId = pauseBtn.dataset.downloadPause;
@@ -1752,6 +1737,44 @@ if (downloadTaskList) {
     const deleteBtn = event.target.closest("[data-download-delete]");
     if (!deleteBtn) return;
     await removeDownloadTask(deleteBtn.dataset.downloadDelete);
+  };
+}
+
+// 下载筛选按钮事件
+const downloadFilterTabs = document.querySelectorAll(".download-filter-tab");
+downloadFilterTabs.forEach(tab => {
+  tab.onclick = () => {
+    downloadFilterTabs.forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
+    state.downloadTaskFilter = tab.dataset.filter;
+    renderDownloadTasks();
+  };
+});
+
+// 上传筛选按钮事件
+const uploadFilterTabs = document.querySelectorAll(".upload-filter-tab");
+uploadFilterTabs.forEach(tab => {
+  tab.onclick = () => {
+    uploadFilterTabs.forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
+    state.uploadTaskFilter = tab.dataset.filter;
+    renderUploadTasks();
+  };
+});
+
+// 全部清除按钮
+const downloadClearAllBtn = document.getElementById("downloadClearAllBtn");
+if (downloadClearAllBtn) {
+  downloadClearAllBtn.onclick = async () => {
+    await clearDownloadTasks();
+  };
+}
+
+// 上传全部清除按钮
+const uploadClearAllBtn = document.getElementById("uploadClearAllBtn");
+if (uploadClearAllBtn) {
+  uploadClearAllBtn.onclick = async () => {
+    await clearUploadTasks();
   };
 }
 
@@ -1910,16 +1933,6 @@ if (myShareSelectAllCheckbox) {
   };
 }
 
-if (uploadTaskSelectAllCheckbox) {
-  uploadTaskSelectAllCheckbox.onchange = () => {
-    const checked = !!uploadTaskSelectAllCheckbox.checked;
-    sortUploadTasksForDisplay(state.uploadTasks).forEach((task) => {
-      setUploadTaskSelected(task.id, checked);
-    });
-    renderUploadTasks();
-  };
-}
-
 if (downloadTaskSelectAllCheckbox) {
   downloadTaskSelectAllCheckbox.onchange = () => {
     const checked = !!downloadTaskSelectAllCheckbox.checked;
@@ -1983,8 +1996,6 @@ if (clearUploadTasksBtn) {
     if (!confirmed) return;
 
     if (isUploadTab) {
-      const completedIds = state.uploadTasks.filter(t => t.status === "completed").map(t => t.id);
-      state.selectedUploadTaskIds = state.selectedUploadTaskIds.filter(id => !completedIds.includes(id));
       state.uploadTasks = state.uploadTasks.filter(t => t.status !== "completed");
       renderUploadTasks();
       schedulePersistUploadTasks();
@@ -1999,50 +2010,18 @@ if (clearUploadTasksBtn) {
   };
 }
 
-if (cancelSelectedTransferTasksBtn) {
-  cancelSelectedTransferTasksBtn.onclick = async () => {
-    const isUploadTab = state.transferTaskTab === "upload";
-    const cancelableSelectedCount = getCancelableSelectedTransferTaskCount();
-    if (cancelableSelectedCount <= 0) return;
-    if (isUploadTab) {
-      const targetIds = state.selectedUploadTaskIds.slice();
-      if (targetIds.length === 0) return;
-      targetIds.forEach((taskId) => {
-        cancelUploadTask(taskId);
-      });
-      state.selectedUploadTaskIds = [];
-      renderUploadTasks();
-      return;
-    }
-    const targetIds = state.selectedDownloadTaskIds.slice();
-    if (targetIds.length === 0) return;
-    targetIds.forEach((taskId) => {
-      const task = state.downloadTasks.find((item) => item.id === taskId);
-      if (!task || (task.status !== "downloading" && task.status !== "pending")) return;
-      updateDownloadTask(taskId, { status: "canceled" });
-    });
-    state.selectedDownloadTaskIds = [];
-    renderDownloadTasks();
-  };
-}
-
 if (clearSelectedTransferTasksBtn) {
   clearSelectedTransferTasksBtn.onclick = async () => {
     const isUploadTab = state.transferTaskTab === "upload";
-    const selectedIds = isUploadTab ? state.selectedUploadTaskIds.slice() : state.selectedDownloadTaskIds.slice();
+    const selectedIds = state.selectedDownloadTaskIds.slice();
     const selectedCount = selectedIds.length;
     if (selectedCount === 0) return;
     const confirmed = await showDeleteConfirm({
       title: "批量清除记录",
-      message: isUploadTab ? `确定清除选中的 ${selectedCount} 条上传记录吗？` : `确定清除选中的 ${selectedCount} 条下载记录吗？`,
+      message: `确定清除选中的 ${selectedCount} 条下载记录吗？`,
       desc: "清除后无法恢复"
     });
     if (!confirmed) return;
-    if (isUploadTab) {
-      await Promise.all(selectedIds.map((taskId) => removeUploadTask(taskId)));
-      renderUploadTasks();
-      return;
-    }
     await Promise.all(selectedIds.map((taskId) => removeDownloadTask(taskId)));
     renderDownloadTasks();
   };

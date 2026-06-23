@@ -17,7 +17,8 @@ module.exports = (app, deps) => {
     copyFolderRecursive,
     resolveUniqueName,
     safeFileName,
-    normalizeStorageSpaceType
+    normalizeStorageSpaceType,
+    buildFolderLogicalPathResolver
   } = deps;
 
   app.get("/api/entries", authRequired, async (req, res) => {
@@ -168,6 +169,7 @@ module.exports = (app, deps) => {
     const spaceType = resolveStorageSpaceTypeByRequest(req);
     const entryId = normalizeFolderId(req.params.id);
     const type = String(req.params.type || "");
+    const isRecycle = req.query.recycle === "1";
     if (!entryId) {
       res.status(400).json({ message: "ID不合法" });
       return;
@@ -178,10 +180,10 @@ module.exports = (app, deps) => {
     }
     try {
       if (type === "folder") {
-        const [rows] = await pool.query(
-          "SELECT id, name, parent_id AS parentId, created_at AS createdAt, updated_at AS updatedAt, deleted_at AS deletedAt FROM folders WHERE id = ? AND user_id = ? AND space_type = ? LIMIT 1",
-          [entryId, req.user.userId, spaceType]
-        );
+        const query = isRecycle
+          ? "SELECT id, name, parent_id AS parentId, created_at AS createdAt, updated_at AS updatedAt, deleted_at AS deletedAt FROM folders WHERE id = ? AND user_id = ? AND space_type = ? AND deleted_at IS NOT NULL LIMIT 1"
+          : "SELECT id, name, parent_id AS parentId, created_at AS createdAt, updated_at AS updatedAt, deleted_at AS deletedAt FROM folders WHERE id = ? AND user_id = ? AND space_type = ? LIMIT 1";
+        const [rows] = await pool.query(query, [entryId, req.user.userId, spaceType]);
         if (rows.length === 0) {
           res.status(404).json({ message: "目录不存在" });
           return;
@@ -198,13 +200,18 @@ module.exports = (app, deps) => {
           "SELECT COUNT(*) AS folderCount FROM folders WHERE user_id = ? AND space_type = ? AND parent_id = ? AND deleted_at IS NULL",
           [req.user.userId, spaceType, entryId]
         );
-        res.json({ ...rows[0], fileCount: fileRows[0].fileCount, folderCount: folderRows[0].folderCount, totalSize: fileRows[0].totalSize });
+        let result = { ...rows[0], fileCount: fileRows[0].fileCount, folderCount: folderRows[0].folderCount, totalSize: fileRows[0].totalSize };
+        if (isRecycle) {
+          const resolveLogicalPath = await buildFolderLogicalPathResolver(req.user.userId, spaceType);
+          result.originalDir = rows[0].parentId === null ? "我的文件" : resolveLogicalPath(rows[0].parentId);
+        }
+        res.json(result);
         return;
       }
-      const [rows] = await pool.query(
-        "SELECT id, original_name AS name, size, mime_type AS mimeType, file_category AS fileCategory, folder_id AS parentId, created_at AS createdAt, updated_at AS updatedAt, deleted_at AS deletedAt FROM files WHERE id = ? AND user_id = ? AND space_type = ? LIMIT 1",
-        [entryId, req.user.userId, spaceType]
-      );
+      const query = isRecycle
+        ? "SELECT id, original_name AS name, size, mime_type AS mimeType, file_category AS fileCategory, folder_id AS parentId, created_at AS createdAt, updated_at AS updatedAt, deleted_at AS deletedAt, thumbnail_storage_name AS thumbnailStorageName FROM files WHERE id = ? AND user_id = ? AND space_type = ? AND deleted_at IS NOT NULL LIMIT 1"
+        : "SELECT id, original_name AS name, size, mime_type AS mimeType, file_category AS fileCategory, folder_id AS parentId, created_at AS createdAt, updated_at AS updatedAt, deleted_at AS deletedAt, thumbnail_storage_name AS thumbnailStorageName FROM files WHERE id = ? AND user_id = ? AND space_type = ? LIMIT 1";
+      const [rows] = await pool.query(query, [entryId, req.user.userId, spaceType]);
       if (rows.length === 0) {
         res.status(404).json({ message: "文件不存在" });
         return;
@@ -213,7 +220,13 @@ module.exports = (app, deps) => {
       const resolvedCategory = rawCategory === "other"
         ? resolveStoredFileCategory(rows[0].name, rows[0].mimeType)
         : rawCategory;
-      res.json({ ...rows[0], fileCategory: normalizeFileCategoryKey(resolvedCategory) });
+      const { mimeType, thumbnailStorageName, ...rest } = rows[0];
+      let result = { ...rest, fileCategory: normalizeFileCategoryKey(resolvedCategory), hasThumbnail: !!String(thumbnailStorageName || "").trim() };
+      if (isRecycle) {
+        const resolveLogicalPath = await buildFolderLogicalPathResolver(req.user.userId, spaceType);
+        result.originalDir = rows[0].parentId === null ? "我的文件" : resolveLogicalPath(rows[0].parentId);
+      }
+      res.json(result);
     } catch (error) {
       sendDbError(res, error);
     }

@@ -42,6 +42,7 @@
             <!-- 手机版底部操作栏 -->
             <div class="mobile-bottom-actions" id="mobileBottomActions">
               <div class="mobile-action-grid">
+                <button class="mobile-action-btn" id="mobileBatchRestoreBtn" style="display:none;"><i class="fa-solid fa-rotate-left"></i><span>还原</span></button>
                 <button class="mobile-action-btn" id="mobileBatchOpenBtn"><i class="fa-solid fa-folder-open"></i><span>打开</span></button>
                 <button class="mobile-action-btn" id="mobileBatchDetailBtn"><i class="fa-solid fa-circle-info"></i><span>详情</span></button>
                 <button class="mobile-action-btn" id="mobileBatchRenameBtn"><i class="fa-solid fa-pen"></i><span>重命名</span></button>
@@ -148,56 +149,41 @@
         <div class="info-sidebar-overlay" id="detailsSidebarOverlay"></div>
       </div>
       <div class="upload-tasks-main hidden" id="uploadTasksMainContainer">
-        <div class="upload-tasks-main-header">
-          <h3>传输列表</h3>
-          <button class="btn-sm" id="closeUploadTasksBtn">返回文件</button>
-        </div>
         <div class="transfer-task-tabs">
-          <button type="button" class="transfer-task-tab active" id="transferDownloadTabBtn">下载任务</button>
-          <button type="button" class="transfer-task-tab" id="transferUploadTabBtn">上传任务</button>
-          <span class="transfer-task-refresh-tip" id="transferTaskRefreshTip">如果有文件正在上传中请勿刷新页面，避免任务中断</span>
-        </div>
-        <div class="upload-task-header">
-          <div class="upload-task-counts">
-            <span id="pendingCount" style="display:none;">待上传 0</span>
-            <span id="uploadingCount">上传中 0</span>
-            <span id="completedCount">已完成 0</span>
-          </div>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <button class="btn-sm danger" id="cancelSelectedTransferTasksBtn" style="display:none;">批量取消</button>
-            <button class="btn-sm danger" id="clearSelectedTransferTasksBtn" style="display:none;">批量清除</button>
-            <button class="btn-sm danger" id="clearCanceledTasksBtn" style="display:none;">清空已取消</button>
-            <button class="btn-sm danger" id="clearUploadTasksBtn">清空已完成</button>
-          </div>
-        </div>
-        <div class="transfer-task-panel hidden" id="uploadTaskPanel">
-          <div class="upload-task-table">
-            <div class="upload-task-row upload-task-head">
-              <div><input type="checkbox" id="uploadTaskSelectAllCheckbox"></div>
-              <div>文件名</div>
-              <div>文件大小</div>
-              <div>上传时间</div>
-              <div>上传目录</div>
-              <div>源文件路径</div>
-              <div>状态</div>
-              <div>操作</div>
-            </div>
-            <div id="uploadTaskList"></div>
-          </div>
+          <button type="button" class="transfer-task-tab active" id="transferDownloadTabBtn">下载</button>
+          <button type="button" class="transfer-task-tab" id="transferUploadTabBtn">上传</button>
         </div>
         <div class="transfer-task-panel" id="downloadTaskPanel">
-          <div class="upload-task-table">
-            <div class="upload-task-row upload-task-head">
-              <div><input type="checkbox" id="downloadTaskSelectAllCheckbox"></div>
-              <div>文件名</div>
-              <div>文件大小</div>
-              <div>下载时间</div>
-              <div>来源目录</div>
-              <div>状态</div>
-              <div>操作</div>
+          <div class="download-filter-bar">
+            <div class="download-filter-tabs">
+              <button type="button" class="download-filter-tab active" data-filter="all">全部任务</button>
+              <button type="button" class="download-filter-tab" data-filter="pending">待下载(<span id="downloadPendingCount">0</span>)</button>
+              <button type="button" class="download-filter-tab" data-filter="completed">已完成(<span id="downloadCompletedCount">0</span>)</button>
+              <button type="button" class="download-filter-tab" data-filter="active">进行中(<span id="downloadActiveCount">0</span>)</button>
+              <button type="button" class="download-filter-tab" data-filter="failed">任务失败(<span id="downloadFailedCount">0</span>)</button>
             </div>
-            <div id="downloadTaskList"></div>
+            <div class="download-filter-actions">
+              <span class="download-all-files" id="downloadAllFilesBtn"></span>
+              <span class="download-clear-all" id="downloadClearAllBtn">全部清除</span>
+            </div>
           </div>
+          <div id="downloadTaskList"></div>
+        </div>
+        <div class="transfer-task-panel hidden" id="uploadTaskPanel">
+          <div class="upload-filter-bar">
+            <div class="upload-filter-tabs">
+              <button type="button" class="upload-filter-tab active" data-filter="all">全部任务</button>
+              <button type="button" class="upload-filter-tab" data-filter="pending">待上传(<span id="uploadPendingCount">0</span>)</button>
+              <button type="button" class="upload-filter-tab" data-filter="completed">已完成(<span id="uploadCompletedCount">0</span>)</button>
+              <button type="button" class="upload-filter-tab" data-filter="active">进行中(<span id="uploadActiveCount">0</span>)</button>
+              <button type="button" class="upload-filter-tab" data-filter="failed">任务失败(<span id="uploadFailedCount">0</span>)</button>
+            </div>
+            <div class="upload-filter-actions">
+              <span class="upload-all-files" id="uploadAllFilesBtn"></span>
+              <span class="upload-clear-all" id="uploadClearAllBtn">全部清除</span>
+            </div>
+          </div>
+          <div id="uploadTaskList"></div>
         </div>
       </div>
       <div class="upload-tasks-main hidden" id="mySharesMainContainer">

@@ -623,9 +623,40 @@ module.exports = (app, deps) => {
       const settings = await readSettings();
       const speedLimitKb = await getUserDownloadSpeedLimit(req.user.userId, settings);
       
-      res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(rows[0].originalName)}`);
+      const fileName = rows[0].originalName;
+      const fileSize = rows[0].size;
+      
+      // 支持 HTTP Range 请求（断点续传）
+      const rangeHeader = req.headers.range;
+      if (rangeHeader) {
+        const matches = rangeHeader.match(/bytes=(\d+)-(\d*)/);
+        if (matches) {
+          const start = parseInt(matches[1], 10);
+          const end = matches[2] ? parseInt(matches[2], 10) : fileSize - 1;
+          
+          if (start >= 0 && start < fileSize && end >= start && end < fileSize) {
+            const chunkSize = end - start + 1;
+            
+            res.writeHead(206, {
+              'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+              'Accept-Ranges': 'bytes',
+              'Content-Length': chunkSize,
+              'Content-Type': 'application/octet-stream',
+              'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`
+            });
+            
+            const readStream = fs.createReadStream(filePath, { start, end });
+            createSpeedLimitedStream(readStream, res, speedLimitKb);
+            return;
+          }
+        }
+      }
+      
+      // 普通下载（不支持 Range 或 Range 无效）
+      res.setHeader('Accept-Ranges', 'bytes');
+      res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`);
       res.setHeader('Content-Type', 'application/octet-stream');
-      res.setHeader('Content-Length', rows[0].size);
+      res.setHeader('Content-Length', fileSize);
       
       const readStream = fs.createReadStream(filePath);
       createSpeedLimitedStream(readStream, res, speedLimitKb);

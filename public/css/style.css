@@ -934,8 +934,7 @@ html {
   color: red
 }
 
-.fa-xmark {
-}
+.fa-xmark {}
 
 #toggleSecondaryBtn .fa-angles-left {
   display: flex;
@@ -1642,26 +1641,21 @@ html {
   align-items: center;
   gap: 8px;
   margin-bottom: 10px;
-}
-
-.transfer-task-refresh-tip {
-  margin-left: 8px;
-  font-size: 12px;
-  font-weight: bold;
-  color: #ff6c00;
+  width: 100%;
 }
 
 .transfer-task-tab {
-  height: 24px;
-  line-height: 24px;
-  padding: 0 14px;
-  border-radius: 8px;
+  flex: 1;
+  height: 28px;
+  line-height: 28px;
+  padding: 0 8px;
+  border-radius: 6px;
   border: 0;
   background: var(--bg-quaternary);
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 14px;
   cursor: pointer;
-  min-width: max-content;
+  text-align: center;
 }
 
 .transfer-task-tab.active {
@@ -1669,11 +1663,653 @@ html {
   color: #fff;
 }
 
+.download-filter-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.download-filter-tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  justify-content: flex-start;
+}
+
+.download-filter-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.download-filter-tab {
+  flex-shrink: 0;
+  height: 22px;
+  line-height: 22px;
+  padding: 0 8px;
+  border-radius: 6px;
+  border: 0;
+  background: transparent;
+  color: #ababab;
+  font-size: 0.7rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+
+[data-theme='dark'] .download-filter-tab{
+  color:#8d8d8d;
+}
+
+.download-filter-tab.active {
+  font-weight: bold;
+  color: var(--primary-color)
+}
+
+.download-filter-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 4px;
+}
+
+.download-all-files {
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.download-clear-all {
+  color: var(--primary-color);
+  cursor: pointer;
+  font-size: 13px;
+  position: absolute;
+  right: 16px;
+  margin-top: 32px;
+  font-weight: bold;
+  background: linear-gradient(-90deg, #ffffff 10%, transparent 14%);
+  width: 100%;
+  padding-top: 8px;
+  padding-right: 8px;
+  text-align: right;
+  height: 32px;
+}
+
+[data-theme='dark'] .download-clear-all {
+  background: linear-gradient(-90deg, #2b2b2b, 15%, transparent 22%);
+}
+
+.download-date-group {
+  margin-bottom: 16px;
+}
+
+.download-date-header {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  padding: 8px 0;
+  margin-bottom: 8px;
+}
+
+.download-task-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px;
+  font-size: 12px;
+  gap: 12px;
+  border-radius: 6px;
+}
+.download-task-item:hover {
+  background: #fbfbfb;
+}
+
+[data-theme='dark'] .download-task-item:hover {
+  background: #303030;
+}
+
+.download-task-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.download-task-icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--bg-secondary);
+}
+
+.download-task-icon i {
+  font-size: 20px;
+  color: var(--text-secondary);
+}
+
+.download-task-icon .file-pdf,
+.download-task-icon .fa-file-pdf {
+  color: #f53f3f;
+}
+
+.download-task-icon .file-word,
+.download-task-icon .fa-file-word {
+  color: #165dff;
+}
+
+.download-task-icon .file-excel,
+.download-task-icon .fa-file-excel {
+  color: #00b42a;
+}
+
+.download-task-icon .file-ppt,
+.download-task-icon .fa-file-powerpoint {
+  color: #ff7d00;
+}
+
+.download-task-icon .file-image,
+.download-task-icon .fa-image {
+  color: #722ed1;
+}
+
+.download-task-icon .file-video,
+.download-task-icon .fa-film {
+  color: #f7ba1e;
+}
+
+.download-task-icon .file-audio,
+.download-task-icon .fa-music {
+  color: #0fc6c2;
+}
+
+.download-task-icon .file-text,
+.download-task-icon .fa-file-lines {
+  color: #86909c;
+}
+
+.download-task-icon .file-zip,
+.download-task-icon .fa-file-zip {
+  color: #86909c;
+}
+
+.download-task-icon .file-code,
+.download-task-icon .fa-file-code {
+  color: #165dff;
+}
+
+.download-task-icon .file-psd {
+  color: #165dff;
+}
+
+.download-task-icon .file-code-java {
+  color: #f53f3f;
+}
+
+.download-task-icon .file-code-php {
+  color: #86909c;
+}
+
+.download-task-icon .file-code-sql {
+  color: #00b42a;
+}
+
+.download-task-icon .file-code-shell {
+  color: #86909c;
+}
+
+.download-task-icon .file-code-xml {
+  color: #165dff;
+}
+
+.download-task-icon .file-code-config {
+  color: #86909c;
+}
+
+.download-task-icon .file-code-cpp {
+  color: #165dff;
+}
+
+.download-task-icon .file-code-cs {
+  color: #86909c;
+}
+
+.download-task-icon .file-folder {
+  color: #f7ba1e;
+}
+
+.download-task-icon .file-default {
+  color: #86909c;
+}
+
+.download-task-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.download-task-name {
+  font-size: 12px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.download-task-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.download-task-size {
+  color: var(--text-tertiary);
+  font-size: 0.65rem;
+}
+
+.download-task-status {
+  padding: 0px 6px;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  height: 14px;
+  line-height: 14px;
+}
+
+.download-task-status.status-completed {
+  background: #e8ffea;
+  color: #00b42a;
+}
+
+.download-task-status.status-failed {
+  background: #ffece8;
+  color: #f53f3f;
+}
+
+.download-task-status.status-paused {
+  background: #fff3e8;
+  color: #ff7d00;
+}
+
+.download-task-status.status-active {
+  background: #e8f3ff;
+  color: #165dff;
+}
+
+.download-task-deleted {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+}
+
+.download-task-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.download-progress-bar {
+  flex: 1;
+  height: 4px;
+  background: var(--bg-quaternary);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.download-progress-inner {
+  height: 100%;
+  background: var(--primary-color);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.download-progress-text {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.download-task-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.download-action-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.download-action-btn:hover{
+  color: #f53f3f;  
+}
+
+.download-action-btn.primary {
+  background: var(--primary-color);
+  color: #fff;
+}
+
+.download-action-btn.danger {
+  background: #ffece8;
+  color: #f53f3f;
+}
+
+.download-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 0;
+  color: var(--text-tertiary);
+}
+
+.download-empty i {
+  font-size: 48px;
+  margin-bottom: 12px;
+  color: var(--border-tertiary);
+}
+
+.download-empty p {
+  font-size: 14px;
+}
+
+.upload-filter-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.upload-filter-tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  justify-content: flex-start;
+}
+
+.upload-filter-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.upload-filter-tab {
+  flex-shrink: 0;
+  height: 22px;
+  line-height: 22px;
+  padding: 0 8px;
+  border-radius: 6px;
+  border: 0;
+  background: transparent;
+  color: #ababab;
+  font-size: 0.7rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+[data-theme='dark'] .upload-filter-tab{
+  color:#8d8d8d;
+}
+
+.upload-filter-tab.active {
+  font-weight: bold;
+  color: var(--primary-color)
+}
+
+.upload-filter-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 4px;
+}
+
+.upload-all-files {
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.upload-clear-all {
+  color: var(--primary-color);
+  cursor: pointer;
+  font-size: 13px;
+  position: absolute;
+  right: 16px;
+  margin-top: 32px;
+  font-weight: bold;
+  background: linear-gradient(-90deg, #ffffff 10%, transparent 14%);
+  width: 100%;
+  padding-top: 8px;
+  padding-right: 8px;
+  text-align: right;
+  height: 32px;
+}
+
+[data-theme='dark'] .upload-clear-all {
+  background: linear-gradient(-90deg, #2b2b2b, 15%, transparent 22%);
+}
+
+.upload-date-group {
+  margin-bottom: 16px;
+}
+
+.upload-date-header {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  padding: 8px 0;
+  margin-bottom: 8px;
+}
+
+.upload-task-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px;
+  font-size: 12px;
+  gap: 12px;
+  border-radius: 6px;
+}
+
+.upload-task-item:hover {
+  background: #fbfbfb;
+}
+
+[data-theme='dark'] .upload-task-item:hover {
+  background: #303030;
+}
+
+.upload-task-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.upload-task-icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--bg-secondary);
+}
+
+.upload-task-icon i {
+  font-size: 20px;
+  color: var(--text-secondary);
+}
+
+.upload-task-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.upload-task-name {
+  font-size: 12px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.upload-task-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.upload-task-size {
+  color: var(--text-tertiary);
+  font-size: 0.65rem;
+}
+
+.upload-task-status {
+  padding: 0px 6px;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  height: 14px;
+  line-height: 14px;
+}
+
+.upload-task-status.status-completed {
+  background: #e8ffea;
+  color: #00b42a;
+}
+
+.upload-task-status.status-failed {
+  background: #ffece8;
+  color: #f53f3f;
+}
+
+.upload-task-status.status-paused {
+  background: #fff3e8;
+  color: #ff7d00;
+}
+
+.upload-task-status.status-active {
+  background: #e8f3ff;
+  color: #165dff;
+}
+
+.upload-task-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.upload-progress-bar {
+  flex: 1;
+  height: 4px;
+  background: var(--bg-quaternary);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.upload-progress-inner {
+  height: 100%;
+  background: var(--primary-color);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.upload-progress-text {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.upload-task-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.upload-action-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.upload-action-btn:hover{
+  color: #f53f3f;  
+}
+
+.upload-action-btn.primary {
+  background: var(--primary-color);
+  color: #fff;
+}
+
+.upload-action-btn.danger {
+  background: #ffece8;
+  color: #f53f3f;
+}
+
+.upload-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 0;
+  color: var(--text-tertiary);
+}
+
+.upload-empty i {
+  font-size: 48px;
+  margin-bottom: 12px;
+  color: var(--border-tertiary);
+}
+
+.upload-empty p {
+  font-size: 14px;
+}
+
 .transfer-task-panel {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+}
+
+#downloadTaskList {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+#downloadTaskList::-webkit-scrollbar {
+  display: none;
 }
 
 .upload-task-counts {
@@ -1702,81 +2338,11 @@ html {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  scrollbar-width: none;
 }
 
-.upload-task-row {
-  display: grid;
-  grid-template-columns: 28px minmax(160px, 1.8fr) 100px 120px minmax(140px, 1.4fr) minmax(180px, 1.6fr) minmax(140px, 1.1fr) 160px;
-  gap: 10px;
-  align-items: center;
-  padding: 8px 14px;
-  font-size: 12px;
-  border-bottom: 1px solid var(--border-tertiary);
-}
-
-.upload-task-row>div:first-child {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.upload-task-head {
-  color: var(--text-tertiary);
-  background: var(--bg-secondary);
-  position: sticky;
-  top: 0;
-  z-index: 1;
-}
-
-.upload-task-name {
-  color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-  max-width: 100%;
-}
-
-.upload-task-progress {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.upload-progress-top {
-  font-size: 13px;
-  color: var(--text-secondary);
-  line-height: 1.4;
-}
-
-.upload-progress-bar {
-  width: 100%;
-  height: 6px;
-  border-radius: 3px;
-  background: var(--border-tertiary);
-  overflow: hidden;
-}
-
-.upload-progress-inner {
-  height: 100%;
-  background: var(--primary-color);
-}
-
-.upload-status-text {
-  min-width: 46px;
-  color: var(--text-secondary);
-}
-
-.upload-task-ops {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 6px;
-}
-
-.upload-task-ops button {
-  background: #ffeaea;
-  color: #f53f3f;
+#uploadTaskList::-webkit-scrollbar {
+  display: none;
 }
 
 #uploadTasksNavBtn .fa-right-left {
@@ -2606,6 +3172,9 @@ html {
 .grid-item:hover {
   background: #f7f7f7;
 }
+.grid-item:hover .grid-item-time {
+  opacity: 1;
+}
 
 .grid-item.selected {
   background: #f7f7f7;
@@ -2680,6 +3249,17 @@ html {
   height: 100%;
 }
 
+.video-thumb-placeholder-detail {
+  background: #000 !important;
+  width: 100%;
+  min-height: 180px;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  margin-bottom: 16px;
+}
+
 .grid-item.video-no-thumb .grid-item-name,
 .table-row.video-no-thumb .file-name-text {
   display: none !important;
@@ -2752,8 +3332,10 @@ html {
 .grid-item-time {
   font-size: 0.65rem;
   max-height: 16px;
-  color: #d7d7d7;
+  color: #8f8f8f;
+  opacity: 0;
   letter-spacing: -0.02rem;
+  transition: opacity 0.3s ease-in-out;
 }
 
 [data-theme="dark"] .grid-item-time {

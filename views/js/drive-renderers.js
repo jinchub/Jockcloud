@@ -789,8 +789,10 @@ const renderFileList = () => {
         return;
       }
       state.selectedEntry = entry;
-      document.querySelectorAll(".table-row, .grid-item").forEach(r => r.classList.remove("selected"));
+      setEntrySelected(entry, true);
+      document.querySelectorAll(".table-row, .grid-item, .mobile-list-item").forEach(r => r.classList.remove("selected"));
       item.classList.add("selected");
+      updateBatchActionState();
       if (state.view === "recycle") return;
       if (isMobileViewport()) {
         if (isArchiveFileEntry(entry)) {
@@ -1139,6 +1141,10 @@ const renderDetails = (entry, loading = false) => {
     </div>
     ${state.view === 'recycle' ? `
     <div class="info-prop">
+      <div class="info-prop-label">原始路径</div>
+      <div class="info-prop-value">${entry.originalDir || '未知'}</div>
+    </div>
+    <div class="info-prop">
       <div class="info-prop-label">删除时间</div>
       <div class="info-prop-value">${formatDate(entry.deletedAt)}</div>
     </div>` : ''}
@@ -1157,7 +1163,12 @@ const showSelectedEntryDetails = async () => {
 
   let detailEntry = state.selectedEntry;
   try {
-    const res = await request(`/api/entries/${state.selectedEntry.type}/${state.selectedEntry.id}`);
+    // 回收站模式下使用回收站API获取详情
+    const isRecycle = state.view === "recycle";
+    const apiUrl = isRecycle
+      ? `/api/entries/${state.selectedEntry.type}/${state.selectedEntry.id}?recycle=1`
+      : `/api/entries/${state.selectedEntry.type}/${state.selectedEntry.id}`;
+    const res = await request(apiUrl);
     if (res.ok) {
       const data = await res.json().catch(() => ({}));
       detailEntry = { ...state.selectedEntry, ...data };

@@ -749,9 +749,7 @@ const getDownloadStatusText = (task) => {
 
 const getCancelableSelectedTransferTaskCount = () => {
   if (state.transferTaskTab === "upload") {
-    const selectedSet = new Set(state.selectedUploadTaskIds);
     return state.uploadTasks.reduce((count, task) => {
-      if (!selectedSet.has(task.id)) return count;
       return count + ((task.status === "pending" || task.status === "uploading") ? 1 : 0);
     }, 0);
   }
@@ -763,13 +761,6 @@ const getCancelableSelectedTransferTaskCount = () => {
 };
 
 const getCanceledSelectedTransferTaskCount = () => {
-  if (state.transferTaskTab === "upload") {
-    const selectedSet = new Set(state.selectedUploadTaskIds);
-    return state.uploadTasks.reduce((count, task) => {
-      if (!selectedSet.has(task.id)) return count;
-      return count + (task.status === "canceled" ? 1 : 0);
-    }, 0);
-  }
   const selectedSet = new Set(state.selectedDownloadTaskIds);
   return state.downloadTasks.reduce((count, task) => {
     if (!selectedSet.has(task.id)) return count;
@@ -847,22 +838,13 @@ const renderTransferTaskHeader = () => {
     const hasCanceledTasks = isUploadTab 
       ? state.uploadTasks.some(t => t.status === "canceled")
       : state.downloadTasks.some(t => t.status === "canceled");
-    const selectedCount = isUploadTab ? state.selectedUploadTaskIds.length : state.selectedDownloadTaskIds.length;
-    const canceledSelectedCount = getCanceledSelectedTransferTaskCount();
     clearCanceledTasksBtn.textContent = isUploadTab ? "清空已取消上传记录" : "清空已取消下载记录";
     clearCanceledTasksBtn.style.display = hasCanceledTasks ? "inline-flex" : "none";
-    clearCanceledTasksBtn.disabled = selectedCount === 0 || canceledSelectedCount !== selectedCount;
   }
 
 if (clearCanceledTasksBtn) {
   clearCanceledTasksBtn.onclick = async () => {
     const isUploadTab = state.transferTaskTab === "upload";
-    const selectedIds = isUploadTab ? state.selectedUploadTaskIds.slice() : state.selectedDownloadTaskIds.slice();
-    const selectedCount = selectedIds.length;
-    const canceledSelectedCount = getCanceledSelectedTransferTaskCount();
-    if (selectedCount === 0 || canceledSelectedCount !== selectedCount) {
-      return;
-    }
     const hasCanceledTasks = isUploadTab 
       ? state.uploadTasks.some(t => t.status === "canceled")
       : state.downloadTasks.some(t => t.status === "canceled");
@@ -878,51 +860,28 @@ if (clearCanceledTasksBtn) {
 
     const confirmed = await showDeleteConfirm({
       title: "清空记录",
-      message: isUploadTab ? `确定清空选中的 ${selectedCount} 条已取消上传记录吗？` : `确定清空选中的 ${selectedCount} 条已取消下载记录吗？`,
+      message: isUploadTab ? "确定清空所有已取消的上传记录吗？" : "确定清空所有已取消的下载记录吗？",
       desc: "清空后无法恢复"
     });
     if (!confirmed) return;
 
     if (isUploadTab) {
-      const selectedIdSet = new Set(selectedIds);
-      const canceledIds = state.uploadTasks
-        .filter(t => t.status === "canceled" && selectedIdSet.has(t.id))
-        .map(t => t.id);
-      state.selectedUploadTaskIds = state.selectedUploadTaskIds.filter(id => !canceledIds.includes(id));
-      state.uploadTasks = state.uploadTasks.filter(t => !(t.status === "canceled" && selectedIdSet.has(t.id)));
+      state.uploadTasks = state.uploadTasks.filter(t => t.status !== "canceled");
       renderUploadTasks();
       schedulePersistUploadTasks();
       return;
     }
     
-    const selectedIdSet = new Set(selectedIds);
-    const canceledIds = state.downloadTasks
-      .filter(t => t.status === "canceled" && selectedIdSet.has(t.id))
-      .map(t => t.id);
-    state.selectedDownloadTaskIds = state.selectedDownloadTaskIds.filter(id => !canceledIds.includes(id));
-    state.downloadTasks = state.downloadTasks.filter(t => !(t.status === "canceled" && selectedIdSet.has(t.id)));
+    state.downloadTasks = state.downloadTasks.filter(t => t.status !== "canceled");
     renderDownloadTasks();
     schedulePersistDownloadTasks();
   };
 }
 
 if (clearUploadTasksBtn) {
-    const hasTasks = isUploadTab ? state.uploadTasks.length > 0 : state.downloadTasks.length > 0;
+    const hasTasks = isUploadTab ? state.uploadTasks.some(t => t.status === "completed") : state.downloadTasks.some(t => t.status === "completed");
     clearUploadTasksBtn.textContent = isUploadTab ? "清空已完成上传记录" : "清空已完成下载记录";
     clearUploadTasksBtn.style.display = hasTasks ? "inline-flex" : "none";
-  }
-  if (cancelSelectedTransferTasksBtn) {
-    const selectedCount = isUploadTab ? state.selectedUploadTaskIds.length : state.selectedDownloadTaskIds.length;
-    const cancelableSelectedCount = getCancelableSelectedTransferTaskCount();
-    cancelSelectedTransferTasksBtn.textContent = selectedCount > 0 ? `批量取消（${selectedCount}）` : "批量取消";
-    cancelSelectedTransferTasksBtn.style.display = selectedCount > 0 ? "inline-flex" : "none";
-    cancelSelectedTransferTasksBtn.disabled = selectedCount === 0 || cancelableSelectedCount !== selectedCount;
-  }
-  if (clearSelectedTransferTasksBtn) {
-    const selectedCount = isUploadTab ? state.selectedUploadTaskIds.length : state.selectedDownloadTaskIds.length;
-    clearSelectedTransferTasksBtn.textContent = selectedCount > 0 ? `批量清除（${selectedCount}）` : "批量清除";
-    clearSelectedTransferTasksBtn.style.display = selectedCount > 0 ? "inline-flex" : "none";
-    clearSelectedTransferTasksBtn.disabled = selectedCount === 0;
   }
 };
 
@@ -981,18 +940,6 @@ const sortDownloadTasksForDisplay = (tasks = []) => {
   });
 };
 
-const setUploadTaskSelected = (taskId, selected) => {
-  const id = String(taskId || "").trim();
-  if (!id) return;
-  const nextSet = new Set(state.selectedUploadTaskIds);
-  if (selected) {
-    nextSet.add(id);
-  } else {
-    nextSet.delete(id);
-  }
-  state.selectedUploadTaskIds = Array.from(nextSet);
-};
-
 const setDownloadTaskSelected = (taskId, selected) => {
   const id = String(taskId || "").trim();
   if (!id) return;
@@ -1007,46 +954,90 @@ const setDownloadTaskSelected = (taskId, selected) => {
 
 const renderUploadTasks = () => {
   if (!uploadTaskList) return;
-  let orderedTasks = sortUploadTasksForDisplay(state.uploadTasks);
-  if (state.transferTaskStatusFilter !== "all") {
-    if (state.transferTaskStatusFilter === "active") {
-      orderedTasks = orderedTasks.filter(t => t.status === "uploading" || t.status === "pending");
-    } else {
-      orderedTasks = orderedTasks.filter(t => t.status === state.transferTaskStatusFilter);
-    }
+  
+  // 更新筛选计数
+  const allTasks = state.uploadTasks;
+  const pendingCount = allTasks.filter(t => t.status === "pending").length;
+  const completedCount = allTasks.filter(t => t.status === "completed").length;
+  const activeCount = allTasks.filter(t => t.status === "uploading" || t.status === "paused").length;
+  const failedCount = allTasks.filter(t => t.status === "canceled" || t.status === "failed").length;
+  
+  const pendingCountEl = document.getElementById("uploadPendingCount");
+  const completedCountEl = document.getElementById("uploadCompletedCount");
+  const activeCountEl = document.getElementById("uploadActiveCount");
+  const failedCountEl = document.getElementById("uploadFailedCount");
+  if (pendingCountEl) pendingCountEl.textContent = pendingCount;
+  if (completedCountEl) completedCountEl.textContent = completedCount;
+  if (activeCountEl) activeCountEl.textContent = activeCount;
+  if (failedCountEl) failedCountEl.textContent = failedCount;
+  
+  // 筛选任务
+  let filteredTasks = [...allTasks];
+  const currentFilter = state.uploadTaskFilter || "all";
+  if (currentFilter === "pending") {
+    filteredTasks = filteredTasks.filter(t => t.status === "pending");
+  } else if (currentFilter === "completed") {
+    filteredTasks = filteredTasks.filter(t => t.status === "completed");
+  } else if (currentFilter === "active") {
+    filteredTasks = filteredTasks.filter(t => t.status === "uploading" || t.status === "paused");
+  } else if (currentFilter === "failed") {
+    filteredTasks = filteredTasks.filter(t => t.status === "canceled" || t.status === "failed");
   }
-  const validIdSet = new Set(orderedTasks.map((task) => String(task.id || "")));
-  state.selectedUploadTaskIds = state.selectedUploadTaskIds.filter((id) => validIdSet.has(id));
-  const selectedSet = new Set(state.selectedUploadTaskIds);
-  uploadTaskList.innerHTML = orderedTasks.map((task) => {
-    let statusTop = getUploadStatusText(task);
-    let hasProgress = task.status === "uploading" && task.progress > 0;
-    
-    return `
-    <div class="upload-task-row" data-upload-task-id="${escapeHtml(task.id)}" data-upload-task-status="${escapeHtml(task.status)}">
-      <div><input type="checkbox" data-upload-select="${escapeHtml(task.id)}" ${selectedSet.has(task.id) ? "checked" : ""}></div>
-      <div class="upload-task-name" title="${escapeHtml(task.name)}">${escapeHtml(task.name)}</div>
-      <div>${formatSize(task.size)}</div>
-      <div>${formatDate(task.startedAt)}</div>
-      <div title="${escapeHtml(task.targetPath)}">${escapeHtml(task.targetPath)}</div>
-      <div title="${escapeHtml(task.sourcePath || "-")}">${escapeHtml(task.sourcePath || "-")}</div>
-      <div class="upload-task-progress">
-        <div class="upload-progress-top">${escapeHtml(statusTop)}</div>
-        ${hasProgress ? `<div class="upload-progress-bar"><div class="upload-progress-inner" style="width:${task.progress}%;"></div></div>` : ""}
-      </div>
-      <div class="upload-task-ops">
-        ${isChunkUploadFileSize(task.size) && task.status === "uploading" ? `<button class="btn-sm" data-upload-pause="${escapeHtml(task.id)}">暂停</button>` : ""}
-        ${isChunkUploadFileSize(task.size) && task.status === "paused" ? `<button class="btn-sm primary" data-upload-resume="${escapeHtml(task.id)}">继续</button>` : ""}
-        ${task.status === "uploading" || task.status === "pending" || task.status === "paused" ? `<button class="btn-sm danger" data-upload-cancel="${escapeHtml(task.id)}">取消</button>` : ""}
-        <button class="btn-sm" data-upload-delete="${escapeHtml(task.id)}">删除</button>
-      </div>
-    </div>
-  `}).join("");
-  if (uploadTaskSelectAllCheckbox) {
-    const selectedCount = orderedTasks.reduce((count, item) => count + (selectedSet.has(item.id) ? 1 : 0), 0);
-    uploadTaskSelectAllCheckbox.checked = orderedTasks.length > 0 && selectedCount === orderedTasks.length;
-    uploadTaskSelectAllCheckbox.indeterminate = selectedCount > 0 && selectedCount < orderedTasks.length;
+  
+  // 按日期分组
+  const groupedTasks = {};
+  filteredTasks.forEach(task => {
+    const dateKey = formatUploadDate(task.startedAt);
+    if (!groupedTasks[dateKey]) groupedTasks[dateKey] = [];
+    groupedTasks[dateKey].push(task);
+  });
+  
+  // 按日期降序排序
+  const sortedDates = Object.keys(groupedTasks).sort((a, b) => b.localeCompare(a));
+  
+  // 渲染HTML
+  let html = "";
+  sortedDates.forEach(dateKey => {
+    const tasks = groupedTasks[dateKey];
+    html += `<div class="upload-date-group"><div class="upload-date-header">${dateKey}</div>`;
+    tasks.forEach(task => {
+      const iconClass = getUploadFileIcon(task);
+      const statusClass = getUploadStatusClass(task);
+      const statusLabel = getUploadStatusLabel(task);
+      const hasProgress = (task.status === "uploading" || task.status === "paused") && task.size > 0;
+      const progressPercent = task.progress || 0;
+      
+      html += `
+      <div class="upload-task-item" data-upload-task-id="${escapeHtml(task.id)}">
+        <div class="upload-task-main">
+          <div class="upload-task-icon">
+            <i class="fa-regular ${iconClass}"></i>
+          </div>
+          <div class="upload-task-info">
+            <div class="upload-task-name" title="${escapeHtml(task.name)}">${escapeHtml(task.name)}</div>
+            <div class="upload-task-meta">
+              <span class="upload-task-size">${task.size > 0 ? formatSize(task.size) : "-"}</span>
+              <span class="upload-task-status ${statusClass}">${statusLabel}</span>
+            </div>
+            ${hasProgress ? `<div class="upload-task-progress"><div class="upload-progress-bar"><div class="upload-progress-inner" style="width:${progressPercent}%"></div></div><span class="upload-progress-text">${progressPercent}%</span></div>` : ''}
+          </div>
+        </div>
+        <div class="upload-task-actions">
+          ${task.status === "uploading" ? `<button class="upload-action-btn" data-upload-pause="${task.id}"><i class="fa-solid fa-pause"></i></button>` : ""}
+          ${task.status === "paused" ? `<button class="upload-action-btn primary" data-upload-resume="${task.id}"><i class="fa-solid fa-play"></i></button>` : ""}
+          ${(task.status === "pending" || task.status === "uploading" || task.status === "paused") ? `<button class="upload-action-btn danger" data-upload-cancel="${task.id}"><i class="fa-solid fa-xmark"></i></button>` : ""}
+          <button class="upload-action-btn" data-upload-delete="${task.id}"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  });
+  
+  if (sortedDates.length === 0) {
+    html = '<div class="upload-empty"><i class="fa-regular fa-folder-open"></i><p>暂无上传任务</p></div>';
   }
+  
+  uploadTaskList.innerHTML = html;
   renderTransferTaskHeader();
 };
 
@@ -1054,138 +1045,261 @@ const patchUploadTaskRow = (taskId) => {
   if (!uploadTaskList) return false;
   const task = state.uploadTasks.find((item) => item.id === taskId);
   if (!task) return false;
-  const row = Array.from(uploadTaskList.querySelectorAll("[data-upload-task-id]")).find((item) => item.dataset.uploadTaskId === taskId);
-  if (!row) return false;
+  const item = uploadTaskList.querySelector(`[data-upload-task-id="${escapeHtml(taskId)}"]`);
+  if (!item) return false;
   
-  const progressTop = row.querySelector(".upload-progress-top");
-  if (progressTop) {
-    progressTop.textContent = getUploadStatusText(task);
+  // 更新状态标签
+  const statusEl = item.querySelector(".upload-task-status");
+  if (statusEl) {
+    statusEl.className = `upload-task-status ${getUploadStatusClass(task)}`;
+    statusEl.textContent = getUploadStatusLabel(task);
   }
   
-  const progressInner = row.querySelector(".upload-progress-inner");
-  if (progressInner) {
-    progressInner.style.width = `${task.progress}%`;
+  // 更新进度条
+  const progressContainer = item.querySelector(".upload-task-progress");
+  const hasProgress = (task.status === "uploading" || task.status === "paused") && task.size > 0;
+  const progressPercent = task.progress || 0;
+  
+  if (hasProgress) {
+    if (!progressContainer) {
+      const infoEl = item.querySelector(".upload-task-info");
+      if (infoEl) {
+        const progressHtml = `<div class="upload-task-progress"><div class="upload-progress-bar"><div class="upload-progress-inner" style="width:${progressPercent}%"></div></div><span class="upload-progress-text">${progressPercent}%</span></div>`;
+        infoEl.insertAdjacentHTML("beforeend", progressHtml);
+      }
+    } else {
+      const progressInner = progressContainer.querySelector(".upload-progress-inner");
+      const progressText = progressContainer.querySelector(".upload-progress-text");
+      if (progressInner) progressInner.style.width = `${progressPercent}%`;
+      if (progressText) progressText.textContent = `${progressPercent}%`;
+    }
+  } else if (progressContainer) {
+    progressContainer.remove();
   }
   
-  const hasProgress = task.status === "uploading" && task.progress > 0;
-  const progressBar = row.querySelector(".upload-progress-bar");
-  if (progressBar) {
-    progressBar.style.display = hasProgress ? "" : "none";
-  }
-  
-  const statusText = row.querySelector(".upload-status-text");
-  if (statusText) {
-    statusText.textContent = getUploadStatusText(task);
-  }
-  
-  const ops = row.querySelector(".upload-task-ops");
-  const prevStatus = String(row.dataset.uploadTaskStatus || "");
-  if (ops && prevStatus !== task.status) {
-    ops.innerHTML = `
-      ${isChunkUploadFileSize(task.size) && task.status === "uploading" ? `<button class="btn-sm" data-upload-pause="${escapeHtml(task.id)}">暂停</button>` : ""}
-      ${isChunkUploadFileSize(task.size) && task.status === "paused" ? `<button class="btn-sm primary" data-upload-resume="${escapeHtml(task.id)}">继续</button>` : ""}
-      ${task.status === "uploading" || task.status === "pending" || task.status === "paused" ? `<button class="btn-sm danger" data-upload-cancel="${escapeHtml(task.id)}">取消</button>` : ""}
-      <button class="btn-sm" data-upload-delete="${escapeHtml(task.id)}">删除</button>
+  // 更新操作按钮
+  const actionsEl = item.querySelector(".upload-task-actions");
+  if (actionsEl) {
+    actionsEl.innerHTML = `
+      ${task.status === "uploading" ? `<button class="upload-action-btn" data-upload-pause="${task.id}"><i class="fa-solid fa-pause"></i></button>` : ""}
+      ${task.status === "paused" ? `<button class="upload-action-btn primary" data-upload-resume="${task.id}"><i class="fa-solid fa-play"></i></button>` : ""}
+      ${(task.status === "pending" || task.status === "uploading" || task.status === "paused") ? `<button class="upload-action-btn danger" data-upload-cancel="${task.id}"><i class="fa-solid fa-xmark"></i></button>` : ""}
+      <button class="upload-action-btn" data-upload-delete="${task.id}"><i class="fa-solid fa-trash"></i></button>
     `;
   }
-  row.dataset.uploadTaskStatus = task.status;
+  
   return true;
 };
 
-const patchDownloadTaskRow = (taskId) => {
+const patchDownloadTaskRow = (taskId, patch) => {
   if (!downloadTaskList) return false;
   const task = state.downloadTasks.find((item) => item.id === taskId);
   if (!task) return false;
-  const row = downloadTaskList.querySelector(`[data-download-task-id="${escapeHtml(taskId)}"]`);
-  if (!row) return false;
+  const item = downloadTaskList.querySelector(`[data-download-task-id="${escapeHtml(taskId)}"]`);
+  if (!item) return false;
   
-  const progressTop = row.querySelector(".upload-progress-top");
-  if (progressTop) {
-    progressTop.textContent = getDownloadStatusText(task);
+  // 更新状态标签（仅当状态相关字段变化时）
+  const statusEl = item.querySelector(".download-task-status");
+  if (statusEl) {
+    statusEl.className = `download-task-status ${getDownloadStatusClass(task)}`;
+    statusEl.textContent = getDownloadStatusLabel(task);
   }
   
+  // 更新进度条
+  const progressContainer = item.querySelector(".download-task-progress");
   const hasProgress = (task.status === "downloading" || task.status === "paused") && task.size > 0;
-  let progressBar = row.querySelector(".upload-progress-bar");
+  const progressPercent = task.progress || 0;
   
-  if (hasProgress && !progressBar) {
-    // 如果需要显示进度条但不存在，创建它
-    const progressContainer = row.querySelector(".upload-task-progress");
-    if (progressContainer) {
-      progressBar = document.createElement("div");
-      progressBar.className = "upload-progress-bar";
-      progressBar.innerHTML = `<div class="upload-progress-inner" style="width:${task.progress}%;"></div>`;
-      progressContainer.appendChild(progressBar);
-    }
-  } else if (progressBar) {
-    // 进度条存在，更新宽度或隐藏
-    if (hasProgress) {
-      progressBar.style.display = "";
-      const progressInner = progressBar.querySelector(".upload-progress-inner");
-      if (progressInner) {
-        progressInner.style.width = `${task.progress}%`;
+  if (hasProgress) {
+    if (!progressContainer) {
+      // 需要添加进度条
+      const infoEl = item.querySelector(".download-task-info");
+      if (infoEl) {
+        const progressHtml = `<div class="download-task-progress"><div class="download-progress-bar"><div class="download-progress-inner" style="width:${progressPercent}%"></div></div><span class="download-progress-text">${progressPercent}%</span></div>`;
+        const deletedEl = infoEl.querySelector(".download-task-deleted");
+        if (deletedEl) {
+          deletedEl.insertAdjacentHTML("afterend", progressHtml);
+        } else {
+          infoEl.insertAdjacentHTML("beforeend", progressHtml);
+        }
       }
     } else {
-      progressBar.style.display = "none";
+      const progressInner = progressContainer.querySelector(".download-progress-inner");
+      const progressText = progressContainer.querySelector(".download-progress-text");
+      if (progressInner) progressInner.style.width = `${progressPercent}%`;
+      if (progressText) progressText.textContent = `${progressPercent}%`;
+    }
+  } else if (progressContainer) {
+    progressContainer.remove();
+  }
+  
+  // 仅在状态变化时更新操作按钮（避免频繁重建导致点击事件丢失）
+  if (patch && (patch.status !== undefined || patch.entryId !== undefined)) {
+    const actionsEl = item.querySelector(".download-task-actions");
+    if (actionsEl) {
+      actionsEl.innerHTML = `
+        ${task.status === "downloading" ? `<button class="download-action-btn" data-download-pause="${task.id}"><i class="fa-solid fa-pause"></i></button>` : ""}
+        ${task.status === "paused" ? `<button class="download-action-btn primary" data-download-resume="${task.id}"><i class="fa-solid fa-play"></i></button>` : ""}
+        ${(task.status === "pending" || task.status === "downloading" || task.status === "paused") && task.entryId ? `<button class="download-action-btn danger" data-download-cancel="${task.id}"><i class="fa-solid fa-xmark"></i></button>` : ""}
+        <button class="download-action-btn" data-download-delete="${task.id}"><i class="fa-solid fa-trash"></i></button>
+      `;
     }
   }
   
-  const prevStatus = String(row.dataset.downloadTaskStatus || "");
-  if (prevStatus !== task.status) {
-    const ops = row.querySelector(".upload-task-ops");
-    if (ops) {
-      ops.innerHTML = `
-        ${task.status === "downloading" ? `<button class="btn-sm" data-download-pause="${task.id}">暂停</button>` : ""}
-        ${task.status === "paused" ? `<button class="btn-sm primary" data-download-resume="${task.id}">继续</button>` : ""}
-        ${(task.status === "pending" || task.status === "downloading" || task.status === "paused") && task.entryId ? `<button class="btn-sm danger" data-download-cancel="${task.id}">取消</button>` : ""}
-        <button class="btn-sm" data-download-delete="${task.id}">删除</button>
-      `;
-    }
-    row.dataset.downloadTaskStatus = task.status;
-  }
   return true;
+};
+
+const getDownloadFileIcon = (task) => {
+  return getFileIcon({ type: "file", name: task.name || "" });
+};
+
+const getUploadFileIcon = (task) => {
+  return getFileIcon({ type: "file", name: task.name || "" });
+};
+
+const getUploadStatusClass = (task) => {
+  if (task.status === "completed") return "status-completed";
+  if (task.status === "canceled" || task.status === "failed") return "status-failed";
+  if (task.status === "paused") return "status-paused";
+  if (task.status === "pending" || task.status === "uploading") return "status-active";
+  return "";
+};
+
+const getUploadStatusLabel = (task) => {
+  if (task.status === "pending") return "等待中";
+  if (task.status === "completed") return "已完成";
+  if (task.status === "canceled") return "已取消";
+  if (task.status === "failed") return "失败";
+  if (task.status === "paused") return "已暂停";
+  if (task.status === "uploading") return "上传中";
+  return "";
+};
+
+const formatUploadDate = (dateStr) => {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+
+const getDownloadStatusClass = (task) => {
+  if (task.status === "completed") return "status-completed";
+  if (task.status === "canceled" || task.status === "failed") return "status-failed";
+  if (task.status === "paused") return "status-paused";
+  if (task.status === "pending" || task.status === "downloading") return "status-active";
+  return "";
+};
+
+const getDownloadStatusLabel = (task) => {
+  if (task.status === "pending") return "等待中";
+  if (task.status === "completed") return "已完成";
+  if (task.status === "canceled") return "已取消";
+  if (task.status === "failed") return "失败";
+  if (task.status === "paused") return "已暂停";
+  if (task.status === "browser_downloading") return "浏览器下载中";
+  if (task.status === "downloading") return "下载中";
+  return "";
+};
+
+const formatDownloadDate = (dateStr) => {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 };
 
 const renderDownloadTasks = () => {
   if (!downloadTaskList) return;
-  let orderedTasks = sortDownloadTasksForDisplay(state.downloadTasks);
-  if (state.transferTaskStatusFilter !== "all") {
-    if (state.transferTaskStatusFilter === "active") {
-      orderedTasks = orderedTasks.filter(t => t.status === "downloading" || t.status === "pending" || t.status === "paused");
-    } else {
-      orderedTasks = orderedTasks.filter(t => t.status === state.transferTaskStatusFilter);
-    }
+  
+  // 更新筛选计数
+  const allTasks = state.downloadTasks;
+  const pendingCount = allTasks.filter(t => t.status === "pending").length;
+  const completedCount = allTasks.filter(t => t.status === "completed").length;
+  const activeCount = allTasks.filter(t => t.status === "downloading" || t.status === "paused").length;
+  const failedCount = allTasks.filter(t => t.status === "canceled" || t.status === "failed").length;
+  
+  const pendingCountEl = document.getElementById("downloadPendingCount");
+  const completedCountEl = document.getElementById("downloadCompletedCount");
+  const activeCountEl = document.getElementById("downloadActiveCount");
+  const failedCountEl = document.getElementById("downloadFailedCount");
+  if (pendingCountEl) pendingCountEl.textContent = pendingCount;
+  if (completedCountEl) completedCountEl.textContent = completedCount;
+  if (activeCountEl) activeCountEl.textContent = activeCount;
+  if (failedCountEl) failedCountEl.textContent = failedCount;
+  
+  // 筛选任务
+  let filteredTasks = [...allTasks];
+  const currentFilter = state.downloadTaskFilter || "all";
+  if (currentFilter === "pending") {
+    filteredTasks = filteredTasks.filter(t => t.status === "pending");
+  } else if (currentFilter === "completed") {
+    filteredTasks = filteredTasks.filter(t => t.status === "completed");
+  } else if (currentFilter === "active") {
+    filteredTasks = filteredTasks.filter(t => t.status === "downloading" || t.status === "paused");
+  } else if (currentFilter === "failed") {
+    filteredTasks = filteredTasks.filter(t => t.status === "canceled" || t.status === "failed");
   }
-  const validIdSet = new Set(orderedTasks.map((task) => String(task.id || "")));
-  state.selectedDownloadTaskIds = state.selectedDownloadTaskIds.filter((id) => validIdSet.has(id));
-  const selectedSet = new Set(state.selectedDownloadTaskIds);
-  downloadTaskList.innerHTML = orderedTasks.map((task) => {
-    let statusTop = getDownloadStatusText(task);
-    let hasProgress = (task.status === "downloading" || task.status === "paused") && task.size > 0;
-    
-    return `
-    <div class="upload-task-row" data-download-task-id="${escapeHtml(task.id)}" data-download-task-status="${escapeHtml(task.status)}">
-      <div><input type="checkbox" data-download-select="${escapeHtml(task.id)}" ${selectedSet.has(task.id) ? "checked" : ""}></div>
-      <div class="upload-task-name" title="${escapeHtml(task.name)}">${escapeHtml(task.name)}</div>
-      <div>${task.size > 0 ? formatSize(task.size) : "-"}</div>
-      <div>${formatDate(task.startedAt)}</div>
-      <div title="${escapeHtml(task.sourcePath)}">${escapeHtml(task.sourcePath)}</div>
-      <div class="upload-task-progress">
-        <div class="upload-progress-top">${escapeHtml(statusTop)}</div>
-        ${hasProgress ? `<div class="upload-progress-bar"><div class="upload-progress-inner" style="width:${task.progress}%;"></div></div>` : ""}
-      </div>
-      <div class="upload-task-ops">
-        ${task.status === "downloading" ? `<button class="btn-sm" data-download-pause="${task.id}">暂停</button>` : ""}
-        ${task.status === "paused" ? `<button class="btn-sm primary" data-download-resume="${task.id}">继续</button>` : ""}
-        ${(task.status === "pending" || task.status === "downloading" || task.status === "paused") && task.entryId ? `<button class="btn-sm danger" data-download-cancel="${task.id}">取消</button>` : ""}
-        <button class="btn-sm" data-download-delete="${task.id}">删除</button>
-      </div>
-    </div>
-  `}).join("");
-  if (downloadTaskSelectAllCheckbox) {
-    const selectedCount = orderedTasks.reduce((count, item) => count + (selectedSet.has(item.id) ? 1 : 0), 0);
-    downloadTaskSelectAllCheckbox.checked = orderedTasks.length > 0 && selectedCount === orderedTasks.length;
-    downloadTaskSelectAllCheckbox.indeterminate = selectedCount > 0 && selectedCount < orderedTasks.length;
+  
+  // 按日期分组
+  const groupedTasks = {};
+  filteredTasks.forEach(task => {
+    const dateKey = formatDownloadDate(task.startedAt);
+    if (!groupedTasks[dateKey]) groupedTasks[dateKey] = [];
+    groupedTasks[dateKey].push(task);
+  });
+  
+  // 按日期降序排序
+  const sortedDates = Object.keys(groupedTasks).sort((a, b) => b.localeCompare(a));
+  
+  // 渲染HTML
+  let html = "";
+  sortedDates.forEach(dateKey => {
+    const tasks = groupedTasks[dateKey];
+    html += `<div class="download-date-group"><div class="download-date-header">${dateKey}</div>`;
+    tasks.forEach(task => {
+      const iconClass = getDownloadFileIcon(task);
+      const statusClass = getDownloadStatusClass(task);
+      const statusLabel = getDownloadStatusLabel(task);
+      const hasProgress = (task.status === "downloading" || task.status === "paused") && task.size > 0;
+      const progressPercent = task.progress || 0;
+      const isDeleted = task.isDeleted || task.deletedLocally;
+      
+      html += `
+      <div class="download-task-item" data-download-task-id="${escapeHtml(task.id)}">
+        <div class="download-task-main">
+          <div class="download-task-icon">
+            <i class="fa-regular ${iconClass}"></i>
+          </div>
+          <div class="download-task-info">
+            <div class="download-task-name" title="${escapeHtml(task.name)}">${escapeHtml(task.name)}</div>
+            <div class="download-task-meta">
+              <span class="download-task-size">${task.size > 0 ? formatSize(task.size) : "-"}</span>
+              <span class="download-task-status ${statusClass}">${statusLabel}</span>
+            </div>
+            ${isDeleted ? '<div class="download-task-deleted">该文件已从本地删除</div>' : ''}
+            ${hasProgress ? `<div class="download-task-progress"><div class="download-progress-bar"><div class="download-progress-inner" style="width:${progressPercent}%"></div></div><span class="download-progress-text">${progressPercent}%</span></div>` : ''}
+          </div>
+        </div>
+        <div class="download-task-actions">
+          ${task.status === "downloading" ? `<button class="download-action-btn" data-download-pause="${task.id}"><i class="fa-solid fa-pause"></i></button>` : ""}
+          ${task.status === "paused" ? `<button class="download-action-btn primary" data-download-resume="${task.id}"><i class="fa-solid fa-play"></i></button>` : ""}
+          ${(task.status === "pending" || task.status === "downloading" || task.status === "paused") && task.entryId ? `<button class="download-action-btn danger" data-download-cancel="${task.id}"><i class="fa-solid fa-xmark"></i></button>` : ""}
+          <button class="download-action-btn" data-download-delete="${task.id}"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  });
+  
+  if (sortedDates.length === 0) {
+    html = '<div class="download-empty"><i class="fa-regular fa-folder-open"></i><p>暂无下载任务</p></div>';
   }
+  
+  downloadTaskList.innerHTML = html;
   renderTransferTaskHeader();
 };
 
@@ -1528,11 +1642,19 @@ const resumeDownloadTask = (taskId) => {
           let lastUpdateTime = startTime;
           let lastDownloadedBytes = 0;
           
-          const res = await fetch(appendFileSpaceToUrl(rawUrl), {
-            signal
-          });
+          // 如果已有下载进度，使用 Range 请求实现断点续传
+          const alreadyDownloaded = task.downloaded || 0;
+          const fetchOptions = { signal };
+          if (alreadyDownloaded > 0 && task.size > 0) {
+            fetchOptions.headers = { Range: `bytes=${alreadyDownloaded}-` };
+          }
           
-          if (!res.ok) {
+          const res = await fetch(appendFileSpaceToUrl(rawUrl), fetchOptions);
+          
+          // 206 表示部分内容（断点续传），200 表示完整下载
+          const isResume = res.status === 206;
+          
+          if (!res.ok && !isResume) {
             let message = "下载失败";
             try {
               const data = await res.json();
@@ -1544,13 +1666,14 @@ const resumeDownloadTask = (taskId) => {
           }
           
           const contentLength = Number(res.headers.get("content-length") || 0);
-          if (contentLength > 0) {
-            updateDownloadTask(taskId, { size: contentLength });
+          const totalSize = isResume ? (alreadyDownloaded + contentLength) : (contentLength || task.size);
+          if (totalSize > 0) {
+            updateDownloadTask(taskId, { size: totalSize });
           }
           
           const reader = res.body.getReader();
           const chunks = [];
-          let receivedBytes = 0;
+          let receivedBytes = isResume ? alreadyDownloaded : 0;
           
           while (true) {
             const { done, value } = await reader.read();
@@ -1563,7 +1686,7 @@ const resumeDownloadTask = (taskId) => {
             const timeDiff = now - lastUpdateTime;
             
             if (timeDiff >= 100) {
-              const progress = contentLength > 0 ? Math.min(100, Math.round((receivedBytes / contentLength) * 100)) : 0;
+              const progress = totalSize > 0 ? Math.min(100, Math.round((receivedBytes / totalSize) * 100)) : 0;
               const speed = timeDiff > 0 ? (receivedBytes - lastDownloadedBytes) / (timeDiff / 1000) : 0;
               
               updateDownloadTask(taskId, {
@@ -1578,9 +1701,6 @@ const resumeDownloadTask = (taskId) => {
           }
           
           const blob = new Blob(chunks);
-          if (!blob || Number(blob.size || 0) === 0) {
-            throw new Error("下载失败");
-          }
           
           const downloadName = resolveDownloadNameFromHeader(
             res.headers.get("content-disposition"),
@@ -1591,7 +1711,7 @@ const resumeDownloadTask = (taskId) => {
             status: "completed", 
             name: downloadName,
             progress: 100,
-            downloaded: blob.size
+            downloaded: receivedBytes
           });
           
           triggerBlobDownload(blob, downloadName);
@@ -1602,7 +1722,7 @@ const resumeDownloadTask = (taskId) => {
               updateDownloadTask(taskId, { status: "canceled" });
             }
           } else {
-            updateDownloadTask(taskId, { status: "canceled" });
+            updateDownloadTask(taskId, { status: "failed" });
             alert(error && error.message ? error.message : "下载失败");
           }
         } finally {
@@ -1620,7 +1740,6 @@ const removeUploadTask = async (taskId) => {
   if (!task) return;
   uploadTaskRuntimePayloadMap.delete(taskId);
   cancelUploadTask(taskId);
-  state.selectedUploadTaskIds = state.selectedUploadTaskIds.filter((id) => id !== String(taskId));
   state.uploadTasks = state.uploadTasks.filter((item) => item.id !== taskId);
   renderUploadTasks();
   try {
@@ -1632,7 +1751,6 @@ const removeUploadTask = async (taskId) => {
 
 const clearUploadTasks = async () => {
   uploadTaskRuntimePayloadMap.clear();
-  state.selectedUploadTaskIds = [];
   state.uploadTasks.forEach((task) => {
     cancelUploadTask(task.id);
   });
@@ -1664,7 +1782,7 @@ const updateDownloadTask = (taskId, patch) => {
   if (!task) return;
   Object.assign(task, patch);
   
-  if (!patchDownloadTaskRow(taskId)) {
+  if (!patchDownloadTaskRow(taskId, patch)) {
     renderDownloadTasks();
   }
   
@@ -1787,9 +1905,6 @@ const startDownloadTask = (entry) => {
         }
         
         const blob = new Blob(chunks);
-        if (!blob || Number(blob.size || 0) === 0) {
-          throw new Error("下载失败");
-        }
         
         const downloadName = resolveDownloadNameFromHeader(
           res.headers.get("content-disposition"),
@@ -1811,7 +1926,7 @@ const startDownloadTask = (entry) => {
             updateDownloadTask(task.id, { status: "canceled" });
           }
         } else {
-          updateDownloadTask(task.id, { status: "canceled" });
+          updateDownloadTask(task.id, { status: "failed" });
           alert(error && error.message ? error.message : "下载失败");
         }
       } finally {
@@ -1930,9 +2045,6 @@ const startBatchDownloadTask = async (entries) => {
     }
     
     const blob = new Blob(chunks);
-    if (!blob || Number(blob.size || 0) === 0) {
-      throw new Error("批量下载失败");
-    }
     
     const downloadName = resolveDownloadNameFromHeader(
       res.headers.get("content-disposition"),
@@ -1951,7 +2063,7 @@ const startBatchDownloadTask = async (entries) => {
     if (error.name === "AbortError") {
       updateDownloadTask(task.id, { status: "canceled" });
     } else {
-      updateDownloadTask(task.id, { status: "canceled" });
+      updateDownloadTask(task.id, { status: "failed" });
       alert(error && error.message ? error.message : "批量下载失败");
     }
   } finally {
@@ -3288,45 +3400,102 @@ const updateBatchActionState = () => {
   }
   // 手机版底部操作栏按钮状态：多选时禁用部分按钮
   const isMultiSelect = count > 1;
-  if (mobileBatchOpenBtn) {
-    mobileBatchOpenBtn.disabled = isMultiSelect;
-  }
-  if (mobileBatchDetailBtn) {
-    mobileBatchDetailBtn.disabled = isMultiSelect;
-  }
-  if (mobileBatchRenameBtn) {
-    mobileBatchRenameBtn.disabled = isMultiSelect;
-  }
-  if (mobileBatchShareBtn) {
-    mobileBatchShareBtn.disabled = isMultiSelect;
-  }
-  if (mobileBatchFavoriteBtn) {
-    mobileBatchFavoriteBtn.disabled = isMultiSelect;
-  }
-  // 手机版跳转目录按钮：搜索/分类模式下选中单个文件时显示
-  if (mobileBatchLocateBtn) {
-    const selected = getSelectedEntries();
-    const isSearchOrCategory = !!state.keyword || !!state.category;
-    mobileBatchLocateBtn.style.display = (isSearchOrCategory && selected.length === 1) ? "" : "none";
-  }
-  // 手机版粘贴按钮显示/隐藏
-  if (mobileBatchPasteBtn) {
-    mobileBatchPasteBtn.style.display = hasClipboard ? "" : "none";
-  }
-  // 手机版置顶按钮文字/图标切换
-  if (mobileBatchPinBtn) {
-    const selected = getSelectedEntries();
-    const isMultiSelect = selected.length > 1;
-    // 多选时禁用置顶按钮
-    mobileBatchPinBtn.disabled = isMultiSelect;
-    if (selected.length === 1) {
-      const entry = selected[0];
-      const isPinned = !!entry.isPinned;
-      mobileBatchPinBtn.querySelector("span").textContent = isPinned ? "取消置顶" : "置顶";
-      mobileBatchPinBtn.querySelector("i").className = isPinned ? "fa-solid fa-thumbtack-slash" : "fa-solid fa-thumbtack";
-    } else {
-      mobileBatchPinBtn.querySelector("span").textContent = "置顶";
-      mobileBatchPinBtn.querySelector("i").className = "fa-solid fa-thumbtack";
+  // 回收站模式下只显示还原、详情、彻底删除、取消
+  if (isRecycle) {
+    if (mobileBatchRestoreBtn) {
+      mobileBatchRestoreBtn.style.display = count > 0 ? "" : "none";
+      mobileBatchRestoreBtn.disabled = count === 0;
+      const suffix = count > 0 ? ` (${count})` : "";
+      mobileBatchRestoreBtn.querySelector("span").textContent = `还原${suffix}`;
+    }
+    if (mobileBatchDetailBtn) {
+      mobileBatchDetailBtn.style.display = count > 0 ? "" : "none";
+      mobileBatchDetailBtn.disabled = isMultiSelect;
+    }
+    if (mobileBatchDeleteBtn) {
+      mobileBatchDeleteBtn.style.display = count > 0 ? "" : "none";
+      mobileBatchDeleteBtn.disabled = count === 0;
+      const suffix = count > 0 ? ` (${count})` : "";
+      mobileBatchDeleteBtn.querySelector("span").textContent = `彻底删除${suffix}`;
+    }
+    if (mobileClearSelectionBtn) {
+      mobileClearSelectionBtn.style.display = count > 0 ? "" : "none";
+    }
+    // 隐藏其他按钮
+    [mobileBatchOpenBtn, mobileBatchRenameBtn, mobileBatchPinBtn, mobileBatchDownloadBtn, mobileBatchShareBtn, mobileBatchCopyBtn, mobileBatchMoveBtn, mobileBatchPasteBtn, mobileBatchFavoriteBtn, mobileBatchArchiveBtn, mobileBatchLocateBtn].forEach(btn => {
+      if (btn) btn.style.display = "none";
+    });
+  } else {
+    // 非回收站模式：正常显示所有按钮
+    if (mobileBatchRestoreBtn) {
+      mobileBatchRestoreBtn.style.display = "none";
+    }
+    if (mobileBatchOpenBtn) {
+      mobileBatchOpenBtn.style.display = "";
+      mobileBatchOpenBtn.disabled = isMultiSelect;
+    }
+    if (mobileBatchDetailBtn) {
+      mobileBatchDetailBtn.style.display = "";
+      mobileBatchDetailBtn.disabled = isMultiSelect;
+    }
+    if (mobileBatchRenameBtn) {
+      mobileBatchRenameBtn.style.display = "";
+      mobileBatchRenameBtn.disabled = isMultiSelect;
+    }
+    if (mobileBatchPinBtn) {
+      mobileBatchPinBtn.style.display = "";
+    }
+    if (mobileBatchDownloadBtn) {
+      mobileBatchDownloadBtn.style.display = "";
+    }
+    if (mobileBatchShareBtn) {
+      mobileBatchShareBtn.style.display = "";
+      mobileBatchShareBtn.disabled = isMultiSelect;
+    }
+    if (mobileBatchCopyBtn) {
+      mobileBatchCopyBtn.style.display = "";
+    }
+    if (mobileBatchMoveBtn) {
+      mobileBatchMoveBtn.style.display = "";
+    }
+    if (mobileBatchDeleteBtn) {
+      mobileBatchDeleteBtn.style.display = "";
+    }
+    if (mobileBatchFavoriteBtn) {
+      mobileBatchFavoriteBtn.style.display = "";
+      mobileBatchFavoriteBtn.disabled = isMultiSelect;
+    }
+    if (mobileBatchArchiveBtn) {
+      mobileBatchArchiveBtn.style.display = "";
+    }
+    if (mobileClearSelectionBtn) {
+      mobileClearSelectionBtn.style.display = "";
+    }
+    // 手机版跳转目录按钮：搜索/分类模式下选中单个文件时显示
+    if (mobileBatchLocateBtn) {
+      const selected = getSelectedEntries();
+      const isSearchOrCategory = !!state.keyword || !!state.category;
+      mobileBatchLocateBtn.style.display = (isSearchOrCategory && selected.length === 1) ? "" : "none";
+    }
+    // 手机版粘贴按钮显示/隐藏
+    if (mobileBatchPasteBtn) {
+      mobileBatchPasteBtn.style.display = hasClipboard ? "" : "none";
+    }
+    // 手机版置顶按钮文字/图标切换
+    if (mobileBatchPinBtn) {
+      const selected = getSelectedEntries();
+      const isMultiSelect = selected.length > 1;
+      // 多选时禁用置顶按钮
+      mobileBatchPinBtn.disabled = isMultiSelect;
+      if (selected.length === 1) {
+        const entry = selected[0];
+        const isPinned = !!entry.isPinned;
+        mobileBatchPinBtn.querySelector("span").textContent = isPinned ? "取消置顶" : "置顶";
+        mobileBatchPinBtn.querySelector("i").className = isPinned ? "fa-solid fa-thumbtack-slash" : "fa-solid fa-thumbtack";
+      } else {
+        mobileBatchPinBtn.querySelector("span").textContent = "置顶";
+        mobileBatchPinBtn.querySelector("i").className = "fa-solid fa-thumbtack";
+      }
     }
   }
   const currentPageEntries = getCurrentFilePageEntries();
