@@ -369,8 +369,16 @@ const truncateNameWithDots = (value, maxLength = 30) => {
   return `${text.slice(0, keepLength)}···`;
 };
 
-const openFilePreview = (entry) => {
+const openFilePreview = async (entry) => {
   if (!window.DrivePreview || typeof window.DrivePreview.open !== "function") return;
+  // 更新文件访问时间
+  if (entry && entry.type === "file" && entry.id) {
+    try {
+      await request(`/api/entries/file/${entry.id}/access`, { method: "POST" });
+    } catch (error) {
+      void error;
+    }
+  }
   window.DrivePreview.open(entry);
 };
 

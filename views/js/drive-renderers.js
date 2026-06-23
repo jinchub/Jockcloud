@@ -1154,6 +1154,11 @@ const renderDetails = (entry, loading = false) => {
       <div class="info-prop-label">修改时间</div>
       <div class="info-prop-value">${formatDate(entry.updatedAt)}</div>
     </div>
+    ${!isFolder ? `
+    <div class="info-prop">
+      <div class="info-prop-label">访问时间</div>
+      <div class="info-prop-value">${entry.accessedAt ? formatDate(entry.accessedAt) : '从未打开'}</div>
+    </div>` : ''}
     ${filePath ? `
     <div class="info-prop">
       <div class="info-prop-label">文件路径</div>

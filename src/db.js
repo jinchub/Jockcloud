@@ -353,6 +353,20 @@ const initDatabase = async () => {
     await pool.query("ALTER TABLE users ADD COLUMN last_login_ip VARCHAR(64) NULL AFTER last_login_at");
   }
 
+  const [fileTableColumns] = await pool.query(
+    `
+      SELECT COLUMN_NAME
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = ?
+        AND TABLE_NAME = 'files'
+    `,
+    [dbConfig.database]
+  );
+  const fileColumnSet = new Set(fileTableColumns.map((row) => String(row.COLUMN_NAME || "").trim()));
+  if (!fileColumnSet.has("accessed_at")) {
+    await pool.query("ALTER TABLE files ADD COLUMN accessed_at DATETIME NULL AFTER updated_at");
+  }
+
   const [users] = await pool.query("SELECT id FROM users ORDER BY id ASC LIMIT 1");
   const isFirstInit = users.length === 0;
   

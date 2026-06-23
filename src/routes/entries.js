@@ -64,7 +64,7 @@ module.exports = (app, deps) => {
       let folderSql =
         "SELECT id, name, parent_id AS parentId, created_at AS createdAt, updated_at AS updatedAt, 'folder' AS type, 0 AS size FROM folders WHERE user_id = ? AND space_type = ? AND deleted_at IS NULL";
       let fileSql =
-        "SELECT id, original_name AS name, folder_id AS parentId, created_at AS createdAt, updated_at AS updatedAt, 'file' AS type, size, mime_type AS mimeType, thumbnail_storage_name AS thumbnailStorageName, file_category AS fileCategory FROM files WHERE user_id = ? AND space_type = ? AND deleted_at IS NULL";
+        "SELECT id, original_name AS name, folder_id AS parentId, created_at AS createdAt, updated_at AS updatedAt, accessed_at AS accessedAt, 'file' AS type, size, mime_type AS mimeType, thumbnail_storage_name AS thumbnailStorageName, file_category AS fileCategory FROM files WHERE user_id = ? AND space_type = ? AND deleted_at IS NULL";
 
       if (category) {
         folderSql += " AND 1=0";
@@ -213,8 +213,8 @@ module.exports = (app, deps) => {
         return;
       }
       const query = isRecycle
-        ? "SELECT id, original_name AS name, size, mime_type AS mimeType, file_category AS fileCategory, folder_id AS parentId, created_at AS createdAt, updated_at AS updatedAt, deleted_at AS deletedAt, thumbnail_storage_name AS thumbnailStorageName FROM files WHERE id = ? AND user_id = ? AND space_type = ? AND deleted_at IS NOT NULL LIMIT 1"
-        : "SELECT id, original_name AS name, size, mime_type AS mimeType, file_category AS fileCategory, folder_id AS parentId, created_at AS createdAt, updated_at AS updatedAt, deleted_at AS deletedAt, thumbnail_storage_name AS thumbnailStorageName FROM files WHERE id = ? AND user_id = ? AND space_type = ? LIMIT 1";
+        ? "SELECT id, original_name AS name, size, mime_type AS mimeType, file_category AS fileCategory, folder_id AS parentId, created_at AS createdAt, updated_at AS updatedAt, accessed_at AS accessedAt, deleted_at AS deletedAt, thumbnail_storage_name AS thumbnailStorageName FROM files WHERE id = ? AND user_id = ? AND space_type = ? AND deleted_at IS NOT NULL LIMIT 1"
+        : "SELECT id, original_name AS name, size, mime_type AS mimeType, file_category AS fileCategory, folder_id AS parentId, created_at AS createdAt, updated_at AS updatedAt, accessed_at AS accessedAt, deleted_at AS deletedAt, thumbnail_storage_name AS thumbnailStorageName FROM files WHERE id = ? AND user_id = ? AND space_type = ? LIMIT 1";
       const [rows] = await pool.query(query, [entryId, req.user.userId, spaceType]);
       if (rows.length === 0) {
         res.status(404).json({ message: "文件不存在" });
@@ -576,7 +576,25 @@ module.exports = (app, deps) => {
   });
 
   // 视频缩略图状态查询（用于前端轮询）
-  app.get("/api/files/:id/thumbnail-status", authRequired, async (req, res) => {
+  app.post("/api/entries/file/:id/access", authRequired, async (req, res) => {
+    const spaceType = resolveStorageSpaceTypeByRequest(req);
+    const fileId = normalizeFolderId(req.params.id);
+    if (!fileId) {
+      res.status(400).json({ message: "文件ID不合法" });
+      return;
+    }
+    try {
+      await pool.query(
+        "UPDATE files SET accessed_at = NOW(), updated_at = updated_at WHERE id = ? AND user_id = ? AND space_type = ? AND deleted_at IS NULL",
+        [fileId, req.user.userId, spaceType]
+      );
+      res.json({ ok: true });
+    } catch (error) {
+      sendDbError(res, error);
+    }
+  });
+
+  app.get("/api/entries/file/:id/thumbnail", authRequired, async (req, res) => {
     const spaceType = resolveStorageSpaceTypeByRequest(req);
     const fileId = normalizeFolderId(req.params.id);
     if (!fileId) {
