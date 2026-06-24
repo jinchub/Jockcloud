@@ -4,6 +4,8 @@ module.exports = (app, deps) => {
   const os = require("os");
   const path = require("path");
   const { execFile } = require("child_process");
+  const logger = require("../utils/logger");
+  const { logError: loggerError } = logger;
 
   let cachedLibreOfficePath = null;
   let libreOfficePathChecked = false;
@@ -32,6 +34,7 @@ module.exports = (app, deps) => {
       candidates.push("/usr/local/bin/libreoffice");
       candidates.push("/usr/local/bin/soffice");
       candidates.push("/snap/bin/libreoffice");
+      candidates.push("/usr/lib/libreoffice/program/soffice");
     }
     for (const p of candidates) {
       try {
@@ -401,69 +404,88 @@ module.exports = (app, deps) => {
             return;
           }
           if (ext === "pptx") {
-            const asPdf = String(req.query["as-pdf"] || "").trim().toLowerCase() === "1";
+            let asPdf = String(req.query["as-pdf"] || "").trim().toLowerCase() === "1";
             if (asPdf) {
               const sofficePath = detectLibreOfficePath();
               if (!sofficePath) {
-                res.status(501).json({ message: "服务器未安装 LibreOffice，无法转换为图片式预览。请安装 LibreOffice 后再试。", needLibreOffice: true });
-                return;
-              }
-              const cacheDir = getPptCacheDir();
-              let stats;
-              try {
-                stats = fs.statSync(filePath);
-              } catch (e) {
-                res.status(404).json({ message: "文件不存在" });
-                return;
-              }
-              const cacheKey = getCacheKey(fileId, stats.size, Math.floor(stats.mtimeMs || 0));
-              const cachePdfPath = path.join(cacheDir, `${cacheKey}.pdf`);
-              let pdfPath = null;
-              try {
-                if (fs.existsSync(cachePdfPath)) {
-                  pdfPath = cachePdfPath;
-                } else {
-                  const tempDir = path.join(cacheDir, `tmp_${fileId}_${Date.now()}`);
-                  try {
-                    fs.mkdirSync(tempDir, { recursive: true });
-                  } catch (e) {
-                    res.status(500).json({ message: "无法创建临时目录" });
-                    return;
-                  }
-                  try {
-                    pdfPath = await convertPptxToPdfWithLibreOffice(sofficePath, filePath, tempDir);
-                    if (pdfPath && fs.existsSync(pdfPath)) {
-                      try {
-                        fs.copyFileSync(pdfPath, cachePdfPath);
-                        pdfPath = cachePdfPath;
-                      } catch (e) {
-                      }
-                    }
-                  } catch (convertErr) {
-                    res.status(500).json({ message: "PPT 转换失败: " + (convertErr.message || "未知错误") });
-                    return;
-                  } finally {
-                    try {
-                      if (fs.existsSync(tempDir)) {
-                        const entries = fs.readdirSync(tempDir);
-                        for (const entry of entries) {
-                          try { fs.unlinkSync(path.join(tempDir, entry)); } catch (e) {}
-                        }
-                        fs.rmdirSync(tempDir);
-                      }
-                    } catch (e) {}
-                  }
+                // 未安装 LibreOffice，降级返回原始 HTML 预览
+                loggerError("PPTX预览不支持图片模式（LibreOffice未安装）", {
+                  fileId,
+                  fileName: originalName,
+                  platform: os.platform(),
+                  env: process.env
+                });
+                asPdf = false;
+              } else {
+                const cacheDir = getPptCacheDir();
+                let stats;
+                try {
+                  stats = fs.statSync(filePath);
+                } catch (e) {
+                  res.status(404).json({ message: "文件不存在" });
+                  return;
                 }
-              } catch (e) {
-                res.status(500).json({ message: "PPT 转换出错: " + (e.message || "未知错误") });
-                return;
+                const cacheKey = getCacheKey(fileId, stats.size, Math.floor(stats.mtimeMs || 0));
+                const cachePdfPath = path.join(cacheDir, `${cacheKey}.pdf`);
+                let pdfPath = null;
+                try {
+                  if (fs.existsSync(cachePdfPath)) {
+                    pdfPath = cachePdfPath;
+                  } else {
+                    const tempDir = path.join(cacheDir, `tmp_${fileId}_${Date.now()}`);
+                    try {
+                      fs.mkdirSync(tempDir, { recursive: true });
+                    } catch (e) {
+                      res.status(500).json({ message: "无法创建临时目录" });
+                      return;
+                    }
+                    try {
+                      pdfPath = await convertPptxToPdfWithLibreOffice(sofficePath, filePath, tempDir);
+                      if (pdfPath && fs.existsSync(pdfPath)) {
+                        try {
+                          fs.copyFileSync(pdfPath, cachePdfPath);
+                          pdfPath = cachePdfPath;
+                        } catch (e) {
+                        }
+                      }
+                    } catch (convertErr) {
+                      // 转换失败，降级到原始 HTML 预览
+                      loggerError("PPTX预览不支持图片模式（LibreOffice转换失败）", {
+                        fileId,
+                        fileName: originalName,
+                        error: convertErr.message,
+                        platform: os.platform(),
+                        env: process.env
+                      });
+                      asPdf = false;
+                    } finally {
+                      try {
+                        if (fs.existsSync(tempDir)) {
+                          const entries = fs.readdirSync(tempDir);
+                          for (const entry of entries) {
+                            try { fs.unlinkSync(path.join(tempDir, entry)); } catch (e) {}
+                          }
+                          fs.rmdirSync(tempDir);
+                        }
+                      } catch (e) {}
+                    }
+                  }
+                } catch (e) {
+                  // 转换出错，降级到原始 HTML 预览
+                  loggerError("PPTX预览不支持图片模式（转换过程出错）", {
+                    fileId,
+                    fileName: originalName,
+                    error: e.message,
+                    platform: os.platform(),
+                    env: process.env
+                  });
+                  asPdf = false;
+                }
+                if (asPdf && pdfPath && fs.existsSync(pdfPath)) {
+                  sendPptPdfPreview(res, pdfPath, originalName);
+                  return;
+                }
               }
-              if (!pdfPath || !fs.existsSync(pdfPath)) {
-                res.status(500).json({ message: "PDF 文件未生成" });
-                return;
-              }
-              sendPptPdfPreview(res, pdfPath, originalName);
-              return;
             }
             const { value: rawHtml } = await convertOffice(filePath, "html", { ignoreNotes: true });
             const html = rawHtml.replace(/<div class="slide-note">[\s\S]*?<\/div>\s*/g, "");
@@ -504,6 +526,34 @@ module.exports = (app, deps) => {
           if (isOfficePasswordProtectedError(err)) {
             sendOfficePreviewUnsupportedHtml(res, originalName);
             return;
+          }
+          // PPTX 转换失败时降级到原始 HTML 预览
+          if (ext === "pptx") {
+            loggerError("PPTX预览不支持图片模式（officeparser转换失败）", {
+              fileId,
+              fileName: originalName,
+              error: err.message,
+              platform: os.platform(),
+              env: process.env
+            });
+            try {
+              const { value: rawHtml } = await convertOffice(filePath, "html", { ignoreNotes: true });
+              const html = rawHtml.replace(/<div class="slide-note">[\s\S]*?<\/div>\s*/g, "");
+              const fullHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${escapedOriginalName}</title><style>body { padding: 20px; font-family: Arial, sans-serif; line-height: 1.6; background: #fff; color: #333; } img { max-width: 100%; height: auto; } table { border-collapse: collapse; width: 100%; margin: 10px 0; } table, th, td { border: 1px solid #ddd; color: #333; } th, td { padding: 8px; text-align: left; } th { background-color: #f2f2f2; color: #333; } [data-theme="dark"] body { background: #2b2b2b !important; color: #f0f0f0 !important; } [data-theme="dark"] table, [data-theme="dark"] th, [data-theme="dark"] td { border-color: #3c3c3c !important; color: #f0f0f0 !important; } [data-theme="dark"] th { background-color: #303030 !important; } [data-theme="dark"] td { background-color: transparent !important; }</style></head><body>${html || "<p>演示文稿内容为空</p>"}<script>function getCurrentTheme() { try { const params = new URLSearchParams(location.search); const q = params.get("theme"); if (q === "dark") return "dark"; if (q === "light") return "light"; } catch (e) {} try { if (window.parent && window.parent !== window) { const parentHtml = window.parent.document.documentElement; if (parentHtml) { if (parentHtml.getAttribute("data-theme") === "dark") return "dark"; const parentMode = parentHtml.getAttribute("data-theme-mode"); if (parentMode === "auto" || !parentMode) { const mql = window.matchMedia("(prefers-color-scheme: dark)"); if (mql.matches) return "dark"; } } } } catch (e) {} try { const mql = window.matchMedia("(prefers-color-scheme: dark)"); if (mql.matches) return "dark"; } catch (e) {} return "light"; } function applyTheme() { if (!document.documentElement) return; const theme = getCurrentTheme(); if (theme === "dark") { document.documentElement.setAttribute("data-theme", "dark"); } else { document.documentElement.removeAttribute("data-theme"); } } applyTheme(); try { window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme); } catch (e) {} setInterval(applyTheme, 2000);</script></body></html>`;
+              res.setHeader("Content-Type", "text/html; charset=utf-8");
+              res.send(fullHtml);
+              return;
+            } catch (fallbackErr) {
+              loggerError("PPTX预览不支持图片模式（officeparser fallback也失败）", {
+                fileId,
+                fileName: originalName,
+                error: fallbackErr.message,
+                platform: os.platform(),
+                env: process.env
+              });
+              sendOfficePreviewUnsupportedHtml(res, originalName);
+              return;
+            }
           }
           res.status(500).send("文档解析失败: " + (err && err.message ? err.message : "未知错误"));
           return;

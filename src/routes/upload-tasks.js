@@ -15,7 +15,7 @@ module.exports = (app, deps) => {
     const taskType = resolveTransferTaskTypeByRequest(req);
     try {
       const [rows] = await pool.query(
-        `SELECT task_id AS id, name, size, started_at AS startedAt, target_path AS targetPath, source_path AS sourcePath, progress, status
+        `SELECT task_id AS id, name, size, started_at AS startedAt, target_path AS targetPath, source_path AS sourcePath, progress, status, instant
          FROM upload_tasks
          WHERE user_id = ? AND space_type = ? AND task_type = ?
          ORDER BY started_at DESC, id DESC`,
@@ -54,7 +54,7 @@ module.exports = (app, deps) => {
       await connection.beginTransaction();
       await connection.query("DELETE FROM upload_tasks WHERE user_id = ? AND space_type = ? AND task_type = ?", [req.user.userId, spaceType, taskType]);
       if (tasks.length > 0) {
-        const placeholders = tasks.map(() => "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").join(", ");
+        const placeholders = tasks.map(() => "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").join(", ");
         const params = [];
         tasks.forEach((task) => {
           params.push(
@@ -68,11 +68,12 @@ module.exports = (app, deps) => {
             task.targetPath,
             task.sourcePath,
             task.progress,
-            task.status
+            task.status,
+            task.instant ? 1 : 0
           );
         });
         await connection.query(
-          `INSERT INTO upload_tasks (user_id, space_type, task_type, task_id, name, size, started_at, target_path, source_path, progress, status)
+          `INSERT INTO upload_tasks (user_id, space_type, task_type, task_id, name, size, started_at, target_path, source_path, progress, status, instant)
            VALUES ${placeholders}`,
           params
         );

@@ -30,7 +30,8 @@ const normalizeUploadTaskItem = (task) => {
     targetPath: String(task.targetPath || "/"),
     sourcePath: String(task.sourcePath || ""),
     progress: Number.isFinite(progress) ? Math.floor(progress) : 0,
-    status: normalizeUploadTaskStatus(task.status)
+    status: normalizeUploadTaskStatus(task.status),
+    instant: !!(task.instant || task.instant === "true" || task.instant === "1" || task.instant === 1)
   };
 };
 

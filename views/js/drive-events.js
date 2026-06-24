@@ -321,6 +321,55 @@ const runUploadTask = (taskId, uploadItem, batchMeta = null) => new Promise((res
           }
           
           if (xhr.status >= 200 && xhr.status < 300) {
+            // 检查是否有冲突标记
+            const results = responseData && responseData.results ? responseData.results : [];
+            const conflictResult = results.find(r => r.conflict);
+            
+            if (conflictResult && currentStrategy === "cancel") {
+              // 有冲突且是第一次上传，弹出选择对话框
+              const fileName = conflictResult.originalName || (uploadItem && uploadItem.file ? uploadItem.file.name : "");
+              
+              const selectedStrategy = await showAppSelect({
+                title: "文件已存在",
+                message: `文件 "${fileName}" 已存在，已自动重命名为 "${conflictResult.actualName}"，请选择处理方式：`,
+                options: [
+                  { value: "keep", label: "保留重命名文件" },
+                  { value: "overwrite", label: "覆盖原文件" },
+                  { value: "delete", label: "删除上传文件" }
+                ],
+                defaultValue: "keep"
+              });
+              
+              if (selectedStrategy === "overwrite") {
+                // 删除原文件（同名文件）
+                try {
+                  const listRes = await request(`/api/files?folderId=${conflictResult.fileId ? '' : ''}&type=file&name=${encodeURIComponent(conflictResult.originalName)}`);
+                  const listData = await listRes.json().catch(() => ({}));
+                  const files = listData && listData.files ? listData.files : [];
+                  const originalFile = files.find(f => f.originalName === conflictResult.originalName && f.id !== conflictResult.fileId);
+                  if (originalFile) {
+                    await request(`/api/files/${originalFile.id}`, { method: "DELETE" });
+                  }
+                } catch (e) {}
+                // 重命名新文件为原文件名
+                try {
+                  await request(`/api/files/${conflictResult.fileId}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name: conflictResult.originalName })
+                  });
+                } catch (e) {}
+              } else if (selectedStrategy === "delete") {
+                // 删除刚上传的文件
+                try {
+                  await request(`/api/files/${conflictResult.fileId}`, {
+                    method: "DELETE"
+                  });
+                } catch (e) {}
+              }
+              // keep 策略：什么都不做
+            }
+            
             updateUploadTask(taskId, { status: "completed", progress: 100 });
             refreshAll();
             uploadResolve(responseData);
@@ -464,17 +513,111 @@ const uploadBatch = async (items) => {
   }
   const quotaAllowed = await checkUploadQuota(items);
   if (!quotaAllowed) return;
+  
+  // 先检查哪些文件可以秒传
+  const instantUploadItems = [];
+  const normalUploadTaskIds = [];
+  
+  for (const item of items) {
+    const file = item.file;
+    const effectiveFolderId = state.currentFolderId;
+    const fileName = item.relativePath ? item.relativePath.split('/').pop() : file.name;
+    
+    // 创建任务并显示MD5计算进度
+    const taskId = `${Date.now()}-${createClientUuid()}`;
+    state.uploadTasks.push({
+      id: taskId,
+      name: file.name,
+      size: file.size,
+      startedAt: new Date().toISOString(),
+      targetPath: resolveUploadPathText(getCurrentBasePath(), item.relativePath),
+      sourcePath: getUploadSourcePathFromItem(item),
+      progress: 0,
+      status: "calculating",
+      xhr: null,
+      abortController: null,
+      cancelRequested: false,
+      uploadSessionId: "",
+      uploaded: 0,
+      lastUpdateTime: 0,
+      lastUploaded: 0,
+      speed: 0,
+      folderId: state.currentFolderId
+    });
+    
+    renderUploadTasks();
+    
+    const { md5, checkResult, canInstant, error } = await checkInstantUpload(file, effectiveFolderId, fileName);
+    
+    if (canInstant && checkResult) {
+      // 可以秒传
+      instantUploadItems.push({ item, md5, checkResult, taskId });
+    } else {
+      // 需要正常上传，记录taskId
+      normalUploadTaskIds.push({ item, taskId });
+      // 更新任务状态为pending
+      const task = state.uploadTasks.find(t => t.id === taskId);
+      if (task) {
+        task.status = "pending";
+      }
+    }
+  }
+  
+  // 处理秒传的文件
   const batchMeta = {
     batchId: `${Date.now()}-${createClientUuid()}`,
     batchTotal: items.length
   };
+  
+  for (const instantItem of instantUploadItems) {
+    const { item, md5, checkResult, taskId } = instantItem;
+    const file = item.file;
+    const effectiveFolderId = state.currentFolderId;
+    const fileName = item.relativePath ? item.relativePath.split('/').pop() : file.name;
+    
+    try {
+      updateUploadTask(taskId, { status: "uploading", progress: 50 });
+      
+      const result = await performInstantUpload(
+        md5,
+        effectiveFolderId,
+        fileName,
+        file.size,
+        file.type || "application/octet-stream",
+        checkResult.fileId
+      );
+      
+      // 如果文件名被自动重命名，更新任务名称
+      if (result.fileName && result.fileName !== fileName) {
+        updateUploadTask(taskId, { name: result.fileName });
+      }
+      
+      updateUploadTask(taskId, { status: "completed", progress: 100, instant: true });
+    } catch (error) {
+      // 秒传失败，转为正常上传
+      normalUploadTaskIds.push({ item, taskId });
+      const task = state.uploadTasks.find(t => t.id === taskId);
+      if (task) {
+        task.status = "pending";
+      }
+    }
+  }
+  
+  // 将正常上传的任务信息存储到runtimePayloadMap中
+  for (const normalItem of normalUploadTaskIds) {
+    uploadTaskRuntimePayloadMap.set(normalItem.taskId, { uploadItem: normalItem.item, batchMeta });
+  }
+  
+  // 更新页面
   state.uploadTasksPage = 1;
-  items.forEach((item) => {
-    enqueueUploadTask(item, batchMeta);
-  });
   renderUploadTasks();
   schedulePersistUploadTasks();
   tryStartPendingUploadTasks();
+  
+  // 刷新文件列表
+  if (instantUploadItems.length > 0) {
+    setTimeout(() => refreshAll(), 500);
+  }
 };
 
 if (uploadFileBtn) {
@@ -1153,8 +1296,8 @@ if (timelineModeToggleBtn) {
 
 // 手机版排序弹窗
 const SORT_LABEL_MAP = {
+  createdAt: "上传时间",
   updatedAt: "修改时间",
-  createdAt: "打开时间",
   name: "文件名",
   type: "文件类型",
   size: "文件大小"

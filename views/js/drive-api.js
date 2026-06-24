@@ -165,7 +165,7 @@ const pollVideoThumbnailStatus = (fileId, maxRetries = 20, interval = 2000) => {
     }
     retryCount++;
     try {
-      const res = await request(`/api/files/${fileId}/thumbnail-status`);
+      const res = await request(`/api/entries/file/${fileId}/thumbnail`);
       if (!res.ok) {
         videoThumbnailPollMap.delete(fileId);
         return;

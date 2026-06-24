@@ -339,18 +339,47 @@ module.exports = (app, deps) => {
       }
     }
     const dataPath = getChunkDataPath(uploadId);
-    if (!fs.existsSync(dataPath)) {
-      removeChunkSession(uploadId);
-      res.status(400).json({ message: "分片文件不存在" });
-      return;
+    const dataStats = fs.existsSync(dataPath) ? fs.statSync(dataPath) : null;
+    
+    // 检查是否有已合并的文件（冲突重试场景）
+    const mergedFilePath = meta.mergedFilePath;
+    const hasMergedFile = mergedFilePath && fs.existsSync(mergedFilePath);
+    
+    if (!hasMergedFile) {
+      // 正常流程：检查分片是否完整
+      if (!dataStats) {
+        removeChunkSession(uploadId);
+        res.status(400).json({ message: "分片文件不存在" });
+        return;
+      }
+      if (!fs.existsSync(marksDir)) {
+        removeChunkSession(uploadId);
+        res.status(400).json({ message: "分片上传未完成" });
+        return;
+      }
+      const markSet = new Set(
+        fs.readdirSync(marksDir)
+          .map((name) => {
+            const matched = /^(\d+)\.ok$/.exec(name);
+            return matched ? Number(matched[1]) : -1;
+          })
+          .filter((index) => Number.isInteger(index) && index >= 0)
+      );
+      for (let i = 0; i < totalChunks; i += 1) {
+        if (!markSet.has(i)) {
+          removeChunkSession(uploadId);
+          res.status(400).json({ message: "分片上传未完成" });
+          return;
+        }
+      }
+      if (Number(dataStats.size || 0) !== Number(meta.fileSize || 0)) {
+        removeChunkSession(uploadId);
+        res.status(400).json({ message: "分片文件大小不匹配" });
+        return;
+      }
     }
-    const dataStats = fs.statSync(dataPath);
-    if (Number(dataStats.size || 0) !== Number(meta.fileSize || 0)) {
-      removeChunkSession(uploadId);
-      res.status(400).json({ message: "分片文件大小不匹配" });
-      return;
-    }
-    let finalFilePath = "";
+    
+    let finalFilePath = hasMergedFile ? mergedFilePath : "";
     try {
       const owned = await checkFolderOwnership(req.user.userId, meta.folderId, spaceType);
       if (!owned) {
@@ -405,23 +434,30 @@ module.exports = (app, deps) => {
         res.status(507).json({ message: getStorageReserveErrorMessage() });
         return;
       }
-      const targetRootDir = selectedStorage.rootDir || resolveStorageRootDir(spaceType);
-      const targetDir = path.join(targetRootDir, targetRelativeDir);
-      fs.mkdirSync(targetDir, { recursive: true });
-      const normalizedName = normalizeUploadName(meta.fileName || "file");
-      const finalStorageName = `${Date.now()}-${crypto.randomBytes(8).toString("hex")}-${safeFileName(normalizedName)}`;
-      finalFilePath = path.join(targetDir, finalStorageName);
-      try {
-        fs.renameSync(dataPath, finalFilePath);
-      } catch (renameErr) {
-        if (renameErr.code === "EXDEV") {
-          fs.copyFileSync(dataPath, finalFilePath);
-          fs.unlinkSync(dataPath);
-        } else {
-          throw renameErr;
+      
+      if (!hasMergedFile) {
+        // 正常流程：合并分片
+        const targetRootDir = selectedStorage.rootDir || resolveStorageRootDir(spaceType);
+        const targetDir = path.join(targetRootDir, targetRelativeDir);
+        fs.mkdirSync(targetDir, { recursive: true });
+        const normalizedName = normalizeUploadName(meta.fileName || "file");
+        const finalStorageName = `${Date.now()}-${crypto.randomBytes(8).toString("hex")}-${safeFileName(normalizedName)}`;
+        finalFilePath = path.join(targetDir, finalStorageName);
+        try {
+          fs.renameSync(dataPath, finalFilePath);
+        } catch (renameErr) {
+          if (renameErr.code === "EXDEV") {
+            fs.copyFileSync(dataPath, finalFilePath);
+            fs.unlinkSync(dataPath);
+          } else {
+            throw renameErr;
+          }
         }
+      } else {
+        // 冲突重试：直接使用已合并的文件
+        finalFilePath = mergedFilePath;
       }
-      const storageName = resolveStorageNameFromPath(finalFilePath, finalStorageName, targetRootDir, selectedStorage.diskId);
+      const storageName = resolveStorageNameFromPath(finalFilePath, null, selectedStorage.rootDir || resolveStorageRootDir(spaceType), selectedStorage.diskId);
       const thumbnailDataUrl = String(req.body && req.body.thumbnailDataUrl ? req.body.thumbnailDataUrl : "");
       const resolvedFileCategory = resolveUploadCategory({ originalname: meta.fileName, mimetype: meta.mimeType }, uploadCategoryRuntimeOptions);
       const thumbnailStorageName = resolvedFileCategory === "image"
@@ -432,17 +468,112 @@ module.exports = (app, deps) => {
       const targetFolderId = await resolveFolderByRelativePath(req.user.userId, meta.folderId, meta.relativePath, folderCache, spaceType);
       const finalOriginalName = safeFileName(meta.relativePath ? String(meta.relativePath).split("/").pop() : meta.fileName);
       
+      // 计算文件MD5
+      const fileMd5 = await new Promise((resolve, reject) => {
+        const hash = crypto.createHash("md5");
+        const stream = fs.createReadStream(finalFilePath);
+        stream.on("data", (chunk) => hash.update(chunk));
+        stream.on("end", () => resolve(hash.digest("hex")));
+        stream.on("error", reject);
+      });
+      
+      // 检查是否存在相同MD5的文件（用于秒传，跨用户查找）
+      const [existingMd5Files] = await pool.query(
+        "SELECT id, original_name AS originalName, storage_name AS storageName, folder_id AS folderId FROM files WHERE md5 = ? AND space_type = ? AND deleted_at IS NULL LIMIT 1",
+        [fileMd5, spaceType]
+      );
+      
+      const hasExistingFile = existingMd5Files.length > 0;
+      const existingMd5File = hasExistingFile ? existingMd5Files[0] : null;
+      
       // 处理上传策略
       const uploadStrategy = String(req.body && req.body.uploadStrategy ? req.body.uploadStrategy : "cancel").trim().toLowerCase();
       let actualOriginalName = finalOriginalName;
       let conflictResolved = false;
+      let instantUpload = false;
+      let instantFileId = null;
       const normalizedSpaceType = normalizeStorageSpaceType(spaceType);
       
       const duplicated = await hasEntryNameConflict(req.user.userId, targetFolderId, finalOriginalName, undefined, spaceType);
       
-      if (duplicated) {
+      // 秒传逻辑：如果存在相同MD5的文件
+      if (hasExistingFile) {
+        if (!duplicated) {
+          // 没有文件名冲突，可以秒传
+          instantUpload = true;
+          instantFileId = existingMd5File.id;
+          // 删除刚移动的文件，复用已有文件
+          try {
+            fs.unlinkSync(finalFilePath);
+          } catch (e) {}
+        } else {
+          // 有文件名冲突
+          if (uploadStrategy === "cancel") {
+            // 保留已合并的文件和分片会话，在元数据中记录文件路径，让前端重试时可以直接使用
+            const meta = readChunkMeta(uploadId);
+            if (meta) {
+              meta.mergedFilePath = finalFilePath;
+              writeChunkMeta(uploadId, meta);
+            }
+            res.status(409).json({ 
+              message: "当前目录已经存在同名的文件或目录",
+              conflict: true,
+              fileName: finalOriginalName
+            });
+            return;
+          } else if (uploadStrategy === "auto_rename") {
+            // 获取当前目录中已有的文件名
+            const [nameRows] = await pool.query(
+              "SELECT original_name AS originalName FROM files WHERE user_id = ? AND space_type = ? AND folder_id <=> ? AND deleted_at IS NULL",
+              [req.user.userId, normalizedSpaceType, targetFolderId]
+            );
+            const usedNameSet = new Set(nameRows.map((item) => safeFileName(item.originalName || "")).filter(Boolean));
+            actualOriginalName = resolveUniqueName(finalOriginalName, usedNameSet);
+            conflictResolved = true;
+            // 重命名后仍然可以秒传
+            instantUpload = true;
+            instantFileId = existingMd5File.id;
+            // 删除刚移动的文件
+            try {
+              fs.unlinkSync(finalFilePath);
+            } catch (e) {}
+          } else if (uploadStrategy === "overwrite") {
+            // 先删除同名的文件（但保留相同MD5的那个文件记录）
+            const [nameRows] = await pool.query(
+              "SELECT id FROM files WHERE user_id = ? AND space_type = ? AND folder_id <=> ? AND original_name = ? AND deleted_at IS NULL",
+              [req.user.userId, normalizedSpaceType, targetFolderId, finalOriginalName]
+            );
+            for (const row of nameRows) {
+              if (row.id !== existingMd5File.id) {
+                await pool.query("UPDATE files SET deleted_at = NOW() WHERE id = ?", [row.id]);
+              }
+            }
+            conflictResolved = true;
+            instantUpload = true;
+            instantFileId = existingMd5File.id;
+            // 删除刚移动的文件
+            try {
+              fs.unlinkSync(finalFilePath);
+            } catch (e) {}
+          } else {
+            // 无效策略，默认为取消
+            try {
+              fs.unlinkSync(finalFilePath);
+            } catch (e) {}
+            removeChunkSession(uploadId);
+            res.status(400).json({ message: "无效的上传策略" });
+            return;
+          }
+        }
+      } else if (duplicated) {
+        // 没有相同MD5的文件，但有文件名冲突
         if (uploadStrategy === "cancel") {
-          removeChunkSession(uploadId);
+          // 保留已合并的文件和分片会话，在元数据中记录文件路径，让前端重试时可以直接使用
+          const meta = readChunkMeta(uploadId);
+          if (meta) {
+            meta.mergedFilePath = finalFilePath;
+            writeChunkMeta(uploadId, meta);
+          }
           res.status(409).json({ 
             message: "当前目录已经存在同名的文件或目录",
             conflict: true,
@@ -450,7 +581,6 @@ module.exports = (app, deps) => {
           });
           return;
         } else if (uploadStrategy === "auto_rename") {
-          // 获取当前目录中已有的文件名
           const [nameRows] = await pool.query(
             "SELECT original_name AS originalName FROM files WHERE user_id = ? AND space_type = ? AND folder_id <=> ? AND deleted_at IS NULL",
             [req.user.userId, normalizedSpaceType, targetFolderId]
@@ -459,24 +589,65 @@ module.exports = (app, deps) => {
           actualOriginalName = resolveUniqueName(finalOriginalName, usedNameSet);
           conflictResolved = true;
         } else if (uploadStrategy === "overwrite") {
-          // 先删除同名的文件
           await pool.query(
             "UPDATE files SET deleted_at = NOW() WHERE user_id = ? AND space_type = ? AND folder_id <=> ? AND original_name = ? AND deleted_at IS NULL",
             [req.user.userId, normalizedSpaceType, targetFolderId, finalOriginalName]
           );
           conflictResolved = true;
         } else {
-          // 无效策略，默认为取消
+          try {
+            fs.unlinkSync(finalFilePath);
+          } catch (e) {}
           removeChunkSession(uploadId);
           res.status(400).json({ message: "无效的上传策略" });
           return;
         }
       }
       
-      const [insertResult] = await pool.query(
-        "INSERT INTO files (user_id, space_type, folder_id, original_name, storage_name, thumbnail_storage_name, file_category, size, mime_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        [req.user.userId, spaceType, targetFolderId, actualOriginalName, storageName, thumbnailStorageName || null, fileCategory, Number(meta.fileSize || 0), String(meta.mimeType || "application/octet-stream")]
+      let insertResult;
+      if (instantUpload && instantFileId) {
+        // 秒传成功：复用已有物理文件，为当前用户创建独立的数据库记录
+        const [existingFileRows] = await pool.query(
+          "SELECT storage_name FROM files WHERE id = ?",
+          [instantFileId]
+        );
+        const existingStorageName = existingFileRows.length > 0 ? existingFileRows[0].storage_name : storageName;
+        
+        const [newInsertResult] = await pool.query(
+          "INSERT INTO files (user_id, space_type, folder_id, original_name, storage_name, thumbnail_storage_name, file_category, size, mime_type, md5) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          [req.user.userId, spaceType, targetFolderId, actualOriginalName, existingStorageName, thumbnailStorageName || null, fileCategory, Number(meta.fileSize || 0), String(meta.mimeType || "application/octet-stream"), fileMd5]
+        );
+        
+        // 记录文件上传操作
+        await logFileOperation(pool, {
+          operationType: 'upload',
+          fileId: newInsertResult.insertId,
+          folderId: targetFolderId,
+          fileName: actualOriginalName,
+          fileSize: Number(meta.fileSize || 0),
+          fileCategory: fileCategory,
+          userId: req.user.userId,
+          ip: req.ip
+        });
+        
+        removeChunkSession(uploadId);
+        res.json({ 
+          message: "上传成功", 
+          total: 1,
+          fileName: actualOriginalName,
+          fileId: newInsertResult.insertId,
+          fileCategory: fileCategory,
+          renamed: false,
+          instant: true
+        });
+        return;
+      }
+      
+      const [insertResultObj] = await pool.query(
+        "INSERT INTO files (user_id, space_type, folder_id, original_name, storage_name, thumbnail_storage_name, file_category, size, mime_type, md5) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [req.user.userId, spaceType, targetFolderId, actualOriginalName, storageName, thumbnailStorageName || null, fileCategory, Number(meta.fileSize || 0), String(meta.mimeType || "application/octet-stream"), fileMd5]
       );
+      insertResult = insertResultObj;
       
       // 记录文件上传操作
       await logFileOperation(pool, {
@@ -640,21 +811,8 @@ module.exports = (app, deps) => {
         const duplicated = await hasEntryNameConflict(req.user.userId, targetFolderId, originalName, undefined, spaceType);
         
         if (duplicated) {
-          if (uploadStrategy === "cancel") {
-            files.forEach((item) => {
-              try {
-                fs.unlinkSync(item.path);
-              } catch (e) {}
-            });
-            res.status(409).json({ 
-              message: "当前目录已经存在同名的文件或目录",
-              conflict: true,
-              fileName: originalName
-            });
-            return;
-          } else {
-            conflictFiles.push({ index, originalName, targetFolderId });
-          }
+          // 有冲突时，自动重命名并上传成功，返回冲突标记让前端弹出选择
+          conflictFiles.push({ index, originalName, targetFolderId });
         }
         preparedUploads.push({ currentFile, originalName, targetFolderId, thumbnailDataUrl: thumbnailDataUrls[index] || "" });
       }
@@ -666,22 +824,22 @@ module.exports = (app, deps) => {
         const conflictItem = conflictFiles.find(cf => cf.index === preparedUploads.indexOf(item));
         
         if (conflictItem) {
-          if (uploadStrategy === "auto_rename") {
-            // 获取当前目录中已有的文件名
-            const [nameRows] = await pool.query(
-              "SELECT original_name AS originalName FROM files WHERE user_id = ? AND space_type = ? AND folder_id <=> ? AND deleted_at IS NULL",
-              [req.user.userId, normalizedSpaceType, item.targetFolderId]
-            );
-            const usedNameSet = new Set(nameRows.map((row) => safeFileName(row.originalName || "")).filter(Boolean));
-            // 添加已准备上传的文件名到集合中，避免重命名冲突
-            preparedUploads.forEach((pi, idx) => {
-              if (idx < preparedUploads.indexOf(item)) {
-                usedNameSet.add(pi.originalName);
-              }
-            });
-            actualOriginalName = resolveUniqueName(item.originalName, usedNameSet);
-          } else if (uploadStrategy === "overwrite") {
-            // 先删除同名的文件
+          // 获取当前目录中已有的文件名
+          const [nameRows] = await pool.query(
+            "SELECT original_name AS originalName FROM files WHERE user_id = ? AND space_type = ? AND folder_id <=> ? AND deleted_at IS NULL",
+            [req.user.userId, normalizedSpaceType, item.targetFolderId]
+          );
+          const usedNameSet = new Set(nameRows.map((row) => safeFileName(row.originalName || "")).filter(Boolean));
+          // 添加已准备上传的文件名到集合中，避免重命名冲突
+          preparedUploads.forEach((pi, idx) => {
+            if (idx < preparedUploads.indexOf(item)) {
+              usedNameSet.add(pi.originalName);
+            }
+          });
+          actualOriginalName = resolveUniqueName(item.originalName, usedNameSet);
+          
+          // 如果是覆盖策略，先删除同名文件
+          if (uploadStrategy === "overwrite") {
             await pool.query(
               "UPDATE files SET deleted_at = NOW() WHERE user_id = ? AND space_type = ? AND folder_id <=> ? AND original_name = ? AND deleted_at IS NULL",
               [req.user.userId, normalizedSpaceType, item.targetFolderId, item.originalName]
@@ -695,9 +853,91 @@ module.exports = (app, deps) => {
         const thumbnailStorageName = resolvedFileCategory === "image" ? writeThumbnailFromDataUrl(item.thumbnailDataUrl, storageName, spaceType) : "";
         const fileCategory = normalizeFileCategoryKey(resolveStoredFileCategory(actualOriginalName, item.currentFile.mimetype, uploadCategoryRuntimeOptions));
         
+        // 计算文件MD5
+        const fileMd5 = await new Promise((resolve, reject) => {
+          const hash = crypto.createHash("md5");
+          const stream = fs.createReadStream(item.currentFile.path);
+          stream.on("data", (chunk) => hash.update(chunk));
+          stream.on("end", () => resolve(hash.digest("hex")));
+          stream.on("error", reject);
+        });
+        
+        // 检查是否存在相同MD5的文件（用于秒传，跨用户查找）
+        const [existingMd5Files] = await pool.query(
+          "SELECT id, original_name AS originalName, storage_name AS storageName, folder_id AS folderId FROM files WHERE md5 = ? AND space_type = ? AND deleted_at IS NULL LIMIT 1",
+          [fileMd5, spaceType]
+        );
+        
+        const hasExistingFile = existingMd5Files.length > 0;
+        const existingMd5File = hasExistingFile ? existingMd5Files[0] : null;
+        let instantUpload = false;
+        let instantFileId = null;
+        
+        // 秒传逻辑：只要MD5相同就秒传，不管是否有文件名冲突
+        if (hasExistingFile) {
+          instantUpload = true;
+          instantFileId = existingMd5File.id;
+          // 删除刚上传的临时文件，复用已有文件
+          try {
+            fs.unlinkSync(item.currentFile.path);
+          } catch (e) {}
+          
+          // 如果有文件名冲突，需要处理
+          if (conflictItem) {
+            if (uploadStrategy === "overwrite") {
+              // 覆盖模式下，删除同名文件
+              const [nameRows] = await pool.query(
+                "SELECT id FROM files WHERE user_id = ? AND space_type = ? AND folder_id <=> ? AND original_name = ? AND deleted_at IS NULL",
+                [req.user.userId, normalizedSpaceType, item.targetFolderId, actualOriginalName]
+              );
+              for (const row of nameRows) {
+                if (row.id !== existingMd5File.id) {
+                  await pool.query("UPDATE files SET deleted_at = NOW() WHERE id = ?", [row.id]);
+                }
+              }
+            }
+          }
+        }
+        
+        if (instantUpload && instantFileId) {
+          // 秒传成功：复用已有物理文件，为当前用户创建独立的数据库记录
+          const [existingFileRows] = await pool.query(
+            "SELECT storage_name FROM files WHERE id = ?",
+            [instantFileId]
+          );
+          const existingStorageName = existingFileRows.length > 0 ? existingFileRows[0].storage_name : storageName;
+          
+          const [newInsertResult] = await pool.query(
+            "INSERT INTO files (user_id, space_type, folder_id, original_name, storage_name, thumbnail_storage_name, file_category, size, mime_type, md5) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [req.user.userId, spaceType, item.targetFolderId, actualOriginalName, existingStorageName, thumbnailStorageName || null, fileCategory, item.currentFile.size, item.currentFile.mimetype, fileMd5]
+          );
+          
+          // 记录文件上传操作
+          await logFileOperation(pool, {
+            operationType: 'upload',
+            fileId: newInsertResult.insertId,
+            folderId: item.targetFolderId,
+            fileName: actualOriginalName,
+            fileSize: item.currentFile.size,
+            fileCategory: fileCategory,
+            userId: req.user.userId,
+            ip: req.ip
+          });
+          
+          uploadResults.push({
+            originalName: item.originalName,
+            actualName: actualOriginalName,
+            fileId: newInsertResult.insertId,
+            fileCategory: fileCategory,
+            renamed: false,
+            instant: true
+          });
+          continue;
+        }
+        
         const [insertResult] = await pool.query(
-          "INSERT INTO files (user_id, space_type, folder_id, original_name, storage_name, thumbnail_storage_name, file_category, size, mime_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-          [req.user.userId, spaceType, item.targetFolderId, actualOriginalName, storageName, thumbnailStorageName || null, fileCategory, item.currentFile.size, item.currentFile.mimetype]
+          "INSERT INTO files (user_id, space_type, folder_id, original_name, storage_name, thumbnail_storage_name, file_category, size, mime_type, md5) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          [req.user.userId, spaceType, item.targetFolderId, actualOriginalName, storageName, thumbnailStorageName || null, fileCategory, item.currentFile.size, item.currentFile.mimetype, fileMd5]
         );
         
         // 记录文件上传操作
@@ -731,7 +971,8 @@ module.exports = (app, deps) => {
           actualName: actualOriginalName,
           fileId: insertResult.insertId,
           fileCategory: fileCategory,
-          renamed: conflictItem && uploadStrategy === "auto_rename"
+          renamed: Boolean(conflictItem),
+          conflict: Boolean(conflictItem)
         });
       }
       
@@ -871,4 +1112,172 @@ module.exports = (app, deps) => {
       sendDbError(res, error);
     }
   });
+
+  // 秒传检查接口
+  app.post("/api/upload/check-md5", authRequired, requireFilePermission("upload"), async (req, res) => {
+    const spaceType = resolveStorageSpaceTypeByRequest(req);
+    const md5 = String(req.body && req.body.md5 ? req.body.md5 : "").trim().toLowerCase();
+    const folderId = normalizeFolderId(req.body && req.body.folderId);
+    const fileName = String(req.body && req.body.fileName ? req.body.fileName : "").trim();
+    
+    if (!md5 || md5.length !== 32 || !/^[a-f0-9]{32}$/.test(md5)) {
+      res.status(400).json({ message: "MD5格式不合法" });
+      return;
+    }
+    
+    if (folderId === undefined) {
+      res.status(400).json({ message: "目录参数不合法" });
+      return;
+    }
+    
+    if (!fileName) {
+      res.status(400).json({ message: "文件名不能为空" });
+      return;
+    }
+    
+    try {
+      const owned = await checkFolderOwnership(req.user.userId, folderId, spaceType);
+      if (!owned) {
+        res.status(404).json({ message: "目录不存在" });
+        return;
+      }
+      
+      // 查询是否存在相同MD5且未删除的文件（跨用户查找）
+      const [existingFiles] = await pool.query(
+        "SELECT id, user_id AS userId, original_name AS originalName, storage_name AS storageName, size, file_category AS fileCategory, folder_id AS folderId FROM files WHERE md5 = ? AND space_type = ? AND deleted_at IS NULL LIMIT 1",
+        [md5, spaceType]
+      );
+      
+      if (existingFiles.length === 0) {
+        res.json({ exists: false, message: "未找到相同文件，需要上传" });
+        return;
+      }
+      
+      const existingFile = existingFiles[0];
+      const normalizedSpaceType = normalizeStorageSpaceType(spaceType);
+      
+      // 检查目标目录是否已有同名文件
+      const [nameRows] = await pool.query(
+        "SELECT id FROM files WHERE user_id = ? AND space_type = ? AND folder_id <=> ? AND original_name = ? AND deleted_at IS NULL LIMIT 1",
+        [req.user.userId, normalizedSpaceType, folderId, fileName]
+      );
+      
+      const nameConflict = nameRows.length > 0;
+      
+      // 只要有MD5相同的文件就返回可以秒传，后端会自动处理文件名冲突
+      res.json({ 
+        exists: true, 
+        instant: true, 
+        fileId: existingFile.id,
+        fileName: existingFile.originalName,
+        size: existingFile.size,
+        fileCategory: existingFile.fileCategory,
+        targetFileName: fileName,
+        conflict: nameConflict,
+        message: nameConflict ? "存在同名文件，将自动重命名" : "秒传成功"
+      });
+    } catch (error) {
+      sendDbError(res, error);
+    }
+  });
+
+  // 秒传创建接口：基于已有MD5创建新的文件记录
+  app.post("/api/upload/instant", authRequired, requireFilePermission("upload"), async (req, res) => {
+    const spaceType = resolveStorageSpaceTypeByRequest(req);
+    const md5 = String(req.body && req.body.md5 ? req.body.md5 : "").trim().toLowerCase();
+    const folderId = normalizeFolderId(req.body && req.body.folderId);
+    const fileName = String(req.body && req.body.fileName ? req.body.fileName : "").trim();
+    const fileSize = Number(req.body && req.body.fileSize ? req.body.fileSize : 0);
+    const mimeType = String(req.body && req.body.mimeType ? req.body.mimeType : "application/octet-stream");
+    const existingFileId = Number(req.body && req.body.existingFileId ? req.body.existingFileId : 0);
+    
+    if (!md5 || md5.length !== 32 || !/^[a-f0-9]{32}$/.test(md5)) {
+      res.status(400).json({ message: "MD5格式不合法" });
+      return;
+    }
+    
+    if (folderId === undefined) {
+      res.status(400).json({ message: "目录参数不合法" });
+      return;
+    }
+    
+    if (!fileName) {
+      res.status(400).json({ message: "文件名不能为空" });
+      return;
+    }
+    
+    if (!existingFileId) {
+      res.status(400).json({ message: "已有文件ID不合法" });
+      return;
+    }
+    
+    try {
+      const owned = await checkFolderOwnership(req.user.userId, folderId, spaceType);
+      if (!owned) {
+        res.status(404).json({ message: "目录不存在" });
+        return;
+      }
+      
+      // 获取已有文件的storage_name（跨用户查找）
+      const [existingFileRows] = await pool.query(
+        "SELECT storage_name, thumbnail_storage_name, file_category FROM files WHERE id = ? AND space_type = ? AND deleted_at IS NULL LIMIT 1",
+        [existingFileId, spaceType]
+      );
+      
+      if (existingFileRows.length === 0) {
+        res.status(404).json({ message: "已有文件不存在" });
+        return;
+      }
+      
+      const existingFile = existingFileRows[0];
+      const fileCategory = normalizeFileCategoryKey(existingFile.file_category || "other");
+      const normalizedSpaceType = normalizeStorageSpaceType(spaceType);
+      
+      // 检查目标目录是否已有同名文件
+      const [nameRows] = await pool.query(
+        "SELECT id FROM files WHERE user_id = ? AND space_type = ? AND folder_id <=> ? AND original_name = ? AND deleted_at IS NULL LIMIT 1",
+        [req.user.userId, normalizedSpaceType, folderId, fileName]
+      );
+      
+      let actualFileName = fileName;
+      if (nameRows.length > 0) {
+        // 有文件名冲突，自动重命名
+        const [allNameRows] = await pool.query(
+          "SELECT original_name AS originalName FROM files WHERE user_id = ? AND space_type = ? AND folder_id <=> ? AND deleted_at IS NULL",
+          [req.user.userId, normalizedSpaceType, folderId]
+        );
+        const usedNameSet = new Set(allNameRows.map((item) => safeFileName(item.originalName || "")).filter(Boolean));
+        actualFileName = resolveUniqueName(fileName, usedNameSet);
+      }
+      
+      // 创建新的文件记录，复用已有物理文件
+      const [insertResult] = await pool.query(
+        "INSERT INTO files (user_id, space_type, folder_id, original_name, storage_name, thumbnail_storage_name, file_category, size, mime_type, md5) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [req.user.userId, spaceType, folderId, actualFileName, existingFile.storage_name, existingFile.thumbnail_storage_name || null, fileCategory, fileSize, mimeType, md5]
+      );
+      
+      // 记录文件上传操作
+      await logFileOperation(pool, {
+        operationType: 'upload',
+        fileId: insertResult.insertId,
+        folderId: folderId,
+        fileName: fileName,
+        fileSize: fileSize,
+        fileCategory: fileCategory,
+        userId: req.user.userId,
+        ip: req.ip
+      });
+      
+      res.json({ 
+        message: "秒传成功", 
+        fileId: insertResult.insertId,
+        fileName: fileName,
+        fileCategory: fileCategory,
+        instant: true
+      });
+    } catch (error) {
+      sendDbError(res, error);
+    }
+  });
+
 };

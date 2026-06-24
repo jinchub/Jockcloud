@@ -9,6 +9,95 @@ const formatSize = (size) => {
   return `${(s / 1024 / 1024 / 1024 / 1024).toFixed(1)} TB`;
 };
 
+// 计算文件MD5
+const calculateFileMD5 = (file) => {
+  return new Promise((resolve, reject) => {
+    if (typeof SparkMD5 === 'undefined') {
+      reject(new Error('SparkMD5未加载'));
+      return;
+    }
+    
+    const spark = new SparkMD5.ArrayBuffer();
+    const fileReader = new FileReader();
+    const chunkSize = 2 * 1024 * 1024; // 2MB chunks
+    let currentChunk = 0;
+    const chunks = Math.ceil(file.size / chunkSize);
+    
+    fileReader.onload = (e) => {
+      spark.append(e.target.result);
+      currentChunk++;
+      
+      if (currentChunk < chunks) {
+        loadNext();
+      } else {
+        resolve(spark.end());
+      }
+    };
+    
+    fileReader.onerror = (e) => {
+      reject(e);
+    };
+    
+    function loadNext() {
+      const start = currentChunk * chunkSize;
+      const end = Math.min(start + chunkSize, file.size);
+      fileReader.readAsArrayBuffer(file.slice(start, end));
+    }
+    
+    loadNext();
+  });
+};
+
+// 检查文件是否可以秒传
+const checkInstantUpload = async (file, folderId, fileName) => {
+  try {
+    const md5 = await calculateFileMD5(file);
+    const res = await request("/api/upload/check-md5", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        md5,
+        folderId: folderId === null ? "null" : String(folderId),
+        fileName: fileName || file.name
+      })
+    });
+    
+    const data = await res.json().catch(() => ({}));
+    return { md5, checkResult: data, canInstant: data && data.exists && data.instant };
+  } catch (error) {
+    return { md5: null, checkResult: null, canInstant: false, error };
+  }
+};
+
+// 执行秒传
+const performInstantUpload = async (md5, folderId, fileName, fileSize, mimeType, existingFileId) => {
+  const res = await request("/api/upload/instant", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      md5,
+      folderId: folderId === null ? "null" : String(folderId),
+      fileName,
+      fileSize,
+      mimeType: mimeType || "application/octet-stream",
+      existingFileId
+    })
+  });
+  
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data && data.message ? data.message : "秒传失败");
+  }
+  
+  // 如果文件名被自动重命名，则返回重命名后的文件名
+  return { 
+    fileId: data.fileId,
+    fileName: data.fileName || fileName,
+    fileCategory: data.fileCategory,
+    instant: data.instant
+  };
+};
+
 const getShareCodeMode = () => {
   const selected = document.querySelector("input[name='shareCodeMode']:checked");
   return selected ? String(selected.value || "none") : "none";
@@ -498,7 +587,8 @@ const getUploadTaskPayload = () => state.uploadTasks.map((task) => ({
   targetPath: String(task.targetPath || "/"),
   sourcePath: String(task.sourcePath || ""),
   progress: Number(task.progress || 0),
-  status: normalizeUploadTaskStatus(task.status)
+  status: normalizeUploadTaskStatus(task.status),
+  instant: Boolean(task.instant)
 }));
 
 let uploadTasksSaveTimer = 0;
@@ -696,6 +786,7 @@ const loadUploadTasks = async () => {
       sourcePath: String(task.sourcePath || ""),
       progress: Number(task.progress || 0),
       status: task.status === "uploading" || task.status === "pending" ? "paused" : normalizeUploadTaskStatus(task.status),
+      instant: Boolean(task.instant),
       xhr: null,
       abortController: null,
       cancelRequested: false,
@@ -967,7 +1058,7 @@ const renderUploadTasks = () => {
   const allTasks = state.uploadTasks;
   const pendingCount = allTasks.filter(t => t.status === "pending").length;
   const completedCount = allTasks.filter(t => t.status === "completed").length;
-  const activeCount = allTasks.filter(t => t.status === "uploading" || t.status === "paused").length;
+  const activeCount = allTasks.filter(t => t.status === "uploading" || t.status === "paused" || t.status === "calculating").length;
   const failedCount = allTasks.filter(t => t.status === "canceled" || t.status === "failed").length;
   
   const pendingCountEl = document.getElementById("uploadPendingCount");
@@ -987,7 +1078,7 @@ const renderUploadTasks = () => {
   } else if (currentFilter === "completed") {
     filteredTasks = filteredTasks.filter(t => t.status === "completed");
   } else if (currentFilter === "active") {
-    filteredTasks = filteredTasks.filter(t => t.status === "uploading" || t.status === "paused");
+    filteredTasks = filteredTasks.filter(t => t.status === "uploading" || t.status === "paused" || t.status === "calculating");
   } else if (currentFilter === "failed") {
     filteredTasks = filteredTasks.filter(t => t.status === "canceled" || t.status === "failed");
   }
@@ -1025,6 +1116,7 @@ const renderUploadTasks = () => {
             <div class="upload-task-name" title="${escapeHtml(task.name)}">${escapeHtml(task.name)}</div>
             <div class="upload-task-meta">
               <span class="upload-task-size">${task.size > 0 ? formatSize(task.size) : "-"}</span>
+              ${task.instant ? '<span class="upload-task-instant">秒传</span>' : ''}
               <span class="upload-task-status ${statusClass}">${statusLabel}</span>
             </div>
             ${hasProgress ? `<div class="upload-task-progress"><div class="upload-progress-bar"><div class="upload-progress-inner" style="width:${progressPercent}%"></div></div><span class="upload-progress-text">${progressPercent}%</span></div>` : ''}
@@ -1033,7 +1125,7 @@ const renderUploadTasks = () => {
         <div class="upload-task-actions">
           ${task.status === "uploading" ? `<button class="upload-action-btn" data-upload-pause="${task.id}"><i class="fa-solid fa-pause"></i></button>` : ""}
           ${task.status === "paused" ? `<button class="upload-action-btn primary" data-upload-resume="${task.id}"><i class="fa-solid fa-play"></i></button>` : ""}
-          ${(task.status === "pending" || task.status === "uploading" || task.status === "paused") ? `<button class="upload-action-btn danger" data-upload-cancel="${task.id}"><i class="fa-solid fa-xmark"></i></button>` : ""}
+          ${(task.status === "pending" || task.status === "uploading" || task.status === "paused" || task.status === "calculating") ? `<button class="upload-action-btn danger" data-upload-cancel="${task.id}"><i class="fa-solid fa-xmark"></i></button>` : ""}
           <button class="upload-action-btn" data-upload-delete="${task.id}"><i class="fa-solid fa-trash"></i></button>
         </div>
       </div>`;
@@ -1169,7 +1261,7 @@ const getUploadStatusClass = (task) => {
   if (task.status === "completed") return "status-completed";
   if (task.status === "canceled" || task.status === "failed") return "status-failed";
   if (task.status === "paused") return "status-paused";
-  if (task.status === "pending" || task.status === "uploading") return "status-active";
+  if (task.status === "pending" || task.status === "uploading" || task.status === "calculating") return "status-active";
   return "";
 };
 
@@ -1180,6 +1272,7 @@ const getUploadStatusLabel = (task) => {
   if (task.status === "failed") return "失败";
   if (task.status === "paused") return "已暂停";
   if (task.status === "uploading") return "上传中";
+  if (task.status === "calculating") return "计算MD5中";
   return "";
 };
 
@@ -1485,7 +1578,7 @@ const updateUploadTask = (taskId, patch) => {
 
 const cancelUploadTask = (taskId) => {
   const task = state.uploadTasks.find((item) => item.id === taskId);
-  if (!task || (task.status !== "uploading" && task.status !== "pending" && task.status !== "paused")) return false;
+  if (!task || (task.status !== "uploading" && task.status !== "pending" && task.status !== "paused" && task.status !== "calculating")) return false;
   uploadTaskRuntimePayloadMap.delete(taskId);
   task.cancelRequested = true;
   updateUploadTask(taskId, { status: "canceled", uploadSessionId: "" });

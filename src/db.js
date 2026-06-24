@@ -89,6 +89,7 @@ const initDatabase = async () => {
       file_category VARCHAR(16) NOT NULL DEFAULT 'other',
       size BIGINT NOT NULL,
       mime_type VARCHAR(255) NULL,
+      md5 VARCHAR(32) NULL,
       space_type VARCHAR(16) NOT NULL DEFAULT 'normal',
       deleted_at DATETIME NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -97,9 +98,24 @@ const initDatabase = async () => {
       INDEX idx_files_user_space (user_id, space_type, deleted_at),
       INDEX idx_files_category (file_category),
       INDEX idx_files_updated (updated_at),
-      INDEX idx_files_original_name (original_name(100))
+      INDEX idx_files_original_name (original_name(100)),
+      INDEX idx_files_md5 (md5)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
+  
+  // 迁移：为files表添加md5字段（如果不存在）
+  try {
+    await pool.query("ALTER TABLE files ADD COLUMN md5 VARCHAR(32) NULL AFTER mime_type");
+  } catch (e) {}
+  try {
+    await pool.query("ALTER TABLE files ADD INDEX idx_files_md5 (md5)");
+  } catch (e) {}
+
+  // 迁移：为upload_tasks表添加instant字段（如果不存在）
+  try {
+    await pool.query("ALTER TABLE upload_tasks ADD COLUMN instant TINYINT(1) NOT NULL DEFAULT 0 AFTER status");
+  } catch (e) {}
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS upload_tasks (
       id INT PRIMARY KEY AUTO_INCREMENT,
@@ -113,6 +129,7 @@ const initDatabase = async () => {
       source_path VARCHAR(1024) NOT NULL DEFAULT '',
       progress TINYINT UNSIGNED NOT NULL DEFAULT 0,
       status VARCHAR(20) NOT NULL,
+      instant TINYINT(1) NOT NULL DEFAULT 0,
       space_type VARCHAR(16) NOT NULL DEFAULT 'normal',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

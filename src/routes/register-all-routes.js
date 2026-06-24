@@ -570,7 +570,8 @@ const registerAllRoutes = (app, deps) => {
     copyFolderRecursive,
     resolveUniqueName,
     safeFileName,
-    normalizeStorageSpaceType
+    normalizeStorageSpaceType,
+    buildFolderLogicalPathResolver
   });
 
   const registerRecycleRoutes = require("./recycle");

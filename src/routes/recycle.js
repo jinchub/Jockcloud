@@ -1,3 +1,5 @@
+const crypto = require("crypto");
+
 module.exports = (app, deps) => {
   const {
     authRequired,
@@ -16,6 +18,71 @@ module.exports = (app, deps) => {
     cleanupExpiredRecycleEntries,
     buildFolderLogicalPathResolver
   } = deps;
+
+  // 管理接口：为现有文件计算MD5
+  app.post("/api/admin/calc-md5", authRequired, async (req, res) => {
+    if (!req.user || req.user.role !== "admin") {
+      res.status(403).json({ message: "需要管理员权限" });
+      return;
+    }
+    
+    const batchSize = Number.parseInt(String(req.body.batchSize || "50"), 10);
+    const actualBatchSize = Number.isFinite(batchSize) && batchSize > 0 && batchSize <= 200 ? batchSize : 50;
+    
+    try {
+      // 获取没有md5的文件
+      const [files] = await pool.query(
+        "SELECT id, storage_name, space_type, original_name FROM files WHERE md5 IS NULL AND deleted_at IS NULL LIMIT ?",
+        [actualBatchSize]
+      );
+      
+      if (files.length === 0) {
+        res.json({ message: "没有需要处理的文件", processed: 0, remaining: 0 });
+        return;
+      }
+      
+      let successCount = 0;
+      let errorCount = 0;
+      
+      for (const file of files) {
+        try {
+          const filePath = resolveAbsoluteStoragePath(file.storage_name, file.space_type);
+          
+          if (!filePath || !fs.existsSync(filePath)) {
+            errorCount++;
+            continue;
+          }
+          
+          const md5 = await new Promise((resolve, reject) => {
+            const hash = crypto.createHash("md5");
+            const stream = fs.createReadStream(filePath);
+            stream.on("data", (chunk) => hash.update(chunk));
+            stream.on("end", () => resolve(hash.digest("hex")));
+            stream.on("error", reject);
+          });
+          
+          await pool.query("UPDATE files SET md5 = ? WHERE id = ?", [md5, file.id]);
+          successCount++;
+        } catch (e) {
+          errorCount++;
+        }
+      }
+      
+      // 获取剩余未处理的文件数量
+      const [remainingRows] = await pool.query(
+        "SELECT COUNT(*) as cnt FROM files WHERE md5 IS NULL AND deleted_at IS NULL"
+      );
+      const remaining = remainingRows[0].cnt;
+      
+      res.json({ 
+        message: `处理完成，成功: ${successCount}, 失败: ${errorCount}`,
+        processed: successCount + errorCount,
+        remaining: remaining
+      });
+    } catch (error) {
+      sendDbError(res, error);
+    }
+  });
 
   app.get("/api/recycle", authRequired, async (req, res) => {
     const spaceType = resolveStorageSpaceTypeByRequest(req);
@@ -187,17 +254,39 @@ module.exports = (app, deps) => {
         res.status(404).json({ message: "文件不存在或未删除" });
         return;
       }
+      const storageName = rows[0].storageName;
+      const thumbnailStorageName = rows[0].thumbnailStorageName;
+      
       await pool.query("DELETE FROM files WHERE id = ? AND user_id = ? AND space_type = ?", [fileId, req.user.userId, spaceType]);
-      const targetPath = resolveAbsoluteStoragePath(rows[0].storageName, spaceType);
-      if (targetPath && fs.existsSync(targetPath)) {
-        fs.unlinkSync(targetPath);
-      }
-      if (rows[0].thumbnailStorageName) {
-        const thumbnailPath = resolveAbsoluteStoragePath(rows[0].thumbnailStorageName, spaceType);
-        if (thumbnailPath && fs.existsSync(thumbnailPath)) {
-          fs.unlinkSync(thumbnailPath);
+      
+      // 检查是否还有其他用户引用此物理文件（通过md5或storage_name）
+      const [otherRefs] = await pool.query(
+        "SELECT id FROM files WHERE storage_name = ? AND deleted_at IS NULL LIMIT 1",
+        [storageName]
+      );
+      
+      // 只有没有其他用户引用时，才删除物理文件
+      if (otherRefs.length === 0) {
+        const targetPath = resolveAbsoluteStoragePath(storageName, spaceType);
+        if (targetPath && fs.existsSync(targetPath)) {
+          fs.unlinkSync(targetPath);
         }
       }
+      
+      // 缩略图也检查引用
+      if (thumbnailStorageName) {
+        const [thumbRefs] = await pool.query(
+          "SELECT id FROM files WHERE thumbnail_storage_name = ? AND deleted_at IS NULL LIMIT 1",
+          [thumbnailStorageName]
+        );
+        if (thumbRefs.length === 0) {
+          const thumbnailPath = resolveAbsoluteStoragePath(thumbnailStorageName, spaceType);
+          if (thumbnailPath && fs.existsSync(thumbnailPath)) {
+            fs.unlinkSync(thumbnailPath);
+          }
+        }
+      }
+      
       res.json({ message: "文件已彻底删除" });
     } catch (error) {
       sendDbError(res, error);
@@ -237,18 +326,38 @@ module.exports = (app, deps) => {
         spaceType,
         ...allFolderIds
       ]);
-      fileRows.forEach((item) => {
-        const targetPath = resolveAbsoluteStoragePath(item.storageName, spaceType);
-        if (targetPath && fs.existsSync(targetPath)) {
-          fs.unlinkSync(targetPath);
+      
+      // 收集需要删除的物理文件（去重）
+      const storageNamesToDelete = [...new Set(fileRows.map(item => item.storageName).filter(Boolean))];
+      const thumbnailNamesToDelete = [...new Set(fileRows.map(item => item.thumbnailStorageName).filter(Boolean))];
+      
+      // 对每个物理文件检查是否还有其他用户引用
+      for (const storageName of storageNamesToDelete) {
+        const [otherRefs] = await pool.query(
+          "SELECT id FROM files WHERE storage_name = ? AND deleted_at IS NULL LIMIT 1",
+          [storageName]
+        );
+        if (otherRefs.length === 0) {
+          const targetPath = resolveAbsoluteStoragePath(storageName, spaceType);
+          if (targetPath && fs.existsSync(targetPath)) {
+            fs.unlinkSync(targetPath);
+          }
         }
-        if (item.thumbnailStorageName) {
-          const thumbnailPath = resolveAbsoluteStoragePath(item.thumbnailStorageName, spaceType);
+      }
+      
+      for (const thumbnailStorageName of thumbnailNamesToDelete) {
+        const [thumbRefs] = await pool.query(
+          "SELECT id FROM files WHERE thumbnail_storage_name = ? AND deleted_at IS NULL LIMIT 1",
+          [thumbnailStorageName]
+        );
+        if (thumbRefs.length === 0) {
+          const thumbnailPath = resolveAbsoluteStoragePath(thumbnailStorageName, spaceType);
           if (thumbnailPath && fs.existsSync(thumbnailPath)) {
             fs.unlinkSync(thumbnailPath);
           }
         }
-      });
+      }
+      
       res.json({ message: "目录已彻底删除" });
     } catch (error) {
       sendDbError(res, error);
@@ -264,18 +373,38 @@ module.exports = (app, deps) => {
       );
       await pool.query("DELETE FROM files WHERE user_id = ? AND space_type = ? AND deleted_at IS NOT NULL", [req.user.userId, spaceType]);
       await pool.query("DELETE FROM folders WHERE user_id = ? AND space_type = ? AND deleted_at IS NOT NULL", [req.user.userId, spaceType]);
-      fileRows.forEach((item) => {
-        const targetPath = resolveAbsoluteStoragePath(item.storageName, spaceType);
-        if (targetPath && fs.existsSync(targetPath)) {
-          fs.unlinkSync(targetPath);
+      
+      // 收集需要删除的物理文件（去重）
+      const storageNamesToDelete = [...new Set(fileRows.map(item => item.storageName).filter(Boolean))];
+      const thumbnailNamesToDelete = [...new Set(fileRows.map(item => item.thumbnailStorageName).filter(Boolean))];
+      
+      // 对每个物理文件检查是否还有其他用户引用
+      for (const storageName of storageNamesToDelete) {
+        const [otherRefs] = await pool.query(
+          "SELECT id FROM files WHERE storage_name = ? AND deleted_at IS NULL LIMIT 1",
+          [storageName]
+        );
+        if (otherRefs.length === 0) {
+          const targetPath = resolveAbsoluteStoragePath(storageName, spaceType);
+          if (targetPath && fs.existsSync(targetPath)) {
+            fs.unlinkSync(targetPath);
+          }
         }
-        if (item.thumbnailStorageName) {
-          const thumbnailPath = resolveAbsoluteStoragePath(item.thumbnailStorageName, spaceType);
+      }
+      
+      for (const thumbnailStorageName of thumbnailNamesToDelete) {
+        const [thumbRefs] = await pool.query(
+          "SELECT id FROM files WHERE thumbnail_storage_name = ? AND deleted_at IS NULL LIMIT 1",
+          [thumbnailStorageName]
+        );
+        if (thumbRefs.length === 0) {
+          const thumbnailPath = resolveAbsoluteStoragePath(thumbnailStorageName, spaceType);
           if (thumbnailPath && fs.existsSync(thumbnailPath)) {
             fs.unlinkSync(thumbnailPath);
           }
         }
-      });
+      }
+      
       res.json({ message: "回收站已清空" });
     } catch (error) {
       sendDbError(res, error);

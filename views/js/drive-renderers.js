@@ -458,7 +458,7 @@ const renderFileList = () => {
     fileListEl.classList.add(`grid-size-${state.gridSize}`);
   }
 
-  const timeSortKey = state.view === "recycle" ? "deletedAt" : "updatedAt";
+  const timeSortKey = state.view === "recycle" ? "deletedAt" : "createdAt";
   const getSortHeaderHtml = (label, key) => {
     const isActive = state.sortBy === key;
     const isAsc = isActive && state.order === "asc";
@@ -469,7 +469,7 @@ const renderFileList = () => {
     if (div.classList.contains("cell-name")) div.innerHTML = getSortHeaderHtml("文件名", "name");
     if (div.classList.contains("cell-size")) div.innerHTML = getSortHeaderHtml("大小", "size");
     if (div.classList.contains("cell-type")) div.innerHTML = getSortHeaderHtml("类型", "type");
-    if (div.classList.contains("cell-time")) div.innerHTML = getSortHeaderHtml(state.view === "recycle" ? "删除时间" : "修改时间", timeSortKey);
+    if (div.classList.contains("cell-time")) div.innerHTML = getSortHeaderHtml(state.view === "recycle" ? "删除时间" : "上传时间", timeSortKey);
     if (div.classList.contains("cell-quick")) div.textContent = state.view === "recycle" ? "" : "收藏";
     if (div.classList.contains("cell-origin")) div.textContent = state.view === "recycle" ? "原目录" : "";
     if (div.classList.contains("cell-expire")) div.textContent = state.view === "recycle" ? "多久后自动删除" : "";
@@ -502,7 +502,7 @@ const renderFileList = () => {
     const displayEntryName = entryName;
     const escapedEntryName = escapeHtml(entryName);
     const escapedDisplayEntryName = escapeHtml(displayEntryName);
-    const timeValue = state.view === "recycle" ? entry.deletedAt : entry.updatedAt;
+    const timeValue = state.view === "recycle" ? entry.deletedAt : entry.createdAt;
     const timeLabel = formatDate(timeValue);
     const timelineDayLabel = formatDateDay(timeValue);
     const originalDir = state.view === "recycle" ? String(entry.originalDir || "我的文件") : "";
@@ -1149,10 +1149,6 @@ const renderDetails = (entry, loading = false) => {
     <div class="info-prop">
       <div class="info-prop-label">${isFolder ? "创建时间" : "上传时间"}</div>
       <div class="info-prop-value">${formatDate(entry.createdAt)}</div>
-    </div>
-    <div class="info-prop">
-      <div class="info-prop-label">修改时间</div>
-      <div class="info-prop-value">${formatDate(entry.updatedAt)}</div>
     </div>
     ${!isFolder ? `
     <div class="info-prop">

@@ -49,7 +49,8 @@
       entries: [],
       activeIndex: -1,
       sidebarCollapsed: false,
-      lastWheelAt: 0
+      lastWheelAt: 0,
+      playbackMode: "once" // once: 单次播放, repeat-one: 单曲循环, repeat-all: 列表播放, shuffle: 随机播放
     },
     textPreview: {
       fontSize: 13,
@@ -172,12 +173,12 @@
   const setPreviewMeta = (entry) => {
     if (!previewMeta) return;
     if (!entry || entry.type !== "file") {
-      previewMeta.textContent = "大小：- ｜ 修改时间：-";
+      previewMeta.textContent = "大小：- ｜ 上传时间：-";
       return;
     }
     const sizeText = formatSize(entry.size);
-    const timeText = formatDate(entry.updatedAt || entry.modifiedAt || entry.mtime || entry.createdAt);
-    previewMeta.textContent = `大小：${sizeText} ｜ 修改时间：${timeText}`;
+    const timeText = formatDate(entry.createdAt || entry.updatedAt || entry.modifiedAt || entry.mtime);
+    previewMeta.textContent = `大小：${sizeText} ｜ 上传时间：${timeText}`;
     // 如果是 PDF 预览，添加浏览器预览按钮到 meta 中（仅电脑端）
     if (state.activeType === "document" && getFileExt(state.activeEntry?.name) === "pdf" && typeof isMobileViewport === "function" && !isMobileViewport()) {
       const existingBtn = previewMeta.querySelector("#pdfBrowserPreviewBtn");
@@ -641,7 +642,7 @@ importScripts(${JSON.stringify(workerMainUrl)});
 
     container.innerHTML = `
       <div class="pdf-preview pptx-preview">
-        <div class="pdf-loading">正在转换 PPT，请稍候...</div>
+        <div class="pdf-loading">正在加载预览...</div>
         <div class="pdf-error" style="display:none;"></div>
         <div class="pdf-content-wrap" style="display:none;">
           <div class="pdf-canvas-wrap pptx-canvas-wrap"></div>
@@ -674,9 +675,10 @@ importScripts(${JSON.stringify(workerMainUrl)});
     const fallbackBtn = container.querySelector("#pptxFallbackBtn");
 
     const fallbackToHtml = (message, showImageBtn = false) => {
+      const loadingText = message || "正在加载预览...";
       container.innerHTML = `
         <div class="document-preview">
-          <div class="loading" style="display:${message ? "block" : "none"};color:#666;padding:12px;">${message || "正在加载..."}</div>
+          <div class="loading" style="display:block;color:#666;padding:12px;">${loadingText}</div>
           <iframe class="preview-iframe" style="display:none;" src="${finalFallbackUrl}"></iframe>
         </div>
       `;
@@ -855,19 +857,12 @@ importScripts(${JSON.stringify(workerMainUrl)});
     try {
       const response = await fetch(finalPdfUrl);
       if (!response.ok) {
-        let fallbackMsg = "正在使用原始样式预览...";
-        try {
-          const errData = await response.json();
-          if (errData && errData.needLibreOffice) {
-            fallbackMsg = errData.message || "需要安装 LibreOffice 才能使用图片式预览。正在使用原始样式预览...";
-          }
-        } catch (e) {}
-        fallbackToHtml(fallbackMsg);
+        fallbackToHtml();
         return;
       }
       const contentType = response.headers.get("content-type") || "";
       if (!contentType.includes("application/pdf")) {
-        fallbackToHtml("正在使用原始样式预览...");
+        fallbackToHtml();
         return;
       }
       const arrayBuffer = await response.arrayBuffer();
@@ -1223,7 +1218,15 @@ importScripts(${JSON.stringify(workerMainUrl)});
     };
 
     try {
-      const loadingTask = pdfjsLib.getDocument(finalUrl);
+      // 先用 fetch 获取 PDF（会自动携带 cookies），再传递给 PDF.js
+      const response = await fetch(finalUrl);
+      if (!response.ok) {
+        loading.textContent = "PDF 加载失败，请稍后重试";
+        errorDiv.style.display = "block";
+        return;
+      }
+      const arrayBuffer = await response.arrayBuffer();
+      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
       pdfDoc = await loadingTask.promise;
       loading.style.display = "none";
       currentPage = 1;
@@ -1607,6 +1610,8 @@ importScripts(${JSON.stringify(workerMainUrl)});
     const audioVolumeBtn = previewBody.querySelector("#previewAudioVolumeBtn");
     const audioVolumeIcon = previewBody.querySelector("#previewAudioVolumeIcon");
     const audioVolumePopup = previewBody.querySelector("#previewAudioVolumePopup");
+    const audioModeBtn = previewBody.querySelector("#previewAudioModeBtn");
+    const audioModeIcon = previewBody.querySelector("#previewAudioModeIcon");
     const audioEl = previewBody.querySelector("audio.preview-audio");
     const stageEl = previewBody.querySelector("#previewMediaStage");
     const toggleSidebarBtn = previewBody.querySelector("#previewMediaToggleSidebarBtn");
@@ -1672,6 +1677,35 @@ importScripts(${JSON.stringify(workerMainUrl)});
       };
       audioEl.onplay = syncPlayState;
       audioEl.onpause = syncPlayState;
+      audioEl.onended = () => {
+        const mode = state.mediaPreview.playbackMode || "once";
+        const entries = state.mediaPreview.entries;
+        const currentIndex = state.mediaPreview.activeIndex;
+        if (mode === "repeat-one") {
+          // 单曲循环：重新播放当前歌曲
+          audioEl.currentTime = 0;
+          audioEl.play().catch(() => {});
+        } else if (mode === "repeat-all") {
+          // 列表播放：播放下一首，到末尾后回到第一首
+          let nextIndex = currentIndex + 1;
+          if (nextIndex >= entries.length) {
+            nextIndex = 0;
+          }
+          if (!setMediaActiveByIndex(nextIndex)) return;
+          updateMediaActiveState(previewType);
+        } else if (mode === "shuffle") {
+          // 随机播放：随机选择一首（排除当前）
+          if (entries.length > 1) {
+            let randomIndex;
+            do {
+              randomIndex = Math.floor(Math.random() * entries.length);
+            } while (randomIndex === currentIndex);
+            if (!setMediaActiveByIndex(randomIndex)) return;
+            updateMediaActiveState(previewType);
+          }
+        }
+        // once 模式：播放结束后不自动切换
+      };
     }
     if (audioProgressRange && audioEl) {
       const audioProgressFill = previewBody.querySelector("#previewAudioProgressFill");
@@ -1751,6 +1785,33 @@ importScripts(${JSON.stringify(workerMainUrl)});
         };
         document.addEventListener("click", closePopup);
       }
+    }
+    if (audioModeBtn && audioModeIcon) {
+      const PLAYBACK_MODES = ["once", "repeat-one", "repeat-all", "shuffle"];
+      const PLAYBACK_MODE_ICONS = {
+        once: "fa-solid fa-arrow-right-arrow-left",
+        "repeat-one": "fa-solid fa-repeat",
+        "repeat-all": "fa-solid fa-list-ol",
+        shuffle: "fa-solid fa-shuffle"
+      };
+      const PLAYBACK_MODE_TITLES = {
+        once: "单次播放",
+        "repeat-one": "单曲循环",
+        "repeat-all": "列表播放",
+        shuffle: "随机播放"
+      };
+      const syncModeIcon = () => {
+        const mode = state.mediaPreview.playbackMode || "once";
+        audioModeIcon.className = PLAYBACK_MODE_ICONS[mode] || PLAYBACK_MODE_ICONS.once;
+        audioModeBtn.title = PLAYBACK_MODE_TITLES[mode] || "单次播放";
+      };
+      syncModeIcon();
+      audioModeBtn.onclick = () => {
+        const currentIndex = PLAYBACK_MODES.indexOf(state.mediaPreview.playbackMode);
+        const nextIndex = (currentIndex + 1) % PLAYBACK_MODES.length;
+        state.mediaPreview.playbackMode = PLAYBACK_MODES[nextIndex];
+        syncModeIcon();
+      };
     }
     if (stageEl) {
       stageEl.onwheel = (event) => {
@@ -2008,6 +2069,7 @@ importScripts(${JSON.stringify(workerMainUrl)});
               <span class="preview-media-toolbar-name" title="${mediaName}">${mediaName}</span>
               <span class="preview-media-toolbar-tip">滚轮切换${previewType === "video" ? "视频" : "音频"}</span>
             </div>
+            ${previewType === "audio" ? `<div class="preview-media-toolbar-right"><button type="button" class="preview-audio-mode-btn" id="previewAudioModeBtn" aria-label="播放模式" title="播放模式"><i class="fa-solid fa-arrow-right-arrow-left" id="previewAudioModeIcon"></i></button></div>` : ""}
             ${previewType === "video" && mobileNav ? `<button type="button" class="preview-media-nav next" id="previewMediaNextBtn" ${hasNext ? "" : "disabled"}>下一项</button>` : ""}
           </div>
         </section>
@@ -2481,7 +2543,9 @@ importScripts(${JSON.stringify(workerMainUrl)});
       maximizePreviewBtn.onclick = () => {
         if (!state.activeEntry || !state.activeType) return;
         hideMiniWindow();
-        open(state.activeEntry);
+        if (previewModal) {
+          previewModal.style.display = "flex";
+        }
       };
     }
     if (closeMiniPreviewBtn) {

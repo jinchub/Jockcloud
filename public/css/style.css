@@ -141,6 +141,7 @@ input[type="checkbox"]:checked::after {
   background: radial-gradient(circle at center, #ffffff 40%, #165dff 50%);
 }
 
+
 input[type="checkbox"]:disabled {
   opacity: 0.7;
   cursor: not-allowed;
@@ -2184,6 +2185,16 @@ html {
   font-size: 0.65rem;
 }
 
+.upload-task-instant {
+  padding: 0px 6px;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  height: 14px;
+  line-height: 14px;
+  background: #f0e8ff;
+  color: #722ed1;
+}
+
 .upload-task-status {
   padding: 0px 6px;
   border-radius: 4px;
@@ -3260,11 +3271,6 @@ html {
   margin-bottom: 16px;
 }
 
-.grid-item.video-no-thumb .grid-item-name,
-.table-row.video-no-thumb .file-name-text {
-  display: none !important;
-}
-
 .grid-item-name {
   width: 100%;
   max-width: 100%;
@@ -3472,6 +3478,7 @@ video.file-thumb-list {
   height: 18px;
   display: inline-block;
   flex-shrink: 0;
+  margin: 0px 2px;
 }
 
 .file-thumb-video-list-video {
@@ -3479,6 +3486,7 @@ video.file-thumb-list {
   height: 18px;
   object-fit: fill;
   border-radius: 2px;
+  margin:0px 2px;
 }
 
 .file-thumb-video-list-play-icon {
@@ -3491,7 +3499,7 @@ video.file-thumb-list {
   border-radius: 50%;
   width: 10px !important;
   height: 10px;
-  margin: 2px;
+  margin: 0px 2px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3950,14 +3958,98 @@ video.file-thumb-list {
   color: #fff;
 }
 
+/* 开关样式复选框 - 用于权限配置、配额等 */
 .perm-checkbox,
 #quotaUnlimited,
-.group-perm-checkbox,
+#userGroupQuotaUnlimited,
 #userGroupMaxUploadUnlimited,
-#userGroupMaxUploadFileCountUnlimited {
-  width: 14px !important;
+#userGroupMaxUploadFileCountUnlimited,
+.group-perm-checkbox {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  width: 32px !important;
+  height: 16px !important;
+  border: none !important;
+  border-radius: 11px !important;
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  background: #d9d9d9;
+  transition: background 0.2s ease;
 }
 
+.perm-checkbox::after,
+#quotaUnlimited::after,
+#userGroupQuotaUnlimited::after,
+#userGroupMaxUploadUnlimited::after,
+#userGroupMaxUploadFileCountUnlimited::after,
+.group-perm-checkbox::after {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  transition: transform 0.2s ease;
+}
+
+.perm-checkbox:checked,
+#quotaUnlimited:checked,
+#userGroupQuotaUnlimited:checked,
+#userGroupMaxUploadUnlimited:checked,
+#userGroupMaxUploadFileCountUnlimited:checked,
+.group-perm-checkbox:checked {
+  background: var(--primary-color);
+}
+
+.perm-checkbox:checked::after,
+#quotaUnlimited:checked::after,
+#userGroupQuotaUnlimited:checked::after,
+#userGroupMaxUploadUnlimited:checked::after,
+#userGroupMaxUploadFileCountUnlimited:checked::after,
+.group-perm-checkbox:checked::after {
+  transform: translateX(15px);
+    top: 2px !important;
+    left: 2px !important;
+    background: white !important;
+    width: 12px !important;
+    height: 12px !important;
+}
+
+[data-theme="dark"] .perm-checkbox,
+[data-theme="dark"] #quotaUnlimited,
+[data-theme="dark"] #userGroupQuotaUnlimited,
+[data-theme="dark"] #userGroupMaxUploadUnlimited,
+[data-theme="dark"] #userGroupMaxUploadFileCountUnlimited,
+[data-theme="dark"] .group-perm-checkbox {
+  background: #555;
+}
+
+[data-theme="dark"] .perm-checkbox::after,
+[data-theme="dark"] #quotaUnlimited::after,
+[data-theme="dark"] #userGroupQuotaUnlimited::after,
+[data-theme="dark"] #userGroupMaxUploadUnlimited::after,
+[data-theme="dark"] #userGroupMaxUploadFileCountUnlimited::after,
+[data-theme="dark"] .group-perm-checkbox::after {
+  background: #e0e0e0;
+}
+
+[data-theme="dark"] .perm-checkbox:checked,
+[data-theme="dark"] #quotaUnlimited:checked,
+[data-theme="dark"] #userGroupQuotaUnlimited:checked,
+[data-theme="dark"] #userGroupMaxUploadUnlimited:checked,
+[data-theme="dark"] #userGroupMaxUploadFileCountUnlimited:checked,
+[data-theme="dark"] .group-perm-checkbox:checked {
+  background: var(--primary-color);
+}
+
+.group-perm-checkbox{
+    background: #d9d9d9;
+}
 .mounts-layout {
   display: flex;
   height: 100%;
@@ -6935,9 +7027,24 @@ video.file-thumb-list {
   background: var(--bg-primary);
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   gap: 10px;
   padding: 0 12px;
+}
+
+.preview-media-toolbar-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.preview-media-toolbar-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 40px;
 }
 
 .preview-image-toolbar button {
@@ -6996,10 +7103,10 @@ video.file-thumb-list {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   color: var(--text-primary);
   gap: 22px;
   margin: 0;
+  justify-content: space-evenly;
 }
 
 .preview-media-audio-wrap .preview-audio {
@@ -7206,8 +7313,6 @@ video.file-thumb-list {
   justify-content: center;
   gap: 70px;
   flex-shrink: 0;
-  position: absolute;
-  bottom: 40px;
 }
 
 .preview-audio-btn {
@@ -7258,6 +7363,32 @@ video.file-thumb-list {
 .preview-audio-btn:disabled {
   opacity: 0.35;
   cursor: not-allowed;
+}
+
+.preview-audio-mode-btn {
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 999px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  cursor: pointer;
+  font-size: 16px;
+  transition: color 0.15s ease, transform 0.15s ease, background 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.preview-audio-mode-btn:hover {
+  color: #c20c0c;
+  background: rgba(194, 12, 12, 0.08);
+}
+
+.preview-audio-mode-btn:active {
+  transform: scale(0.95);
 }
 
 .preview-audio-volume-wrap {
@@ -7425,6 +7556,15 @@ video.file-thumb-list {
 
 [data-theme="dark"] .preview-audio-btn.is-primary {
   box-shadow: 0 6px 20px rgba(194, 12, 12, 0.4);
+}
+
+[data-theme="dark"] .preview-audio-mode-btn {
+  color: #ccc;
+}
+
+[data-theme="dark"] .preview-audio-mode-btn:hover {
+  color: #c20c0c;
+  background: rgba(194, 12, 12, 0.15);
 }
 
 [data-theme="dark"] .preview-audio-volume-btn {
