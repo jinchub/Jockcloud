@@ -2003,13 +2003,21 @@ importScripts(${JSON.stringify(workerMainUrl)});
       (profileAvatarImg && profileAvatarImg.tagName === "IMG" && profileAvatarImg.getAttribute("src")) ||
       "";
     const avatarUrl = String(avatarUrlRaw || "").trim();
+    const profileUsernameEl = document.getElementById("profileCenterUsername");
+    const profileUsernameText = profileUsernameEl ? profileUsernameEl.textContent.replace("用户名: ", "").trim() : "";
+    const displayName = profileUsernameText || "User";
+    const initialLetter = displayName.charAt(0).toUpperCase();
+    const defaultAvatarSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%"><rect width="100" height="100" fill="#1a1a1a" rx="50"/><text x="50" y="50" text-anchor="middle" dominant-baseline="central" font-family="Arial, sans-serif" font-size="48" font-weight="bold" fill="#ffffff">${state.escapeHtml(initialLetter)}</text></svg>`;
+    const avatarHtml = avatarUrl
+      ? `<img class="preview-audio-avatar" src="${state.escapeHtml(avatarUrl)}" alt="" />`
+      : `<div class="preview-audio-avatar-preview">${defaultAvatarSvg}</div>`;
     const playerHtml = previewType === "video"
       ? `<video class="preview-video preview-media-main-video" src="${mediaUrl}" controls autoplay preload="metadata" playsinline></video>`
       : `
         <div class="preview-media-audio-wrap">
           <audio class="preview-audio" src="${mediaUrl}" autoplay preload="metadata"></audio>
           <div class="preview-audio-cover" id="previewAudioCover">
-            ${avatarUrl ? `<img class="preview-audio-avatar" src="${state.escapeHtml(avatarUrl)}" alt="" />` : `<div class="preview-audio-avatar-preview"></div>`}
+            ${avatarHtml}
           </div>
           <div class="preview-audio-title">${mediaName}</div>
           <div class="preview-audio-subtitle">云盘音乐</div>

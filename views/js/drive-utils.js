@@ -836,7 +836,7 @@ const getDownloadStatusText = (task) => {
   if (task.status === "completed") return "已完成";
   if (task.status === "canceled") return "已取消";
   if (task.status === "paused") return "已暂停";
-  if (task.status === "browser_downloading") return "请在默认下载目录中查看";
+  if (task.status === "browser_downloading") return "请在浏览器中查看下载进度";
   if (task.status === "downloading") {
     const progressText = task.progress > 0 ? ` ${task.progress}%` : "";
     const speedText = task.speed > 0 ? ` | ${formatSize(task.speed)}/s` : "";
@@ -868,10 +868,10 @@ const getCanceledSelectedTransferTaskCount = () => {
 };
 
 const renderTransferTaskHeader = () => {
-  if (!uploadingCountEl || !completedCountEl || !pendingCountEl) return;
   const isUploadTab = state.transferTaskTab === "upload";
   const pendingUploadCount = state.uploadTasks.filter((task) => task.status === "pending").length;
   const uploadingCount = state.uploadTasks.filter((task) => task.status === "uploading").length;
+  const calculatingUploadCount = state.uploadTasks.filter((task) => task.status === "calculating").length;
   const uploadCompletedCount = state.uploadTasks.filter((task) => task.status === "completed").length;
   const pendingDownloadCount = state.downloadTasks.filter((task) => task.status === "pending").length;
   const downloadingCount = state.downloadTasks.filter((task) => task.status === "downloading").length;
@@ -879,9 +879,21 @@ const renderTransferTaskHeader = () => {
   const pausedDownloadCount = state.downloadTasks.filter((task) => task.status === "paused").length;
   const downloadCompletedCount = state.downloadTasks.filter((task) => task.status === "completed").length;
   
-  // 更新上传和下载按钮显示
-  const activeUploadCount = pendingUploadCount + uploadingCount;
+  const activeUploadCount = pendingUploadCount + uploadingCount + calculatingUploadCount;
   const activeDownloadCount = pendingDownloadCount + downloadingCount + pausedDownloadCount;
+  const activeTaskCount = activeUploadCount + activeDownloadCount;
+  
+  if (uploadTasksCompletedBadge) {
+    if (activeTaskCount > 0) {
+      uploadTasksCompletedBadge.textContent = String(activeTaskCount);
+      uploadTasksCompletedBadge.style.display = "inline-flex";
+    } else {
+      uploadTasksCompletedBadge.textContent = "";
+      uploadTasksCompletedBadge.style.display = "none";
+    }
+  }
+  
+  if (!uploadingCountEl || !completedCountEl || !pendingCountEl) return;
   
   if (transferUploadTabBtn) {
     if (activeUploadCount > 0) {
@@ -921,16 +933,6 @@ const renderTransferTaskHeader = () => {
     completedCountEl.textContent = `已完成 ${downloadCompletedCount}`;
     completedCountEl.style.fontWeight = state.transferTaskStatusFilter === "completed" ? "bold" : "normal";
     completedCountEl.style.color = state.transferTaskStatusFilter === "completed" ? "#1890ff" : "";
-  }
-  const activeTaskCount = pendingUploadCount + uploadingCount + pendingDownloadCount + downloadingCount + pausedDownloadCount;
-  if (uploadTasksCompletedBadge) {
-    if (activeTaskCount > 0) {
-      uploadTasksCompletedBadge.textContent = String(activeTaskCount);
-      uploadTasksCompletedBadge.style.display = "inline-flex";
-    } else {
-      uploadTasksCompletedBadge.textContent = "";
-      uploadTasksCompletedBadge.style.display = "none";
-    }
   }
   
   if (clearCanceledTasksBtn) {
@@ -1004,6 +1006,16 @@ const switchTransferTaskTab = (tab) => {
       : "小于100MB文件会出现在此下载列表中，大于100MB文件直接用浏览器下载，如果有文件正在下载中请勿刷新页面，避免任务中断";
   }
   renderTransferTaskHeader();
+  // 更新滑动指示器位置
+  updateTransferTabIndicator();
+};
+
+const updateTransferTabIndicator = () => {
+  const activeTab = document.querySelector(".transfer-task-tab.active");
+  if (activeTab && activeTab.parentElement) {
+    activeTab.parentElement.style.setProperty("--active-left", activeTab.offsetLeft + "px");
+    activeTab.parentElement.style.setProperty("--active-width", activeTab.offsetWidth + "px");
+  }
 };
 
 const sortUploadTasksForDisplay = (tasks = []) => {
@@ -1083,12 +1095,20 @@ const renderUploadTasks = () => {
     filteredTasks = filteredTasks.filter(t => t.status === "canceled" || t.status === "failed");
   }
   
+  // 按时间倒序排序，最新的在最上面
+  filteredTasks.sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
+  
   // 按日期分组
   const groupedTasks = {};
   filteredTasks.forEach(task => {
     const dateKey = formatUploadDate(task.startedAt);
     if (!groupedTasks[dateKey]) groupedTasks[dateKey] = [];
     groupedTasks[dateKey].push(task);
+  });
+  
+  // 每个日期组内按时间倒序排序
+  Object.keys(groupedTasks).forEach(dateKey => {
+    groupedTasks[dateKey].sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
   });
   
   // 按日期降序排序
@@ -1299,7 +1319,7 @@ const getDownloadStatusLabel = (task) => {
   if (task.status === "canceled") return "已取消";
   if (task.status === "failed") return "失败";
   if (task.status === "paused") return "已暂停";
-  if (task.status === "browser_downloading") return "浏览器下载中";
+  if (task.status === "browser_downloading") return "请在浏览器中查看下载进度";
   if (task.status === "downloading") return "下载中";
   return "";
 };
@@ -1925,8 +1945,9 @@ const startDownloadTask = (entry) => {
   schedulePersistDownloadTasks();
   updateDownloadTask(task.id, { status: "downloading" });
   
-  // 判断文件大小，大于100MB使用浏览器下载，小于等于100MB使用fetch方式
-  const isLargeFile = entry.type === "folder" || (entry.size && entry.size > 100 * 1024 * 1024);
+  // 判断文件大小，大于阈值使用浏览器下载，小于等于阈值使用fetch方式
+  const thresholdMb = state.directDownloadThresholdMb || 100;
+  const isLargeFile = entry.type === "folder" || (entry.size && entry.size > thresholdMb * 1024 * 1024);
   
   if (isLargeFile) {
     // 大文件使用浏览器下载
@@ -3225,6 +3246,7 @@ const loadPublicSettings = async () => {
     const settings = await res.json();
     const system = settings && settings.system && typeof settings.system === "object" ? settings.system : {};
     const login = settings && settings.login && typeof settings.login === "object" ? settings.login : {};
+    const downloadSettings = settings && settings.download && typeof settings.download === "object" ? settings.download : {};
     const title = String(system.siteTitle || "").trim();
     if (title) {
       document.title = title;
@@ -3237,6 +3259,7 @@ const loadPublicSettings = async () => {
     state.avatarUploadMaxSizeBytes = avatarUploadSizeMb * 1024 * 1024;
     state.avatarUploadFormats = avatarUploadFormats;
     state.previewConfig = previewConfig;
+    state.directDownloadThresholdMb = Math.max(1, Math.min(1048576, Math.floor(Number(downloadSettings.directDownloadThresholdMb) || 100)));
     if (window.DrivePreview && typeof window.DrivePreview.updatePreviewExtSets === "function") {
       window.DrivePreview.updatePreviewExtSets(previewConfig);
     }
@@ -3372,8 +3395,7 @@ const clearBatchClipboard = () => {
 
 const applyPermissionUI = () => {
   const canUpload = hasUserPermission("upload");
-  if (uploadFileBtn) uploadFileBtn.style.display = canUpload ? "" : "none";
-  if (uploadDirBtn) uploadDirBtn.style.display = canUpload ? "" : "none";
+  if (headerUploadWrapper) headerUploadWrapper.style.display = canUpload ? "" : "none";
   if (mobileUploadEntry) mobileUploadEntry.style.display = canUpload ? "" : "none";
   if (!canUpload && mobileUploadPopover) {
     mobileUploadPopover.classList.remove("show");
@@ -3442,26 +3464,30 @@ const updateBatchActionState = () => {
   batchButtonMeta.forEach((item) => updateBatchButtonLabel(item.btn, item.icon, item.text, count));
   if (batchDownloadBtn) {
     batchDownloadBtn.disabled = disabled || !canDownload;
-    batchDownloadBtn.style.display = !isRecycle && canDownload && !hasClipboard ? "" : "none";
+    batchDownloadBtn.style.display = !isRecycle && hasSelection && canDownload && !hasClipboard ? "" : "none";
   }
   if (batchArchiveBtn) {
     batchArchiveBtn.disabled = disabled || !canArchive;
-    batchArchiveBtn.style.display = !isRecycle && canArchive && !hasClipboard ? "" : "none";
+    batchArchiveBtn.style.display = !isRecycle && hasSelection && canArchive && !hasClipboard ? "" : "none";
   }
   if (batchCopyBtn) {
     batchCopyBtn.disabled = disabled || !canCopy;
-    batchCopyBtn.style.display = !isRecycle && canCopy && !hasClipboard ? "" : "none";
+    batchCopyBtn.style.display = !isRecycle && hasSelection && canCopy && !hasClipboard ? "" : "none";
   }
   if (batchMoveBtn) {
     batchMoveBtn.disabled = disabled || !canMove;
-    batchMoveBtn.style.display = !isRecycle && canMove && !hasClipboard ? "" : "none";
+    batchMoveBtn.style.display = !isRecycle && hasSelection && canMove && !hasClipboard ? "" : "none";
   }
   if (batchDeleteBtn) {
     batchDeleteBtn.disabled = disabled || !canDelete;
-    batchDeleteBtn.style.display = !isRecycle && canDelete && !hasClipboard ? "" : "none";
+    batchDeleteBtn.style.display = !isRecycle && hasSelection && canDelete && !hasClipboard ? "" : "none";
   }
+  const canUpload = hasUserPermission("upload");
   if (newFolderBtn) {
-    newFolderBtn.style.display = isRecycle ? "none" : "";
+    newFolderBtn.style.display = isRecycle || !canUpload ? "none" : "";
+  }
+  if (refreshDirBtn) {
+    refreshDirBtn.style.display = "";
   }
   if (batchRestoreBtn) {
     batchRestoreBtn.disabled = count === 0;
@@ -3471,7 +3497,7 @@ const updateBatchActionState = () => {
   }
   if (clearSelectionBtn) {
     clearSelectionBtn.disabled = count === 0;
-    clearSelectionBtn.style.display = count > 0 && !hasClipboard ? "" : "none";
+    clearSelectionBtn.style.display = hasSelection && !hasClipboard ? "" : "none";
   }
   if (batchPasteBtn) {
     batchPasteBtn.style.display = hasClipboard ? "" : "none";

@@ -71,7 +71,7 @@ const renderUsers = () => {
   });
   state.usersPage = usersPagination.page;
   tbody.innerHTML = sortedUsers.slice(usersPagination.startIndex, usersPagination.endIndex).map(u => {
-    const deleteBtn = u.role === "admin" ? "" : `<button class="btn-sm danger" onclick="deleteUser(${u.id})">删除</button>`;
+    const deleteBtn = u.role === "admin" ? "" : `<button class="btn-sm btn-delete-user danger" onclick="deleteUser(${u.id})"><i class="fas fa-trash-alt"></i> 删除</button>`;
     return `
       <tr>
         <td>${u.id}</td>
@@ -85,8 +85,8 @@ const renderUsers = () => {
         <td>${(u.groupNames || []).length > 0 ? u.groupNames.join("、") : "-"}</td>
         <td>${u.phone || "-"}</td>
         <td>${formatSize(u.used)}</td>
-        <td>
-          <button class="btn-sm" onclick="editUser(${u.id})">编辑</button>
+        <td style="display: flex; flex-wrap: wrap; gap: 4px;">
+          <button class="btn-sm btn-edit-user" onclick="editUser(${u.id})"><i class="fas fa-edit"></i> 编辑</button>
           ${deleteBtn}
         </td>
       </tr>
@@ -513,9 +513,9 @@ const renderUserGroups = () => {
       <td>${Number(group.maxUploadFileCount || 0) > 0 ? `${Number(group.maxUploadFileCount)}个` : "不限制"}</td>
       <td>${(group.permissions || []).map((item) => PERMISSION_LABELS[item] || item).join("、") || "-"}</td>
       <td>${Number(group.memberCount || 0)}</td>
-      <td>
-        <button class="btn-sm" onclick="editUserGroup(${group.id})">编辑</button>
-        <button class="btn-sm danger" onclick="deleteUserGroup(${group.id})">删除</button>
+      <td style="display: flex; flex-wrap: wrap; gap: 4px;">
+        <button class="btn-sm btn-edit-user-group" onclick="editUserGroup(${group.id})">编辑</button>
+        <button class="btn-sm btn-delete-user-group danger" onclick="deleteUserGroup(${group.id})">删除</button>
       </td>
     </tr>
   `;

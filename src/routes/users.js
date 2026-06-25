@@ -96,6 +96,7 @@ module.exports = (app, deps) => {
   } = deps;
   const HIDDEN_SPACE_DISK_TOKEN = "__hidden__";
   const STORAGE_DISK_PREFIX_SEPARATOR = "|";
+  let rsyncAvailabilityCache = null;
 
   const normalizeStorageDiskId = (value) => String(value || "").trim().toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 48);
   const normalizeStorageRelativePath = (value) => String(value || "")
@@ -142,12 +143,6 @@ module.exports = (app, deps) => {
   const getStorageDiskDisplayMountPath = (disk, fallbackMount = "") => {
     if (!disk || typeof disk !== "object") return String(fallbackMount || "");
     const diskPath = String(disk.path || "").trim();
-    if (diskPath) {
-      const storageStats = getStorageStatsByPath(diskPath);
-      if (storageStats && storageStats.key) {
-        return String(storageStats.key);
-      }
-    }
     const diskSource = String(disk.source || "").trim().toLowerCase();
     if (diskSource === "system" && diskPath) {
       const parsedRoot = path.parse(path.resolve(diskPath)).root;
@@ -192,6 +187,19 @@ module.exports = (app, deps) => {
     } catch (error) {
       return "";
     }
+  };
+  const safeStatPath = (targetPath) => {
+    try {
+      return fs.statSync(targetPath);
+    } catch (error) {
+      return null;
+    }
+  };
+  const applyPathTimes = (targetPath, stats) => {
+    if (!targetPath || !stats) return;
+    try {
+      fs.utimesSync(targetPath, stats.atime, stats.mtime);
+    } catch (error) {}
   };
   const getStorageRootDirFromAbsolutePath = (absolutePath, relativePath) => {
     const normalizedRelativePath = normalizeStorageRelativePath(relativePath);
@@ -785,9 +793,12 @@ module.exports = (app, deps) => {
       
       const [users] = await pool.query(`
       SELECT u.id, u.username, u.name, u.phone, u.permissions, u.role, u.avatar, u.created_at,
-      (SELECT IFNULL(SUM(size), 0) FROM files f WHERE f.user_id = u.id AND f.deleted_at IS NULL) AS used,
-      (SELECT COUNT(*) FROM files f WHERE f.user_id = u.id AND f.deleted_at IS NULL) AS fileCount
-      FROM users u${whereClause}
+        IFNULL(SUM(f.size), 0) AS used,
+        COUNT(f.id) AS fileCount
+      FROM users u
+      LEFT JOIN files f ON f.user_id = u.id AND f.deleted_at IS NULL
+      ${whereClause ? whereClause.replace(' WHERE ', ' WHERE ') : ''}
+      GROUP BY u.id
       ORDER BY u.created_at DESC
     `, params);
       const currentStorageConfig = typeof getStorageDiskConfig === "function"
@@ -819,22 +830,25 @@ module.exports = (app, deps) => {
       );
       storageDiskLabelMap.set(HIDDEN_SPACE_DISK_TOKEN, "私密空间");
       const userIds = users.map((item) => Number(item.id)).filter((item) => item > 0);
+      // 将存储记录修复移到后台异步执行，不阻塞接口响应
       if (userIds.length > 0) {
         const placeholders = userIds.map(() => "?").join(", ");
-        const [migrationTaskUsers] = await pool.query(
+        pool.query(
           `SELECT user_id AS userId
            FROM user_storage_migration_tasks
            WHERE user_id IN (${placeholders})
              AND status IN ('completed', 'failed', 'interrupted')
              AND target_storage_path <> ''`,
           userIds
-        );
-        const taskUserIds = migrationTaskUsers
-          .map((item) => Number(item.userId || 0))
-          .filter((item, index, list) => item > 0 && list.indexOf(item) === index);
-        for (const taskUserId of taskUserIds) {
-          await repairUserStorageRecordsByExistingFiles(taskUserId, configuredStorageDisks);
-        }
+        ).then(([migrationTaskUsers]) => {
+          const taskUserIds = migrationTaskUsers
+            .map((item) => Number(item.userId || 0))
+            .filter((item, index, list) => item > 0 && list.indexOf(item) === index);
+          // 异步执行修复，不等待完成
+          taskUserIds.forEach((taskUserId) => {
+            repairUserStorageRecordsByExistingFiles(taskUserId, configuredStorageDisks).catch(() => {});
+          });
+        }).catch(() => {});
       }
       const storageDiskMap = new Map();
       const currentNormalStorageDiskIdsMap = new Map();

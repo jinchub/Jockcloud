@@ -58,6 +58,7 @@ const state = {
   avatarUploadSizeMb: DEFAULT_AVATAR_UPLOAD_SIZE_MB,
   avatarUploadMaxSizeBytes: DEFAULT_AVATAR_UPLOAD_SIZE_MB * 1024 * 1024,
   avatarUploadFormats: DEFAULT_AVATAR_UPLOAD_FORMATS.slice(),
+  directDownloadThresholdMb: 100,
   quickAccessFolders: [],
   visibleCategories: FILE_CATEGORY_KEYS.slice(),
   categoryTimelineEnabled: normalizeCategoryTimelineModePreference(localStorage.getItem(CATEGORY_TIMELINE_MODE_STORAGE_KEY)),

@@ -878,7 +878,7 @@ const renderQuotaTable = () => {
           </div>
         </td>
         <td>${u.fileCount || 0}</td>
-        <td><button type="button" class="btn-sm" onclick="adjustQuotaStorageDisk(${u.id})" ${isStorageMigrating ? "disabled" : ""}>${isStorageMigrating ? `迁移中 ${Math.max(0, Math.min(100, Number(storageMigrationState.progress || 0)))}%` : "调整"}</button></td>
+        <td><button type="button" class="btn-sm btn-adjust-quota" onclick="adjustQuotaStorageDisk(${u.id})" ${isStorageMigrating ? "disabled" : ""}>${isStorageMigrating ? `迁移中 ${Math.max(0, Math.min(100, Number(storageMigrationState.progress || 0)))}%` : "调整"}</button></td>
       </tr>
     `;
   }).join("");

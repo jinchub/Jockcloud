@@ -152,12 +152,19 @@
       <div class="secondary-header-toggle" id="toggleSecondaryBtn">
         <i class="fa-solid fa-angles-left"></i>
         <div class="header-title">
-          <button class="btn-upload" id="uploadFileBtn">
-            <i class="fa-solid fa-plus"></i> 文件
-          </button>
-          <button class="btn-upload" id="uploadDirBtn">
-            <i class="fa-solid fa-plus"></i> 目录
-          </button>
+          <div class="header-upload-wrapper" id="headerUploadWrapper">
+            <button class="btn-upload" id="headerUploadTrigger">
+              <i class="fa-solid fa-cloud-arrow-up"></i> 上传
+            </button>
+            <div class="header-upload-popover" id="headerUploadPopover">
+              <button class="btn-upload btn-upload-file" id="uploadFileBtn">
+                <i class="fa-solid fa-file"></i> 文件
+              </button>
+              <button class="btn-upload btn-upload-dir" id="uploadDirBtn">
+                <i class="fa-solid fa-folder"></i> 目录
+              </button>
+            </div>
+          </div>
         </div>
       </div>
       <div class="secondary-menu">

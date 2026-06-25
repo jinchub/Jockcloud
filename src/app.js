@@ -426,10 +426,13 @@ const normalizeSettings = (payload = {}) => {
       shareSpeedLimit = { value: DEFAULT_SETTINGS.download.globalSpeedLimitMb, unit: 'MB/s' };
     }
     
+    const directDownloadThresholdMb = Math.max(1, Math.min(1048576, Math.floor(toNumber(download.directDownloadThresholdMb, DEFAULT_SETTINGS.download.directDownloadThresholdMb))));
+    
     return {
       globalSpeedLimit: globalSpeedLimit,
       groupSpeedLimits: normalizedGroupSpeedLimits,
-      shareSpeedLimit: shareSpeedLimit
+      shareSpeedLimit: shareSpeedLimit,
+      directDownloadThresholdMb: directDownloadThresholdMb
     };
   };
   return {

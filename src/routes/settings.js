@@ -38,6 +38,9 @@ module.exports = (app, deps) => {
         },
         file: {
           renameCanModifyExt: settings.file.renameCanModifyExt
+        },
+        download: {
+          directDownloadThresholdMb: settings.download.directDownloadThresholdMb
         }
       });
     } catch (error) {
@@ -64,6 +67,9 @@ module.exports = (app, deps) => {
         },
         file: {
           renameCanModifyExt: DEFAULT_SETTINGS.file.renameCanModifyExt
+        },
+        download: {
+          directDownloadThresholdMb: DEFAULT_SETTINGS.download.directDownloadThresholdMb
         }
       });
     }

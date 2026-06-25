@@ -425,22 +425,29 @@ const generateVideoThumbnail = async (videoPath, baseStorageName, spaceType = "n
   let ffmpegPath;
   try {
     const whichCmd = process.platform === "win32" ? "where ffmpeg" : "which ffmpeg";
-    ffmpegPath = execSync(whichCmd, { encoding: "utf-8" }).trim().split("\n")[0];
+    const rawPath = execSync(whichCmd, { encoding: "utf-8" }).trim().split("\n")[0].trim();
+    // Windows 下 where 命令可能返回带引号的路径，需要清理
+    ffmpegPath = rawPath.replace(/^["']|["']$/g, "");
   } catch (e) {
     try {
       ffmpegPath = require("ffmpeg-static");
     } catch (e2) {
+      console.log("[video-thumb] 未找到 ffmpeg，视频缩略图生成已跳过");
       return "";
     }
   }
   
-  if (!ffmpegPath || !fs.existsSync(ffmpegPath)) return "";
+  if (!ffmpegPath || !fs.existsSync(ffmpegPath)) {
+    console.log("[video-thumb] ffmpeg 路径无效:", ffmpegPath);
+    return "";
+  }
   
   let ffmpeg;
   try {
     ffmpeg = require("fluent-ffmpeg");
     ffmpeg.setFfmpegPath(ffmpegPath);
   } catch (e) {
+    console.log("[video-thumb] fluent-ffmpeg 加载失败:", e && e.message ? e.message : e);
     return "";
   }
   
@@ -453,20 +460,24 @@ const generateVideoThumbnail = async (videoPath, baseStorageName, spaceType = "n
   const thumbnailPath = resolveAbsoluteStoragePath(thumbnailStorageName, spaceType);
   if (!thumbnailPath) return "";
   fs.mkdirSync(path.dirname(thumbnailPath), { recursive: true });
+  
+  console.log("[video-thumb] 开始生成缩略图:", videoPath);
   return new Promise((resolve) => {
     ffmpeg(videoPath)
-      .inputOptions(["-ss", "0"])
+      .inputOptions(["-ss", "1"])
       .outputOptions(["-vframes", "1", "-f", "image2", "-vf", "scale=320:-1"])
       .output(thumbnailPath)
       .on("end", () => {
         if (fs.existsSync(thumbnailPath)) {
+          console.log("[video-thumb] 缩略图生成成功:", thumbnailStorageName);
           resolve(thumbnailStorageName);
         } else {
+          console.log("[video-thumb] 缩略图文件未生成");
           resolve("");
         }
       })
       .on("error", (err) => {
-        console.log("[video-thumb] ffmpeg error:", err && err.message ? err.message : err);
+        console.log("[video-thumb] ffmpeg 错误:", err && err.message ? err.message : err);
         try { if (fs.existsSync(thumbnailPath)) fs.unlinkSync(thumbnailPath); } catch (e) {}
         resolve("");
       })

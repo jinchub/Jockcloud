@@ -78,7 +78,8 @@ const DEFAULT_SETTINGS = {
     globalSpeedLimit: { value: 100, unit: 'MB/s' },
     globalSpeedLimitMb: 100,
     groupSpeedLimits: {},
-    shareSpeedLimit: { value: 100, unit: 'MB/s' }
+    shareSpeedLimit: { value: 100, unit: 'MB/s' },
+    directDownloadThresholdMb: 100
   }
 };
 

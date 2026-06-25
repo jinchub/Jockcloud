@@ -539,9 +539,9 @@
           <td>${escapeHtml(config.bucket || "-")}</td>
           <td>${escapeHtml(config.endpoint || "-")}</td>
           <td>-</td>
-          <td>
-            <button class="btn-sm" onclick="renameMountFolder('${encodeURIComponent(row.prefix || "")}')">重命名</button>
-            <button class="btn-sm danger" onclick="deleteMountFolder('${encodeURIComponent(row.prefix || "")}')">删除</button>
+          <td style="display: flex; flex-wrap: wrap; gap: 4px;">
+            <button class="btn-sm btn-rename-mount-folder" onclick="renameMountFolder('${encodeURIComponent(row.prefix || "")}')">重命名</button>
+            <button class="btn-sm btn-delete-mount-folder danger" onclick="deleteMountFolder('${encodeURIComponent(row.prefix || "")}')">删除</button>
           </td>
         </tr>
       `;
@@ -554,9 +554,9 @@
           <td>${escapeHtml(config.endpoint || "-")}</td>
           <td>${formatDate(row.lastModified)}</td>
           <td>
-            <button class="btn-sm" onclick="downloadMountObject('${encodeURIComponent(row.key)}')">下载</button>
-            <button class="btn-sm" onclick="renameMountObject('${encodeURIComponent(row.key)}')">重命名</button>
-            <button class="btn-sm danger" onclick="deleteMountObject('${encodeURIComponent(row.key)}')">删除</button>
+            <button class="btn-sm btn-download-mount-object" onclick="downloadMountObject('${encodeURIComponent(row.key)}')">下载</button>
+            <button class="btn-sm btn-rename-mount-object" onclick="renameMountObject('${encodeURIComponent(row.key)}')">重命名</button>
+            <button class="btn-sm btn-delete-mount-object danger" onclick="deleteMountObject('${encodeURIComponent(row.key)}')">删除</button>
           </td>
         </tr>
       `;

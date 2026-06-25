@@ -113,7 +113,8 @@
     download: {
       globalSpeedLimitMb: 100,
       groupSpeedLimits: {},
-      shareSpeedLimit: { value: 100, unit: 'MB/s' }
+      shareSpeedLimit: { value: 100, unit: 'MB/s' },
+      directDownloadThresholdMb: 100
     }
   };
 
@@ -337,10 +338,13 @@
         shareSpeedLimit = { value: DEFAULT_SETTINGS.download.globalSpeedLimitMb, unit: 'MB/s' };
       }
       
+      const directDownloadThresholdMb = Math.max(1, Math.min(1048576, Math.floor(toNumber(download.directDownloadThresholdMb, DEFAULT_SETTINGS.download.directDownloadThresholdMb))));
+      
       return {
         globalSpeedLimitKb: globalSpeedLimitKb,
         groupSpeedLimits: normalizedGroupSpeedLimits,
-        shareSpeedLimit: shareSpeedLimit
+        shareSpeedLimit: shareSpeedLimit,
+        directDownloadThresholdMb: directDownloadThresholdMb
       };
     };
     return {
@@ -452,6 +456,7 @@
     const settingsDownloadGlobalSpeedUnit = document.getElementById("settingsDownloadGlobalSpeedUnit");
     const settingsDownloadShareSpeedLimit = document.getElementById("settingsDownloadShareSpeedLimit");
     const settingsDownloadShareSpeedUnit = document.getElementById("settingsDownloadShareSpeedUnit");
+    const settingsDownloadDirectThreshold = document.getElementById("settingsDownloadDirectThreshold");
     const downloadGroupSpeedLimitsList = document.getElementById("downloadGroupSpeedLimitsList");
     const settingsMenuPermissionsList = document.getElementById("settingsMenuPermissionsList");
     const settingsMenuUserEmptyTip = document.getElementById("settingsMenuUserEmptyTip");
@@ -480,7 +485,7 @@
       return current && current.formats;
     });
     const hasUploadSettingsInputs = Object.values(uploadSettingsInputs).every(Boolean);
-    if (!settingsSidebar || !settingsAsideList || !toggleSettingsSidebarBtn || !settingsPanelTitle || !settingsPanelMeta || !saveSettingsBtn || !systemSettingsForm || !uploadSettingsForm || !loginSettingsForm || !fileSettingsForm || !hasUploadSettingsInputs || !hasUploadRuleInputs || !settingsSiteTitle || !settingsLoginTitle || !settingsSiteDescription || !settingsLoginCaptchaEnabled || !settingsSmsLoginEnabled || !settingsAllowMultipleLogin || !settingsLoginSessionMinutes || !settingsHiddenSpaceAutoExitMinutes || !settingsRenameCanModifyExt || !smsEnvConfigTip || !settingsSmsSendIntervalSeconds || !settingsSmsIpLimitWindowMinutes || !settingsSmsIpLimitMaxCount || !smsSendIntervalRow || !smsIpLimitWindowRow || !smsIpLimitCountRow || !menuSettingsForm || !downloadSettingsForm || !settingsDownloadGlobalSpeedLimit || !settingsDownloadGlobalSpeedUnit || !settingsDownloadShareSpeedLimit || !settingsDownloadShareSpeedUnit || !downloadGroupSpeedLimitsList || !settingsMenuPermissionsList || !settingsMenuUserEmptyTip || !settingsPreviewImageExts || !settingsPreviewVideoExts || !settingsPreviewAudioExts || !settingsPreviewTextExts || !settingsPreviewDocExts) {
+    if (!settingsSidebar || !settingsAsideList || !toggleSettingsSidebarBtn || !settingsPanelTitle || !settingsPanelMeta || !saveSettingsBtn || !systemSettingsForm || !uploadSettingsForm || !loginSettingsForm || !fileSettingsForm || !hasUploadSettingsInputs || !hasUploadRuleInputs || !settingsSiteTitle || !settingsLoginTitle || !settingsSiteDescription || !settingsLoginCaptchaEnabled || !settingsSmsLoginEnabled || !settingsAllowMultipleLogin || !settingsLoginSessionMinutes || !settingsHiddenSpaceAutoExitMinutes || !settingsRenameCanModifyExt || !smsEnvConfigTip || !settingsSmsSendIntervalSeconds || !settingsSmsIpLimitWindowMinutes || !settingsSmsIpLimitMaxCount || !smsSendIntervalRow || !smsIpLimitWindowRow || !smsIpLimitCountRow || !menuSettingsForm || !downloadSettingsForm || !settingsDownloadGlobalSpeedLimit || !settingsDownloadGlobalSpeedUnit || !settingsDownloadShareSpeedLimit || !settingsDownloadShareSpeedUnit || !settingsDownloadDirectThreshold || !downloadGroupSpeedLimitsList || !settingsMenuPermissionsList || !settingsMenuUserEmptyTip || !settingsPreviewImageExts || !settingsPreviewVideoExts || !settingsPreviewAudioExts || !settingsPreviewTextExts || !settingsPreviewDocExts) {
       return {
         onEnterView: async () => {}
       };
@@ -1031,6 +1036,8 @@
       settingsDownloadShareSpeedLimit.value = String(shareSpeedValue);
       settingsDownloadShareSpeedUnit.value = shareSpeedUnit;
       
+      settingsDownloadDirectThreshold.value = String(runtime.settings.download.directDownloadThresholdMb || DEFAULT_SETTINGS.download.directDownloadThresholdMb);
+      
       renderDownloadGroupSpeedLimits();
       renderMenuPermissions();
     };
@@ -1168,6 +1175,8 @@
         const shareSpeedValue = Number(settingsDownloadShareSpeedLimit.value) || 0;
         const shareSpeedUnit = settingsDownloadShareSpeedUnit.value;
         
+        const directDownloadThresholdMb = Math.max(1, Math.min(1048576, Math.floor(Number(settingsDownloadDirectThreshold.value) || DEFAULT_SETTINGS.download.directDownloadThresholdMb)));
+        
         return {
           download: {
             globalSpeedLimit: {
@@ -1178,7 +1187,8 @@
               value: shareSpeedValue,
               unit: shareSpeedUnit
             },
-            groupSpeedLimits
+            groupSpeedLimits,
+            directDownloadThresholdMb
           }
         };
       }

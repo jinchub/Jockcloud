@@ -251,11 +251,18 @@
                     </select>
                   </div>
                 </div>
-                <div class="settings-form-tip">
-                  配置用户下载速度限制，可以为不同用户组设置不同的速度限制。未设置用户组的用户将使用全局速度限制。分享下载将单独使用分享下载速度限制。
+                <div class="settings-form-row">
+                  <label for="settingsDownloadDirectThreshold">浏览器直连下载阈值 (MB)</label>
+                  <div style="display: flex; gap: 8px; align-items: center;">
+                    <input type="number" id="settingsDownloadDirectThreshold" min="1" max="1048576" required style="flex: 1;" />
+                  </div>
+                  <div class="settings-form-field-desc">超过此大小的文件将使用浏览器直接下载（不显示进度条），小于此大小的文件使用 fetch 流式下载并显示进度。默认为 100 MB。</div>
                 </div>
                 <div class="settings-form-row" style="margin-top: 16px;">
                   <label>用户组速度限制</label>
+                </div>
+                <div class="settings-form-tip">
+                  配置用户下载速度限制，可以为不同用户组设置不同的速度限制。未设置用户组的用户将使用全局速度限制。分享下载将单独使用分享下载速度限制。
                 </div>
                 <div id="downloadGroupSpeedLimitsList" class="settings-group-speed-limits-list"></div>
               </form>
