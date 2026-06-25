@@ -1,3 +1,13 @@
+const {
+  calculateFileMd5,
+  checkMd5Exists,
+  createInstantFileRecord,
+  createFileRecord,
+  safeDeleteFile,
+  asyncGenerateVideoThumbnail,
+  loadUploadSettings
+} = require("../utils/upload-helpers");
+
 module.exports = (app, deps) => {
   const {
     authRequired,
@@ -469,22 +479,11 @@ module.exports = (app, deps) => {
       const finalOriginalName = safeFileName(meta.relativePath ? String(meta.relativePath).split("/").pop() : meta.fileName);
       
       // 计算文件MD5
-      const fileMd5 = await new Promise((resolve, reject) => {
-        const hash = crypto.createHash("md5");
-        const stream = fs.createReadStream(finalFilePath);
-        stream.on("data", (chunk) => hash.update(chunk));
-        stream.on("end", () => resolve(hash.digest("hex")));
-        stream.on("error", reject);
-      });
+      const fileMd5 = await calculateFileMd5(fs, finalFilePath);
       
       // 检查是否存在相同MD5的文件（用于秒传，跨用户查找）
-      const [existingMd5Files] = await pool.query(
-        "SELECT id, original_name AS originalName, storage_name AS storageName, folder_id AS folderId FROM files WHERE md5 = ? AND space_type = ? AND deleted_at IS NULL LIMIT 1",
-        [fileMd5, spaceType]
-      );
-      
-      const hasExistingFile = existingMd5Files.length > 0;
-      const existingMd5File = hasExistingFile ? existingMd5Files[0] : null;
+      const existingMd5File = await checkMd5Exists(pool, fileMd5, spaceType);
+      const hasExistingFile = existingMd5File !== null;
       
       // 处理上传策略
       const uploadStrategy = String(req.body && req.body.uploadStrategy ? req.body.uploadStrategy : "cancel").trim().toLowerCase();
@@ -613,10 +612,18 @@ module.exports = (app, deps) => {
         );
         const existingStorageName = existingFileRows.length > 0 ? existingFileRows[0].storage_name : storageName;
         
-        const [newInsertResult] = await pool.query(
-          "INSERT INTO files (user_id, space_type, folder_id, original_name, storage_name, thumbnail_storage_name, file_category, size, mime_type, md5) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-          [req.user.userId, spaceType, targetFolderId, actualOriginalName, existingStorageName, thumbnailStorageName || null, fileCategory, Number(meta.fileSize || 0), String(meta.mimeType || "application/octet-stream"), fileMd5]
-        );
+        const newInsertResult = await createInstantFileRecord(pool, {
+          userId: req.user.userId,
+          spaceType,
+          targetFolderId,
+          originalName: actualOriginalName,
+          existingStorageName,
+          thumbnailStorageName,
+          fileCategory,
+          fileSize: Number(meta.fileSize || 0),
+          mimeType: String(meta.mimeType || "application/octet-stream"),
+          fileMd5
+        });
         
         // 记录文件上传操作
         await logFileOperation(pool, {
@@ -643,11 +650,18 @@ module.exports = (app, deps) => {
         return;
       }
       
-      const [insertResultObj] = await pool.query(
-        "INSERT INTO files (user_id, space_type, folder_id, original_name, storage_name, thumbnail_storage_name, file_category, size, mime_type, md5) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        [req.user.userId, spaceType, targetFolderId, actualOriginalName, storageName, thumbnailStorageName || null, fileCategory, Number(meta.fileSize || 0), String(meta.mimeType || "application/octet-stream"), fileMd5]
-      );
-      insertResult = insertResultObj;
+      insertResult = await createFileRecord(pool, {
+        userId: req.user.userId,
+        spaceType,
+        targetFolderId,
+        originalName: actualOriginalName,
+        storageName,
+        thumbnailStorageName,
+        fileCategory,
+        fileSize: Number(meta.fileSize || 0),
+        mimeType: String(meta.mimeType || "application/octet-stream"),
+        fileMd5
+      });
       
       // 记录文件上传操作
       await logFileOperation(pool, {
@@ -663,15 +677,13 @@ module.exports = (app, deps) => {
       
       // 异步生成视频缩略图
       if (fileCategory === "video" && !thumbnailStorageName) {
-        const fileId = insertResult.insertId;
-        const videoFilePath = finalFilePath;
-        setImmediate(async () => {
-          try {
-            const videoThumbName = await generateVideoThumbnail(videoFilePath, storageName, spaceType);
-            if (videoThumbName) {
-              await pool.query("UPDATE files SET thumbnail_storage_name = ? WHERE id = ?", [videoThumbName, fileId]);
-            }
-          } catch (e) {}
+        asyncGenerateVideoThumbnail({
+          fileId: insertResult.insertId,
+          videoFilePath: finalFilePath,
+          storageName,
+          spaceType,
+          pool,
+          generateVideoThumbnail
         });
       }
       
@@ -854,22 +866,11 @@ module.exports = (app, deps) => {
         const fileCategory = normalizeFileCategoryKey(resolveStoredFileCategory(actualOriginalName, item.currentFile.mimetype, uploadCategoryRuntimeOptions));
         
         // 计算文件MD5
-        const fileMd5 = await new Promise((resolve, reject) => {
-          const hash = crypto.createHash("md5");
-          const stream = fs.createReadStream(item.currentFile.path);
-          stream.on("data", (chunk) => hash.update(chunk));
-          stream.on("end", () => resolve(hash.digest("hex")));
-          stream.on("error", reject);
-        });
+        const fileMd5 = await calculateFileMd5(fs, item.currentFile.path);
         
         // 检查是否存在相同MD5的文件（用于秒传，跨用户查找）
-        const [existingMd5Files] = await pool.query(
-          "SELECT id, original_name AS originalName, storage_name AS storageName, folder_id AS folderId FROM files WHERE md5 = ? AND space_type = ? AND deleted_at IS NULL LIMIT 1",
-          [fileMd5, spaceType]
-        );
-        
-        const hasExistingFile = existingMd5Files.length > 0;
-        const existingMd5File = hasExistingFile ? existingMd5Files[0] : null;
+        const existingMd5File = await checkMd5Exists(pool, fileMd5, spaceType);
+        const hasExistingFile = existingMd5File !== null;
         let instantUpload = false;
         let instantFileId = null;
         
@@ -878,9 +879,7 @@ module.exports = (app, deps) => {
           instantUpload = true;
           instantFileId = existingMd5File.id;
           // 删除刚上传的临时文件，复用已有文件
-          try {
-            fs.unlinkSync(item.currentFile.path);
-          } catch (e) {}
+          safeDeleteFile(fs, item.currentFile.path);
           
           // 如果有文件名冲突，需要处理
           if (conflictItem) {
@@ -907,10 +906,18 @@ module.exports = (app, deps) => {
           );
           const existingStorageName = existingFileRows.length > 0 ? existingFileRows[0].storage_name : storageName;
           
-          const [newInsertResult] = await pool.query(
-            "INSERT INTO files (user_id, space_type, folder_id, original_name, storage_name, thumbnail_storage_name, file_category, size, mime_type, md5) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            [req.user.userId, spaceType, item.targetFolderId, actualOriginalName, existingStorageName, thumbnailStorageName || null, fileCategory, item.currentFile.size, item.currentFile.mimetype, fileMd5]
-          );
+          const newInsertResult = await createInstantFileRecord(pool, {
+            userId: req.user.userId,
+            spaceType,
+            targetFolderId: item.targetFolderId,
+            originalName: actualOriginalName,
+            existingStorageName,
+            thumbnailStorageName,
+            fileCategory,
+            fileSize: item.currentFile.size,
+            mimeType: item.currentFile.mimetype,
+            fileMd5
+          });
           
           // 记录文件上传操作
           await logFileOperation(pool, {
@@ -935,10 +942,18 @@ module.exports = (app, deps) => {
           continue;
         }
         
-        const [insertResult] = await pool.query(
-          "INSERT INTO files (user_id, space_type, folder_id, original_name, storage_name, thumbnail_storage_name, file_category, size, mime_type, md5) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-          [req.user.userId, spaceType, item.targetFolderId, actualOriginalName, storageName, thumbnailStorageName || null, fileCategory, item.currentFile.size, item.currentFile.mimetype, fileMd5]
-        );
+        const insertResult = await createFileRecord(pool, {
+          userId: req.user.userId,
+          spaceType,
+          targetFolderId: item.targetFolderId,
+          originalName: actualOriginalName,
+          storageName,
+          thumbnailStorageName,
+          fileCategory,
+          fileSize: item.currentFile.size,
+          mimeType: item.currentFile.mimetype,
+          fileMd5
+        });
         
         // 记录文件上传操作
         await logFileOperation(pool, {
@@ -954,15 +969,13 @@ module.exports = (app, deps) => {
         
         // 异步生成视频缩略图
         if (fileCategory === "video" && !thumbnailStorageName) {
-          const fileId = insertResult.insertId;
-          const videoFilePath = item.currentFile.path;
-          setImmediate(async () => {
-            try {
-              const videoThumbName = await generateVideoThumbnail(videoFilePath, storageName, spaceType);
-              if (videoThumbName) {
-                await pool.query("UPDATE files SET thumbnail_storage_name = ? WHERE id = ?", [videoThumbName, fileId]);
-              }
-            } catch (e) {}
+          asyncGenerateVideoThumbnail({
+            fileId: insertResult.insertId,
+            videoFilePath: item.currentFile.path,
+            storageName,
+            spaceType,
+            pool,
+            generateVideoThumbnail
           });
         }
         

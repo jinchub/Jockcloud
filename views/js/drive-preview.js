@@ -1813,18 +1813,6 @@ importScripts(${JSON.stringify(workerMainUrl)});
         syncModeIcon();
       };
     }
-    if (stageEl) {
-      stageEl.onwheel = (event) => {
-        event.preventDefault();
-        if (state.mediaPreview.entries.length <= 1) return;
-        const now = Date.now();
-        if (now - state.mediaPreview.lastWheelAt < 150) return;
-        state.mediaPreview.lastWheelAt = now;
-        const direction = event.deltaY > 0 ? 1 : -1;
-        if (!setMediaActiveByIndex(state.mediaPreview.activeIndex + direction)) return;
-        updateMediaActiveState(previewType);
-      };
-    }
     if (toggleSidebarBtn) {
       toggleSidebarBtn.onclick = () => {
         state.mediaPreview.sidebarCollapsed = !state.mediaPreview.sidebarCollapsed;
@@ -2067,7 +2055,7 @@ importScripts(${JSON.stringify(workerMainUrl)});
             ${previewType === "video" && mobileNav ? `<button type="button" class="preview-media-nav prev" id="previewMediaPrevBtn" ${hasPrev ? "" : "disabled"}>上一项</button>` : ""}
             <div class="preview-media-toolbar-center">
               <span class="preview-media-toolbar-name" title="${mediaName}">${mediaName}</span>
-              <span class="preview-media-toolbar-tip">滚轮切换${previewType === "video" ? "视频" : "音频"}</span>
+              <span class="preview-media-toolbar-tip"></span>
             </div>
             ${previewType === "audio" ? `<div class="preview-media-toolbar-right"><button type="button" class="preview-audio-mode-btn" id="previewAudioModeBtn" aria-label="播放模式" title="播放模式"><i class="fa-solid fa-arrow-right-arrow-left" id="previewAudioModeIcon"></i></button></div>` : ""}
             ${previewType === "video" && mobileNav ? `<button type="button" class="preview-media-nav next" id="previewMediaNextBtn" ${hasNext ? "" : "disabled"}>下一项</button>` : ""}
@@ -2148,12 +2136,13 @@ importScripts(${JSON.stringify(workerMainUrl)});
     if (stageEl) {
       stageEl.onwheel = (event) => {
         event.preventDefault();
-        if (state.imagePreview.entries.length <= 1) return;
-        const now = Date.now();
-        if (now - state.imagePreview.lastWheelAt < 150) return;
-        state.imagePreview.lastWheelAt = now;
-        const direction = event.deltaY > 0 ? 1 : -1;
-        if (!setImageActiveByIndex(state.imagePreview.activeIndex + direction, { resetZoom: true })) return;
+        const direction = event.deltaY > 0 ? -1 : 1;
+        const zoomDelta = direction * 0.2;
+        state.imagePreview.zoom = clampImageZoom(state.imagePreview.zoom + zoomDelta);
+        if (state.imagePreview.zoom <= 1) {
+          state.imagePreview.offsetX = 0;
+          state.imagePreview.offsetY = 0;
+        }
         updateImageActiveState();
       };
     }
@@ -2400,7 +2389,7 @@ importScripts(${JSON.stringify(workerMainUrl)});
               <span>${Math.round(zoom * 100)}%</span>
               <button type="button" id="previewImageZoomInBtn">放大</button>
               <button type="button" id="previewImageZoomResetBtn">重置</button>
-              <span class="preview-image-toolbar-tip">滚轮切换图片</span>
+              <span class="preview-image-toolbar-tip">滚轮缩放</span>
             </div>
             ${mobileNav ? `<button type="button" class="preview-image-nav next" id="previewImageNextBtn" ${hasNext ? "" : "disabled"}>下一张</button>` : ""}
           </div>

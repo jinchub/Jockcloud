@@ -1,4 +1,12 @@
 const Throttle = require('stream-throttle').Throttle;
+const {
+  createFolderRelativePathResolver,
+  buildFolderMap,
+  copyFilesToArchiveDir,
+  copyFoldersToArchiveDir,
+  streamArchiveResponse,
+  safeCleanupTempDir
+} = require("../utils/archive-helpers");
 
 module.exports = (app, deps) => {
   const {
@@ -746,41 +754,18 @@ module.exports = (app, deps) => {
              WHERE user_id = ? AND space_type = ? AND deleted_at IS NULL AND folder_id IN (${folderClause})`,
             [req.user.userId, spaceType, ...folderIds]
           );
-          const folderMap = new Map();
-          folderRows.forEach((item) => {
-            folderMap.set(Number(item.id), {
-              id: Number(item.id),
-              name: safeFileName(item.name || "未命名目录"),
-              parentId: item.parentId === null || item.parentId === undefined ? null : Number(item.parentId)
-            });
+          const folderCount = copyFoldersToArchiveDir({
+            folderRows,
+            fileRows,
+            rootFolderId: selectedFolder.id,
+            sourceRoot: folderRoot,
+            fs,
+            path,
+            resolveAbsoluteStoragePath,
+            spaceType,
+            safeFileName
           });
-          const resolveFolderRelativePath = (currentId) => {
-            const paths = [];
-            let cursor = folderMap.get(Number(currentId)) || null;
-            const guard = new Set();
-            while (cursor && Number(cursor.id) !== Number(selectedFolder.id)) {
-              if (guard.has(cursor.id)) break;
-              guard.add(cursor.id);
-              paths.unshift(cursor.name || "未命名目录");
-              cursor = cursor.parentId ? folderMap.get(Number(cursor.parentId)) : null;
-            }
-            return paths.join(path.sep);
-          };
-          for (const folderRow of folderRows) {
-            const relativePath = resolveFolderRelativePath(folderRow.id);
-            const targetPath = relativePath ? path.join(folderRoot, relativePath) : folderRoot;
-            fs.mkdirSync(targetPath, { recursive: true });
-          }
-          for (const fileRow of fileRows) {
-            const relativePath = resolveFolderRelativePath(fileRow.folderId);
-            const targetDir = relativePath ? path.join(folderRoot, relativePath) : folderRoot;
-            const sourcePath = resolveAbsoluteStoragePath(fileRow.storageName, spaceType);
-            if (!sourcePath || !fs.existsSync(sourcePath)) continue;
-            fs.mkdirSync(targetDir, { recursive: true });
-            const targetPath = path.join(targetDir, safeFileName(fileRow.originalName || `文件-${fileRow.id}`));
-            fs.copyFileSync(sourcePath, targetPath);
-            copiedCount += 1;
-          }
+          copiedCount += folderCount;
         }
         if (copiedCount === 0) fs.writeFileSync(path.join(sourceRoot, "空目录.txt"), "");
         await runCompressArchive(sourceRoot, archivePath);
@@ -792,28 +777,9 @@ module.exports = (app, deps) => {
         const settings = await readSettings();
         const speedLimitKb = await getUserDownloadSpeedLimit(req.user.userId, settings);
         
-        const stat = fs.statSync(archivePath);
-        res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(archiveName)}`);
-        res.setHeader('Content-Type', 'application/zip');
-        res.setHeader('Content-Length', stat.size);
-        
-        let cleaned = false;
-        const cleanup = () => {
-          if (!cleaned) {
-            cleaned = true;
-            fs.rm(tempDir, { recursive: true, force: true }, () => {});
-          }
-        };
-        
-        const archiveStream = fs.createReadStream(archivePath);
-        createSpeedLimitedStream(archiveStream, res, speedLimitKb);
-        archiveStream.on("end", cleanup);
-        archiveStream.on("error", cleanup);
-        res.on("close", cleanup);
-        res.on("finish", cleanup);
-        res.on("error", cleanup);
+        streamArchiveResponse({ archivePath, archiveName, res, fs, speedLimitKb, createSpeedLimitedStream, tempDir });
       } catch (error) {
-        fs.rm(tempDir, { recursive: true, force: true }, () => {});
+        safeCleanupTempDir(fs, tempDir);
         res.status(500).json({ message: error && error.message ? error.message : "批量打包失败" });
       }
     } catch (error) {
@@ -1034,14 +1000,7 @@ module.exports = (app, deps) => {
          WHERE user_id = ? AND space_type = ? AND deleted_at IS NULL AND folder_id IN (${folderClause})`,
         [req.user.userId, spaceType, ...folderIds]
       );
-      const folderMap = new Map();
-      folderRows.forEach((item) => {
-        folderMap.set(Number(item.id), {
-          id: Number(item.id),
-          name: safeFileName(item.name || "未命名目录"),
-          parentId: item.parentId === null || item.parentId === undefined ? null : Number(item.parentId)
-        });
-      });
+      const folderMap = buildFolderMap(folderRows);
       const targetFolder = folderMap.get(Number(folderId));
       if (!targetFolder) {
         res.status(404).json({ message: "目录不存在" });
@@ -1051,36 +1010,19 @@ module.exports = (app, deps) => {
       const sourceRoot = path.join(tempDir, "source");
       const archiveName = `${safeFileName(targetFolder.name || "folder") || "folder"}.zip`;
       const archivePath = path.join(tempDir, archiveName);
-      const resolveFolderRelativePath = (currentId) => {
-        const paths = [];
-        let cursor = folderMap.get(Number(currentId)) || null;
-        const guard = new Set();
-        while (cursor && Number(cursor.id) !== Number(folderId)) {
-          if (guard.has(cursor.id)) break;
-          guard.add(cursor.id);
-          paths.unshift(cursor.name || "未命名目录");
-          cursor = cursor.parentId ? folderMap.get(Number(cursor.parentId)) : null;
-        }
-        return paths.join(path.sep);
-      };
       try {
         fs.mkdirSync(sourceRoot, { recursive: true });
-        for (const folderRow of folderRows) {
-          const relativePath = resolveFolderRelativePath(folderRow.id);
-          const targetPath = relativePath ? path.join(sourceRoot, relativePath) : sourceRoot;
-          fs.mkdirSync(targetPath, { recursive: true });
-        }
-        let copiedCount = 0;
-        for (const fileRow of fileRows) {
-          const relativePath = resolveFolderRelativePath(fileRow.folderId);
-          const targetDir = relativePath ? path.join(sourceRoot, relativePath) : sourceRoot;
-          const sourcePath = resolveAbsoluteStoragePath(fileRow.storageName, spaceType);
-          if (!sourcePath || !fs.existsSync(sourcePath)) continue;
-          fs.mkdirSync(targetDir, { recursive: true });
-          const targetPath = path.join(targetDir, safeFileName(fileRow.originalName || `文件-${fileRow.id}`));
-          fs.copyFileSync(sourcePath, targetPath);
-          copiedCount += 1;
-        }
+        const copiedCount = copyFoldersToArchiveDir({
+          folderRows,
+          fileRows,
+          rootFolderId: folderId,
+          sourceRoot,
+          fs,
+          path,
+          resolveAbsoluteStoragePath,
+          spaceType,
+          safeFileName
+        });
         if (copiedCount === 0) fs.writeFileSync(path.join(sourceRoot, "空目录.txt"), "");
         await runCompressArchive(sourceRoot, archivePath);
         if (!fs.existsSync(archivePath)) {
@@ -1091,28 +1033,9 @@ module.exports = (app, deps) => {
         const settings = await readSettings();
         const speedLimitKb = await getUserDownloadSpeedLimit(req.user.userId, settings);
         
-        const stat = fs.statSync(archivePath);
-        res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(archiveName)}`);
-        res.setHeader('Content-Type', 'application/zip');
-        res.setHeader('Content-Length', stat.size);
-        
-        let cleaned = false;
-        const cleanup = () => {
-          if (!cleaned) {
-            cleaned = true;
-            fs.rm(tempDir, { recursive: true, force: true }, () => {});
-          }
-        };
-        
-        const archiveStream = fs.createReadStream(archivePath);
-        createSpeedLimitedStream(archiveStream, res, speedLimitKb);
-        archiveStream.on("end", cleanup);
-        archiveStream.on("error", cleanup);
-        res.on("close", cleanup);
-        res.on("finish", cleanup);
-        res.on("error", cleanup);
+        streamArchiveResponse({ archivePath, archiveName, res, fs, speedLimitKb, createSpeedLimitedStream, tempDir });
       } catch (error) {
-        fs.rm(tempDir, { recursive: true, force: true }, () => {});
+        safeCleanupTempDir(fs, tempDir);
         res.status(500).json({ message: error && error.message ? error.message : "目录打包失败" });
       }
     } catch (error) {

@@ -96,7 +96,6 @@ module.exports = (app, deps) => {
   } = deps;
   const HIDDEN_SPACE_DISK_TOKEN = "__hidden__";
   const STORAGE_DISK_PREFIX_SEPARATOR = "|";
-  let rsyncAvailabilityCache = null;
 
   const normalizeStorageDiskId = (value) => String(value || "").trim().toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 48);
   const normalizeStorageRelativePath = (value) => String(value || "")
@@ -193,19 +192,6 @@ module.exports = (app, deps) => {
     } catch (error) {
       return "";
     }
-  };
-  const safeStatPath = (targetPath) => {
-    try {
-      return fs.statSync(targetPath);
-    } catch (error) {
-      return null;
-    }
-  };
-  const applyPathTimes = (targetPath, stats) => {
-    if (!targetPath || !stats) return;
-    try {
-      fs.utimesSync(targetPath, stats.atime, stats.mtime);
-    } catch (error) {}
   };
   const getStorageRootDirFromAbsolutePath = (absolutePath, relativePath) => {
     const normalizedRelativePath = normalizeStorageRelativePath(relativePath);
