@@ -1,4 +1,44 @@
 // Quota Logic
+const QUOTA_MENUITEMS = [
+  { key: "overview", title: "空间概览", icon: "fa-solid fa-chart-pie", desc: "查看存储空间使用概况" },
+  { key: "storage", title: "储存盘", icon: "fa-solid fa-hard-drive", desc: "管理系统磁盘和存储盘配置" },
+  { key: "users", title: "用户空间", icon: "fa-solid fa-users", desc: "查看每个用户的空间使用情况" }
+];
+
+let quotaActiveTab = "overview";
+
+const renderQuotaSidebar = () => {
+  const asideList = document.getElementById("quotaAsideList");
+  if (!asideList) return;
+  asideList.innerHTML = QUOTA_MENUITEMS.map(item => `
+    <button type="button" class="settings-menu-item ${quotaActiveTab === item.key ? "active" : ""}" data-quota-menu="${item.key}">
+      <i class="${item.icon}"></i>
+      <span>${item.title}</span>
+    </button>
+  `).join("");
+};
+
+const setQuotaTab = (tab) => {
+  quotaActiveTab = tab;
+  const overviewPanel = document.getElementById("quotaOverviewPanel");
+  const storagePanel = document.getElementById("quotaStoragePanel");
+  const userPanel = document.getElementById("quotaUserPanel");
+  const panelTitle = document.getElementById("quotaPanelTitle");
+  const panelMeta = document.getElementById("quotaPanelMeta");
+  // 更新侧边栏高亮
+  document.querySelectorAll("#quotaAsideList .settings-menu-item").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.quotaMenu === quotaActiveTab);
+  });
+  // 更新面板
+  if (overviewPanel) overviewPanel.style.display = quotaActiveTab === "overview" ? "" : "none";
+  if (storagePanel) storagePanel.style.display = quotaActiveTab === "storage" ? "" : "none";
+  if (userPanel) userPanel.style.display = quotaActiveTab === "users" ? "" : "none";
+  // 更新标题和描述
+  const activeItem = QUOTA_MENUITEMS.find(m => m.key === quotaActiveTab);
+  if (panelTitle) panelTitle.textContent = activeItem ? activeItem.title : "空间管理";
+  if (panelMeta) panelMeta.textContent = activeItem ? activeItem.desc : "";
+};
+
 const renderGroupBadge = (groupName, clickable = false) => {
   const name = escapeHtml(groupName);
   const lowerName = String(groupName || "").toLowerCase();
@@ -860,7 +900,7 @@ const renderQuotaTable = () => {
     const percentValue = total > 0 ? (used / total) * 100 : 0;
     const percent = total > 0 ? ((used / total) * 100).toFixed(1) + "%" : "-";
     const usageLabel = total > 0 ? percent : formatSize(used);
-    const barColor = percentValue > 95 ? "#f53f3f" : percentValue > 75 ? "#ff7d00" : "#165dff";
+    const barColor = percentValue > 95 ? "#f53f3f" : percentValue > 75 ? "#ff7d00" : "#00abff";
     
     return `
       <tr>
@@ -1207,10 +1247,12 @@ const bindProfileCenter = () => {
   if (avatarUpdateForm) {
     avatarUpdateForm.onsubmit = async (event) => {
       event.preventDefault();
-      if (!state.currentUser) return;
+      const isUserManagementMode = !!window._userManagementAvatarMode;
+      if (!isUserManagementMode && !state.currentUser) return;
       try {
         let res;
-        // 不管是不是本地文件，只要有有效裁切图片，都尝试用裁切数据提交，除非明确只用了纯文本URL
+        let resultAvatarUrl = "";
+        // 不管是不是本地文件，只要有有效裁切图片，都尝试用裁切数据提交
         if (avatarCropState.image) {
           const output = getAvatarCropOutputConfig();
           if (!output.supported) {
@@ -1224,7 +1266,8 @@ const bindProfileCenter = () => {
           }
           const formData = new FormData();
           formData.append("avatar", blob, `avatar.${output.ext}`);
-          res = await request("/api/auth/avatar", {
+          const uploadUrl = isUserManagementMode ? "/api/users/avatar-upload" : "/api/auth/avatar";
+          res = await request(uploadUrl, {
             method: "POST",
             body: formData
           });
@@ -1238,20 +1281,42 @@ const bindProfileCenter = () => {
               avatar = "/" + avatar;
             }
           }
-          res = await request("/api/auth/profile", {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ avatar })
-          });
+          if (isUserManagementMode) {
+            // 用户管理模式：直接使用 URL
+            resultAvatarUrl = avatar;
+          } else {
+            res = await request("/api/auth/profile", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ avatar })
+            });
+          }
         }
-        if (!res.ok) {
-          const data = await res.json();
-          alert(data.message || "保存失败");
-          return;
+        if (!isUserManagementMode) {
+          if (!res.ok) {
+            const data = await res.json();
+            alert(data.message || "保存失败");
+            return;
+          }
+          closeModalById(avatarUpdateModal);
+          closeModalById(profileCenterModal);
+          await loadUserInfo();
+        } else {
+          // 用户管理模式：获取上传后的 URL，填充到用户表单
+          if (res) {
+            const data = await res.json().catch(() => ({}));
+            resultAvatarUrl = data.avatar || resultAvatarUrl;
+          }
+          // 填充到头像字段（需要暴露到全局可访问）
+          const avatarInput = document.getElementById("avatarUrl");
+          const avatarPreview = document.getElementById("avatarPreview");
+          const statusEl = document.getElementById("avatarUploadStatus");
+          if (avatarInput) avatarInput.value = resultAvatarUrl;
+          if (avatarPreview && resultAvatarUrl) avatarPreview.src = resultAvatarUrl;
+          if (statusEl && resultAvatarUrl) statusEl.innerHTML = '<span style="color:#52c41a;"><i class="fa-solid fa-check-circle"></i> 头像已设置</span>';
+          window._userManagementAvatarMode = false;
+          closeModalById(avatarUpdateModal);
         }
-        closeModalById(avatarUpdateModal);
-        closeModalById(profileCenterModal);
-        await loadUserInfo();
       } catch (e) {
         alert("保存失败");
       }
@@ -1427,4 +1492,30 @@ if (resetHiddenSpacePwdBtn) {
       openResetDialog
     );
   };
+}
+
+// 空间管理侧边栏初始化和事件绑定
+renderQuotaSidebar();
+setQuotaTab("overview");
+
+const quotaAsideList = document.getElementById("quotaAsideList");
+if (quotaAsideList) {
+  quotaAsideList.addEventListener("click", (event) => {
+    const btn = event.target.closest("[data-quota-menu]");
+    if (btn) {
+      setQuotaTab(btn.dataset.quotaMenu);
+    }
+  });
+}
+
+const toggleQuotaSidebarBtn = document.getElementById("toggleQuotaSidebarBtn");
+const quotaSidebar = document.getElementById("quotaSidebar");
+if (toggleQuotaSidebarBtn && quotaSidebar) {
+  toggleQuotaSidebarBtn.addEventListener("click", () => {
+    quotaSidebar.classList.toggle("collapsed");
+    const icon = toggleQuotaSidebarBtn.querySelector("i");
+    if (icon) {
+      icon.className = quotaSidebar.classList.contains("collapsed") ? "fa-solid fa-angles-right" : "fa-solid fa-angles-left";
+    }
+  });
 }

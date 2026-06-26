@@ -1180,14 +1180,23 @@ const updateSearchScopeUi = () => {
   });
 };
 
-const triggerSearch = () => {
-  clearSelection();
+const triggerSearch = async () => {
   const nextKeyword = searchInput.value.trim();
+  if (!nextKeyword) {
+    alert("请输入搜索内容");
+    return;
+  }
+  clearSelection();
   if (nextKeyword && !state.keyword) {
     state.searchOriginFolderId = state.currentFolderId;
   }
   if (!nextKeyword) {
     state.searchOriginFolderId = null;
+  }
+  // 如果当前在传输页面，先跳转到文件页面
+  if (uploadTasksMainContainer && !uploadTasksMainContainer.classList.contains("hidden")) {
+    setUploadTasksViewVisible(false);
+    await switchMainView("files");
   }
   state.searchScope = "all";
   state.keyword = nextKeyword;

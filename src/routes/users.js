@@ -87,6 +87,10 @@ module.exports = (app, deps) => {
     resolveAbsoluteStoragePath,
     resolveStorageNameFromPath,
     fs,
+    crypto,
+    avatarUploadSingle,
+    UPLOAD_DIR,
+    sharp,
     normalizeUserGroupUploadMaxSizeMb,
     normalizeUserGroupUploadMaxFileCount,
     convertUserGroupUploadSizeMbToGb,
@@ -1482,6 +1486,37 @@ module.exports = (app, deps) => {
       if (connection) {
         connection.release();
       }
+    }
+  });
+
+  app.post("/api/users/avatar-upload", authRequired, adminRequired, avatarUploadSingle("avatar"), async (req, res) => {
+    if (!req.file || !req.file.buffer) {
+      res.status(400).json({ message: "请选择头像图片" });
+      return;
+    }
+    const mimeToExtMap = {
+      "image/jpeg": ".jpg",
+      "image/pjpeg": ".jpg",
+      "image/png": ".png",
+      "image/webp": ".webp",
+      "image/bmp": ".bmp",
+      "image/x-ms-bmp": ".bmp",
+      "image/gif": ".gif"
+    };
+    const ext = mimeToExtMap[String(req.file.mimetype || "").toLowerCase()] || ".png";
+    const avatarTempDir = path.join(UPLOAD_DIR, "avatar", "temp");
+    const avatarFileName = `avatar-${Date.now()}-${crypto.randomBytes(6).toString("hex")}${ext}`;
+    const avatarRelativePath = `avatar/temp/${avatarFileName}`;
+    const avatarAbsolutePath = path.join(avatarTempDir, avatarFileName);
+    try {
+      fs.mkdirSync(avatarTempDir, { recursive: true });
+      const compressedBuffer = await sharp(req.file.buffer)
+        .resize(160, 160, { fit: "inside", withoutEnlargement: true })
+        .toBuffer();
+      fs.writeFileSync(avatarAbsolutePath, compressedBuffer);
+      res.json({ message: "头像上传成功", avatar: `/uploads/${avatarRelativePath}` });
+    } catch (error) {
+      sendDbError(res, error);
     }
   });
 };

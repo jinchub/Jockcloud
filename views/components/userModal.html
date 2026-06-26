@@ -5,7 +5,7 @@
         <div class="modal-scroll-body">
           <input type="hidden" id="userId" />
           <div class="form-group" id="usernameGroup">
-            <label>用户名 (登录账号)*</label>
+            <label>用户名 (登录账号)<span style="color:red">*</span></label>
             <input type="text" id="username" required placeholder="如: admin" />
           </div>
           <div class="form-group" id="fullnameGroup">
@@ -17,7 +17,7 @@
             <input type="text" id="phone" placeholder="11位手机号" />
           </div>
           <div class="form-group" id="passwordGroup">
-            <label>密码</label>
+            <label>密码<span style="color:red">*</span></label>
             <input type="password" id="password" placeholder="留空则不修改" />
           </div>
           <div class="form-group" id="roleGroup">
@@ -35,26 +35,22 @@
             <label>头像</label>
             <div style="display:flex; align-items:center; gap:12px; margin-bottom:8px;">
               <img id="avatarPreview" src="https://ui-avatars.com/api/?name=User&background=random" style="width:48px; height:48px; border-radius:50%; object-fit:cover; border:1px solid #ebedf0;">
-              <input type="text" id="avatarUrl" placeholder="输入头像URL" style="flex:1" oninput="document.getElementById('avatarPreview').src = this.value || 'https://ui-avatars.com/api/?name=User&background=random'" />
+              <input type="hidden" id="avatarUrl" />
+              <button type="button" id="avatarUploadBtn" class="btn-sm" style="white-space:nowrap;" disabled><i class="fa-solid fa-camera"></i> 头像更新</button>
             </div>
+            <div id="avatarUploadStatus" style="font-size:12px; color:#86909c; margin-bottom:8px;"></div>
             <div class="avatar-presets" style="display:flex; gap:8px;flex-wrap: wrap;">
-              <img src="/avatar/1.svg" onclick="setAvatar(this.src)" class="avatar-preview">
-              <img src="/avatar/2.svg" onclick="setAvatar(this.src)" class="avatar-preview">
-              <img src="/avatar/3.svg" onclick="setAvatar(this.src)" class="avatar-preview">
-              <img src="/avatar/4.svg" onclick="setAvatar(this.src)" class="avatar-preview">
-              <img src="/avatar/5.svg" onclick="setAvatar(this.src)" class="avatar-preview">
-              <img src="/avatar/6.svg" onclick="setAvatar(this.src)" class="avatar-preview">
-              <img src="/avatar/7.svg" onclick="setAvatar(this.src)" class="avatar-preview">
-              <img src="/avatar/8.svg" onclick="setAvatar(this.src)" class="avatar-preview">
-              <img src="/avatar/9.svg" onclick="setAvatar(this.src)" class="avatar-preview">
-              <img src="/avatar/10.svg" onclick="setAvatar(this.src)" class="avatar-preview">
+              <img src="/avatar/1.svg" onclick="setAvatar(this.src)" class="avatar-preview" data-avatar-preset>
+              <img src="/avatar/2.svg" onclick="setAvatar(this.src)" class="avatar-preview" data-avatar-preset>
+              <img src="/avatar/3.svg" onclick="setAvatar(this.src)" class="avatar-preview" data-avatar-preset>
+              <img src="/avatar/4.svg" onclick="setAvatar(this.src)" class="avatar-preview" data-avatar-preset>
+              <img src="/avatar/5.svg" onclick="setAvatar(this.src)" class="avatar-preview" data-avatar-preset>
+              <img src="/avatar/6.svg" onclick="setAvatar(this.src)" class="avatar-preview" data-avatar-preset>
+              <img src="/avatar/7.svg" onclick="setAvatar(this.src)" class="avatar-preview" data-avatar-preset>
+              <img src="/avatar/8.svg" onclick="setAvatar(this.src)" class="avatar-preview" data-avatar-preset>
+              <img src="/avatar/9.svg" onclick="setAvatar(this.src)" class="avatar-preview" data-avatar-preset>
+              <img src="/avatar/10.svg" onclick="setAvatar(this.src)" class="avatar-preview" data-avatar-preset>
             </div>
-            <script>
-              function setAvatar(url) {
-                document.getElementById('avatarUrl').value = url;
-                document.getElementById('avatarPreview').src = url;
-              }
-            </script>
           </div>
           <div class="form-group" id="permissionsGroup" style="display:none;">
             <label>权限配置</label>
@@ -63,7 +59,7 @@
         </div>
         <div class="modal-actions">
           <button type="button" class="btn-sm" onclick="document.getElementById('userModal').style.display='none'">取消</button>
-          <button type="submit" class="btn-sm" style="background:#165dff; color:#fff; border:none;">保存</button>
+          <button type="submit" class="btn-sm" style="background:#00abff; color:#fff; border:none;">保存</button>
         </div>
       </form>
     </div>

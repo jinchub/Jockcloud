@@ -20,7 +20,7 @@ const renderPath = () => {
       btn.style.fontSize = "12px";
       btn.style.backgroundColor = "#f53e3e";
       btn.style.padding = "4px 8px";
-      btn.style.borderRadius = "24px";
+      btn.style.borderRadius = "10px";
       btn.style.fontWeight = "400";
       btn.innerHTML = '<i class="fa-regular fa-trash-can"></i> 清空回收站';
       btn.onclick = async () => {
@@ -54,15 +54,38 @@ const renderPath = () => {
   }
 
   if (state.keyword && searchResultSummaryEl) {
+    currentPathEl.textContent = "搜索结果列表";
+    searchResultSummaryEl.innerHTML = "";
+    searchResultSummaryEl.style.display = "inline-flex";
+    searchResultSummaryEl.style.alignItems = "center";
+    searchResultSummaryEl.style.gap = "8px";
+    searchResultSummaryEl.style.marginLeft = "12px";
+    
+    const countEl = document.createElement("span");
+    countEl.className = "search-result-count";
+    countEl.textContent = `共 ${state.entriesTotal} 条结果`;
+    
+    const divider = document.createElement("span");
+    divider.textContent = "|";
+    divider.style.color = "#e5e6eb";
+    divider.style.fontSize = "12px";
+    
     const label = document.createElement("span");
-    label.textContent = "搜索内容：";
+    label.textContent = "搜索：";
+    label.style.color = "#86909c";
+    label.style.fontSize = "13px";
+    
     const keywordEl = document.createElement("span");
     keywordEl.className = "search-keyword-highlight";
     keywordEl.textContent = state.keyword;
+    
     const resetBtn = document.createElement("span");
-    resetBtn.className = "btn-action";
-    resetBtn.style.justifyContent = "center";
-    resetBtn.textContent = "重置";
+    resetBtn.className = "btn-link";
+    resetBtn.style.cursor = "pointer";
+    resetBtn.style.color = "var(--primary-color)";
+    resetBtn.style.fontSize = "12px";
+    resetBtn.style.marginLeft = "4px";
+    resetBtn.innerHTML = '<i class="fa-solid fa-xmark"></i> 重置';
     resetBtn.onclick = () => {
       const targetFolderId = state.searchOriginFolderId;
       state.view = "files";
@@ -77,10 +100,13 @@ const renderPath = () => {
       updateRouteQuery({ main: "files", side: "myFiles", category: null });
       refreshAll();
     };
+    
+    searchResultSummaryEl.appendChild(countEl);
+    searchResultSummaryEl.appendChild(divider);
     searchResultSummaryEl.appendChild(label);
     searchResultSummaryEl.appendChild(keywordEl);
     searchResultSummaryEl.appendChild(resetBtn);
-    searchResultSummaryEl.style.display = "flex";
+    return;
   }
   
   const createLink = (name, id, iconClass = "") => {
@@ -299,7 +325,7 @@ const getEntryVisualHtml = (entry, variant = "list") => {
       return `<div class="file-thumb-grid file-thumb-video-wrap"><img class="file-thumb file-thumb-video" src="${previewUrl}" alt="${escapedName}" loading="lazy" /><i class="fa-solid fa-play file-thumb-video-play-icon"></i></div>`;
     }
     if (variant === "detail") {
-      return `<div class="file-thumb-video-detail-wrap"><img class="file-thumb file-thumb-detail" src="${previewUrl}" alt="${escapedName}" loading="lazy" /></div>`;
+      return `<div class="file-thumb-video-detail-wrap"><img class="file-thumb file-thumb-detail" src="${previewUrl}" alt="${escapedName}" loading="lazy" /><i class="fa-solid fa-play file-thumb-video-play-icon"></i></div>`;
     }
     if (variant === "timeline") {
       return `<div class="timeline-card-media timeline-card-video-wrap"><img class="file-thumb file-thumb-timeline" src="${previewUrl}" alt="${escapedName}" loading="lazy" /><i class="fa-solid fa-play file-thumb-timeline-play-icon"></i></div>`;
@@ -1170,6 +1196,22 @@ const renderDetails = (entry, loading = false) => {
       <div class="info-prop-value">${formatDate(entry.deletedAt)}</div>
     </div>` : ''}
   `;
+
+  // 视频文件详情：点击播放按钮或缩略图区域直接打开视频播放器
+  if (entry.type === "file" && isVideoEntry(entry)) {
+    const videoWrap = detailsContent.querySelector(".file-thumb-video-detail-wrap");
+    if (videoWrap) {
+      videoWrap.style.cursor = "pointer";
+      videoWrap.title = "点击播放视频";
+      videoWrap.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        if (!state.selectedEntry) {
+          state.selectedEntry = entry;
+        }
+        await openFilePreview(entry);
+      });
+    }
+  }
 };
 
 const showSelectedEntryDetails = async () => {

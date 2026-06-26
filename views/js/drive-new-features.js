@@ -166,8 +166,34 @@ const switchMainView = async (viewName, enterOptions = {}) => {
   });
 
   // Load Data
-  if (targetView === "users") await loadUsers();
-  if (targetView === "quota") await loadQuota();
+  if (targetView === "users") {
+    await loadUsers();
+    // 移动端自动折叠侧边栏
+    const sidebar = document.getElementById("usersSidebar");
+    if (sidebar && window.matchMedia("(max-width: 768px)").matches) {
+      sidebar.classList.add("collapsed");
+      const toggleBtn = document.getElementById("toggleUsersSidebarBtn");
+      if (toggleBtn) {
+        const icon = toggleBtn.querySelector("i");
+        if (icon) icon.className = "fa-solid fa-angles-right";
+        toggleBtn.title = "展开侧边栏";
+      }
+    }
+  }
+  if (targetView === "quota") {
+    await loadQuota();
+    // 移动端自动折叠侧边栏
+    const sidebar = document.getElementById("quotaSidebar");
+    if (sidebar && window.matchMedia("(max-width: 768px)").matches) {
+      sidebar.classList.add("collapsed");
+      const toggleBtn = document.getElementById("toggleQuotaSidebarBtn");
+      if (toggleBtn) {
+        const icon = toggleBtn.querySelector("i");
+        if (icon) icon.className = "fa-solid fa-angles-right";
+        toggleBtn.title = "展开侧边栏";
+      }
+    }
+  }
   if (targetView === "mounts" && mountManager && typeof mountManager.onEnterView === "function") await mountManager.onEnterView(enterOptions.mounts || {});
   if (targetView === "sync" && syncManager && typeof syncManager.onEnterView === "function") await syncManager.onEnterView(enterOptions.sync || {});
   if (targetView === "settings" && settingsManager && typeof settingsManager.onEnterView === "function") await settingsManager.onEnterView(enterOptions.settings || {});

@@ -36,7 +36,7 @@ const loadStats = async () => {
     } else if (quota !== -1 && percent > 75) {
       document.querySelector(".capacity-inner").style.backgroundColor = "#ff7d00";
     } else {
-      document.querySelector(".capacity-inner").style.backgroundColor = "#165dff";
+      document.querySelector(".capacity-inner").style.backgroundColor = "#00abff";
     }
     
   } catch(e) {}

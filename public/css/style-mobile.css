@@ -815,22 +815,21 @@ body.has-mobile-selection .mobile-bottom-actions {
 }
 
 .header-right {
-  width: 100%;
   max-width: none;
   line-height: 0px;
-  position: relative;
-  right: 0;
+  position: absolute;
+  right: 10px;
   overflow: hidden;
   margin-top: -2px;
 }
 
 .main-header .header-left {
-  display: none;
 }
 
 .main-header {
-  justify-content: center;
+  justify-content: space-between;
   padding: 0 12px;
+  box-shadow: none !important;
 }
 
 .mobile-upload-label {
@@ -839,9 +838,8 @@ body.has-mobile-selection .mobile-bottom-actions {
 
 .search-wrapper,
 .search-wrapper {
-  width: calc(100% - 90px);
-  margin-left: 42px;
-  height: 40px;
+  max-width: 80%;
+  height: 33px;
 }
 
 .collapsed #toggleSecondaryBtn {
@@ -849,7 +847,7 @@ body.has-mobile-selection .mobile-bottom-actions {
 }
 
 #searchBtn {
-  padding: 16px 10px;
+  padding: 6px 10px;
 }
 
 #addMountBtn {
@@ -858,6 +856,22 @@ body.has-mobile-selection .mobile-bottom-actions {
   padding: 4px 10px;
   min-width: auto;
   gap: 2px;
+}
+
+/* 手机版搜索结果单独一行 */
+.main-header .header-left {
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+#searchResultSummary {
+  width: 100%;
+  margin-left: 0 !important;
+  padding: 0 2px;
+  flex-wrap: wrap;
+  position: absolute;
+  margin-top: 70px;
+  left: 10px;
 }
 
 .modal {
@@ -1587,11 +1601,32 @@ body.has-mobile-selection .mobile-bottom-actions {
   min-height: 160px;
 }
 
+.info-sidebar .file-thumb-video-detail-wrap {
+  position: relative;
+}
+
 .info-sidebar .file-thumb-video-detail-wrap .file-thumb-detail {
   width: 100%;
   max-height: 40vh;
   object-fit: contain;
   border-radius: 8px;
+}
+
+.info-sidebar .file-thumb-video-detail-wrap .file-thumb-video-play-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #fff;
+  background: rgb(0 0 0 / 70%);
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  font-size: 20px;
 }
 
 .timeline-card-media .file-icon {
@@ -2050,7 +2085,7 @@ body.has-mobile-selection .mobile-bottom-actions {
 .download-task-icon .file-pdf,
 .download-task-icon .fa-file-pdf { color: #f53f3f; }
 .download-task-icon .file-word,
-.download-task-icon .fa-file-word { color: #165dff; }
+.download-task-icon .fa-file-word { color: #00abff; }
 .download-task-icon .file-excel,
 .download-task-icon .fa-file-excel { color: #00b42a; }
 .download-task-icon .file-ppt,
@@ -2066,15 +2101,15 @@ body.has-mobile-selection .mobile-bottom-actions {
 .download-task-icon .file-zip,
 .download-task-icon .fa-file-zip { color: #86909c; }
 .download-task-icon .file-code,
-.download-task-icon .fa-file-code { color: #165dff; }
-.download-task-icon .file-psd { color: #165dff; }
+.download-task-icon .fa-file-code { color: #00abff; }
+.download-task-icon .file-psd { color: #00abff; }
 .download-task-icon .file-code-java { color: #f53f3f; }
 .download-task-icon .file-code-php { color: #86909c; }
 .download-task-icon .file-code-sql { color: #00b42a; }
 .download-task-icon .file-code-shell { color: #86909c; }
-.download-task-icon .file-code-xml { color: #165dff; }
+.download-task-icon .file-code-xml { color: #00abff; }
 .download-task-icon .file-code-config { color: #86909c; }
-.download-task-icon .file-code-cpp { color: #165dff; }
+.download-task-icon .file-code-cpp { color: #00abff; }
 .download-task-icon .file-code-cs { color: #86909c; }
 .download-task-icon .file-folder { color: #f7ba1e; }
 .download-task-icon .file-default { color: #86909c; }
@@ -2121,7 +2156,7 @@ body.has-mobile-selection .mobile-bottom-actions {
 
 .download-task-status.status-active {
   background: #e8f3ff;
-  color: #165dff;
+  color: #00abff;
 }
 
 .download-task-deleted {

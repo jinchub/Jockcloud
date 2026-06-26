@@ -13,6 +13,7 @@ const registerAllRoutes = (app, deps) => {
     verifyPassword,
     resolveAbsoluteStoragePath,
     fs,
+    sharp,
     normalizeUserGroupUploadMaxSizeMb,
     normalizeUserGroupUploadMaxFileCount,
     convertUserGroupUploadSizeMbToGb,
@@ -174,13 +175,17 @@ const registerAllRoutes = (app, deps) => {
     resolveStorageRootDir,
     resolveAbsoluteStoragePath,
     fs,
+    crypto,
     normalizeUserGroupUploadMaxSizeMb,
     normalizeUserGroupUploadMaxFileCount,
     convertUserGroupUploadSizeMbToGb,
     convertUserGroupUploadSizeGbToMb,
     resolveGroupQuota,
     getStorageDiskConfig,
-    resolveStorageNameFromPath
+    resolveStorageNameFromPath,
+    avatarUploadSingle,
+    UPLOAD_DIR,
+    sharp
   };
   registerUserRoutes(app, routeDeps);
 

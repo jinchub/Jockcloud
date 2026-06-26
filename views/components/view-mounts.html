@@ -23,6 +23,7 @@
                   <button type="button" class="mounts-close-connection-btn" id="closeMountConnectionBtn" title="关闭连接">
                     <i class="fa-solid fa-link-slash"></i>
                   </button>
+                  <div class="mounts-meta" id="mountStorageMeta">请选择左侧挂载</div>
                 </div>
                 <div class="mounts-main-actions">
                   <button class="btn-upload mounts-upload-btn" id="createMountFolderBtn"><i class="fa-solid fa-folder-plus"></i> 目录</button>
@@ -30,17 +31,16 @@
                   <input type="file" id="mountObjectUploadInput" style="display:none;" />
                 </div>
               </div>
-              <div class="mounts-meta-row">
-                <div class="mounts-meta" id="mountStorageMeta">请选择左侧挂载</div>
-                <div class="mounts-meta-actions">
+            </div>
+            <div class="mounts-storage-scroll">
+              <div class="mount-breadcrumb" id="mountBreadcrumb"></div>
+              <div class="mounts-data-toolbar">
+                <div class="mounts-meta-actions" id="mountMetaActions">
                   <button type="button" class="btn-sm mounts-search-btn" id="searchMountObjectBtn"><i class="fa-solid fa-magnifying-glass"></i> 搜索</button>
                   <button type="button" class="btn-sm mounts-reset-btn" id="resetMountSearchBtn" style="display:none;"><i class="fa-solid fa-rotate-left"></i> 重置</button>
                   <button type="button" class="btn-sm mounts-refresh-btn" id="refreshMountObjectBtn"><i class="fa-solid fa-rotate-right"></i> 刷新</button>
                 </div>
               </div>
-              <div class="mount-breadcrumb" id="mountBreadcrumb"></div>
-            </div>
-            <div class="mounts-storage-scroll">
               <table class="data-table mounts-storage-table" id="mountStorageTable">
                 <thead>
                   <tr>

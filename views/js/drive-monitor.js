@@ -498,7 +498,7 @@ const initResourceCharts = () => {
       return new Chart(ctx, {
         type: 'line',
         data: { labels: [], datasets: [
-          { label: '上传 (发送)', data: [], borderColor: '#165dff', backgroundColor: 'rgba(22, 93, 255, 0.1)', borderWidth: 1.5, pointRadius: 0, fill: true, tension: 0.1, spanGaps: true },
+          { label: '上传 (发送)', data: [], borderColor: '#00abff', backgroundColor: 'rgba(22, 93, 255, 0.1)', borderWidth: 1.5, pointRadius: 0, fill: true, tension: 0.1, spanGaps: true },
           { label: '下载 (接收)', data: [], borderColor: '#00b42a', backgroundColor: 'rgba(0, 180, 42, 0.1)', borderWidth: 1.5, pointRadius: 0, fill: true, tension: 0.1, spanGaps: true }
         ]},
         options
@@ -519,7 +519,7 @@ const initResourceCharts = () => {
   if (resourceCharts.disk) resourceCharts.disk.destroy();
   if (resourceCharts.network) resourceCharts.network.destroy();
 
-  resourceCharts.cpu = createChart('cpuChart', 'CPU 使用率', 'rgb(22, 93, 255)', false, 100);
+  resourceCharts.cpu = createChart('cpuChart', 'CPU 使用率', '#00abff', false, 100);
   resourceCharts.memory = createChart('memoryChart', '内存使用率', 'rgb(255, 125, 0)', false, 100);
   resourceCharts.disk = createChart('diskChart', '磁盘使用率', 'rgb(245, 63, 63)', false, 100);
   resourceCharts.network = createChart('networkChart', '网络吞吐量', '', true, null);
@@ -673,7 +673,7 @@ const loadResourceInfo = async () => {
       }
       
       elDetailTableBody.innerHTML = `
-        <tr><td>网络速度 (发送)</td><td style="color: #165dff; font-weight: bold;">${data.network.txSpeedStr || '0 B/s'}</td></tr>
+        <tr><td>网络速度 (发送)</td><td style="color: #00abff; font-weight: bold;">${data.network.txSpeedStr || '0 B/s'}</td></tr>
         <tr><td>网络速度 (接收)</td><td style="color: #00b42a; font-weight: bold;">${data.network.rxSpeedStr || '0 B/s'}</td></tr>
         ${networkInterfacesHtml}
         <tr><td>CPU 型号</td><td>${data.cpu.model || '未知'}</td></tr>
@@ -1276,7 +1276,7 @@ const initFileMonitorCharts = () => {
     fileOpsChartInstance = new Chart(ctxFile, {
       type: 'line',
       data: { labels: [], datasets: [
-        { label: '上传', data: [], borderColor: '#165dff', backgroundColor: 'rgba(22, 93, 255, 0.1)', borderWidth: 1.5, pointRadius: 0, fill: true, tension: 0.1, spanGaps: true },
+        { label: '上传', data: [], borderColor: '#00abff', backgroundColor: 'rgba(22, 93, 255, 0.1)', borderWidth: 1.5, pointRadius: 0, fill: true, tension: 0.1, spanGaps: true },
         { label: '下载', data: [], borderColor: '#00b42a', backgroundColor: 'rgba(0, 180, 42, 0.1)', borderWidth: 1.5, pointRadius: 0, fill: true, tension: 0.1, spanGaps: true },
         { label: '删除', data: [], borderColor: '#f53f3f', backgroundColor: 'rgba(245, 63, 63, 0.1)', borderWidth: 1.5, pointRadius: 0, fill: true, tension: 0.1, spanGaps: true }
       ]},

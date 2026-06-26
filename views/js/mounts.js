@@ -179,7 +179,7 @@
     const okBtn = document.createElement("button");
     okBtn.type = "button";
     okBtn.className = "btn-sm";
-    okBtn.style.background = "#165dff";
+    okBtn.style.background = "#00abff";
     okBtn.style.color = "#fff";
     okBtn.style.border = "none";
     okBtn.textContent = okText;
@@ -280,7 +280,7 @@
     const closeBtn = document.createElement("button");
     closeBtn.type = "button";
     closeBtn.className = "btn-sm";
-    closeBtn.style.background = "#165dff";
+    closeBtn.style.background = "#00abff";
     closeBtn.style.color = "#fff";
     closeBtn.style.border = "none";
     closeBtn.textContent = "关闭";
@@ -436,6 +436,7 @@
       const prevPageBtn = document.getElementById("mountPrevPageBtn");
       const nextPageBtn = document.getElementById("mountNextPageBtn");
       const pageSizeSelect = document.getElementById("mountPageSizeSelect");
+      const mountMetaActions = document.getElementById("mountMetaActions");
       if (!titleEl || !metaEl || !tbody) return;
       renderMountSortHeaders();
       if (pageSizeSelect && pageSizeSelect.value !== String(mountPageSize)) {
@@ -467,6 +468,7 @@
         metaEl.textContent = mountsData.length ? "未连接，请点击左侧挂载" : "请选择左侧挂载";
         mountCurrentPage = 1;
         mountTotalCount = 0;
+        if (mountMetaActions) mountMetaActions.style.display = "none";
         if (searchBtn) {
           searchBtn.disabled = true;
           searchBtn.innerHTML = `<i class="fa-solid fa-magnifying-glass"></i> 搜索`;
@@ -490,6 +492,7 @@
         showMountEmpty(mountsData.length ? "当前未连接挂载，请点击左侧挂载列表" : "暂无挂载，请先添加");
         return;
       }
+      if (mountMetaActions) mountMetaActions.style.display = "";
       const config = mount.config || {};
       titleEl.textContent = `${mount.name} 文件存储列表`;
       const baseMeta = `${getMountTypeLabel(mount.type)} · ${config.bucket || "-"} @ ${config.endpoint || "-"}`;

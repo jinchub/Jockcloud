@@ -2476,7 +2476,7 @@ const appNoticeTypeMap = {
     defaultTitle: "操作成功",
     defaultIconClass: "fa-solid fa-circle-check",
     iconBackground: "#e8f3ff",
-    iconColor: "#165dff"
+    iconColor: "#00abff"
   }
 };
 

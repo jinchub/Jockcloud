@@ -5,29 +5,44 @@ const getPermissionSourceText = (source) => {
   return "默认";
 };
 
+const USERS_MENUITEMS = [
+  { key: "users", title: "用户", icon: "fa-solid fa-user-group", desc: "管理所有注册用户" },
+  { key: "groups", title: "用户组", icon: "fa-solid fa-users-gear", desc: "管理用户组及权限配置" }
+];
+
+const renderUsersSidebar = () => {
+  const asideList = document.getElementById("usersAsideList");
+  if (!asideList) return;
+  asideList.innerHTML = USERS_MENUITEMS.map(item => `
+    <button type="button" class="settings-menu-item ${userManageActiveTab === item.key ? "active" : ""}" data-users-menu="${item.key}">
+      <i class="${item.icon}"></i>
+      <span>${item.title}</span>
+    </button>
+  `).join("");
+};
+
 const setUserManageTab = (tab, routeMode = "none") => {
   userManageActiveTab = tab === "groups" ? "groups" : "users";
-  const usersTabBtn = document.getElementById("usersTabBtn");
-  const userGroupsTabBtn = document.getElementById("userGroupsTabBtn");
   const usersTabPanel = document.getElementById("usersTabPanel");
   const userGroupsTabPanel = document.getElementById("userGroupsTabPanel");
   const addUserBtn = document.getElementById("addUserBtn");
   const addUserGroupBtn = document.getElementById("addUserGroupBtn");
+  const panelTitle = document.getElementById("usersPanelTitle");
+  const panelMeta = document.getElementById("usersPanelMeta");
   const usersActive = userManageActiveTab === "users";
-  if (usersTabBtn) {
-    usersTabBtn.style.background = usersActive ? "#165dff" : "";
-    usersTabBtn.style.color = usersActive ? "#fff" : "";
-    usersTabBtn.style.border = usersActive ? "none" : "";
-  }
-  if (userGroupsTabBtn) {
-    userGroupsTabBtn.style.background = usersActive ? "" : "#165dff";
-    userGroupsTabBtn.style.color = usersActive ? "" : "#fff";
-    userGroupsTabBtn.style.border = usersActive ? "" : "none";
-  }
-  if (usersTabPanel) usersTabPanel.style.display = usersActive ? "" : "none";
-  if (userGroupsTabPanel) userGroupsTabPanel.style.display = usersActive ? "none" : "";
+  // 更新侧边栏高亮
+  document.querySelectorAll("#usersAsideList .settings-menu-item").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.usersMenu === userManageActiveTab);
+  });
+  // 更新面板
+  if (usersTabPanel) usersTabPanel.style.display = usersActive ? "flex" : "none";
+  if (userGroupsTabPanel) userGroupsTabPanel.style.display = usersActive ? "none" : "flex";
   if (addUserBtn) addUserBtn.style.display = usersActive ? "" : "none";
   if (addUserGroupBtn) addUserGroupBtn.style.display = usersActive ? "none" : "";
+  // 更新标题和描述
+  const activeItem = USERS_MENUITEMS.find(m => m.key === userManageActiveTab);
+  if (panelTitle) panelTitle.textContent = activeItem ? activeItem.title : "用户管理";
+  if (panelMeta) panelMeta.textContent = activeItem ? activeItem.desc : "";
   if (routeMode === "push" || routeMode === "replace") {
     updateRouteQuery({ main: "users", usersTab: userManageActiveTab }, routeMode === "replace");
   }
@@ -54,6 +69,7 @@ const loadUsers = async () => {
     // if 403, maybe show empty or alert
   }
 };
+window.loadUsers = loadUsers; // expose globally for cross-file access
 
 const renderUsers = () => {
   const tbody = document.querySelector("#usersTable tbody");
@@ -81,7 +97,7 @@ const renderUsers = () => {
         </td>
         <td>${u.username}</td>
         <td>${u.name || "-"}</td>
-        <td>${u.role === 'admin' ? '<span style="color:#165dff">管理员</span>' : '普通用户'}</td>
+        <td>${u.role === 'admin' ? '<span style="color:#00abff">管理员</span>' : '普通用户'}</td>
         <td>${(u.groupNames || []).length > 0 ? u.groupNames.join("、") : "-"}</td>
         <td>${u.phone || "-"}</td>
         <td>${formatSize(u.used)}</td>
@@ -202,7 +218,12 @@ const openUserModal = async (id, mode = "full") => {
   document.getElementById("username").disabled = true; // Cannot change username
   document.getElementById("fullname").value = user.name || "";
   document.getElementById("phone").value = user.phone || "";
-  document.getElementById("password").value = "";
+  const pwdInput = document.getElementById("password");
+  if (pwdInput) {
+    pwdInput.required = false;
+    pwdInput.placeholder = "留空则不修改";
+    pwdInput.value = "";
+  }
   setPermissionSelections(user.permissions || []);
   renderUserGroupSingleSelect(user.groupIds && user.groupIds.length > 0 ? user.groupIds[0] : null);
   
@@ -222,8 +243,13 @@ const openUserModal = async (id, mode = "full") => {
   const avatarUrl = user.avatar || "";
   const avatarInput = document.getElementById("avatarUrl");
   const avatarPreview = document.getElementById("avatarPreview");
+  const statusEl = document.getElementById("avatarUploadStatus");
+  const avatarBtn = document.getElementById("avatarUploadBtn");
   if (avatarInput) avatarInput.value = avatarUrl;
   if (avatarPreview) avatarPreview.src = avatarUrl || `https://ui-avatars.com/api/?name=${user.username}&background=random`;
+  if (statusEl) statusEl.textContent = "";
+  // 编辑用户时用户名已存在，启用头像按钮
+  updateAvatarBtnState();
   
   document.getElementById("userModal").style.display = "flex";
 };
@@ -274,12 +300,87 @@ document.getElementById("addUserBtn").onclick = () => {
      roleSelect.value = "user";
   }
 
+  // 新建用户时密码必填
+  const pwdInput = document.getElementById("password");
+  if (pwdInput) {
+    pwdInput.required = true;
+    pwdInput.placeholder = "请输入密码";
+  }
+
   // Reset Avatar Preview
   const avatarPreview = document.getElementById("avatarPreview");
+  const statusEl = document.getElementById("avatarUploadStatus");
   if (avatarPreview) avatarPreview.src = "https://ui-avatars.com/api/?name=User&background=random";
+  if (statusEl) statusEl.textContent = "";
+  updateAvatarBtnState();
   
   document.getElementById("userModal").style.display = "flex";
 };
+
+// 头像上传 - 复用现有的更换头像弹窗（支持裁剪、预设）
+const setUserAvatarResult = (avatarUrl) => {
+  const avatarInput = document.getElementById("avatarUrl");
+  const avatarPreview = document.getElementById("avatarPreview");
+  const statusEl = document.getElementById("avatarUploadStatus");
+  if (avatarInput) avatarInput.value = avatarUrl;
+  if (avatarPreview) avatarPreview.src = avatarUrl;
+  if (statusEl) statusEl.innerHTML = '<span style="color:#52c41a;"><i class="fa-solid fa-check-circle"></i> 头像已设置</span>';
+};
+
+const setAvatar = (url) => {
+  setUserAvatarResult(url);
+};
+// 暴露到全局供 inline onclick 使用
+window.setAvatar = setAvatar;
+
+// 头像按钮启用状态跟随用户名输入
+const updateAvatarBtnState = () => {
+  const username = document.getElementById("username");
+  const avatarBtn = document.getElementById("avatarUploadBtn");
+  if (!avatarBtn) return;
+  const hasUsername = username && username.value.trim().length > 0;
+  avatarBtn.disabled = !hasUsername;
+  avatarBtn.style.opacity = hasUsername ? "1" : "0.5";
+  avatarBtn.style.cursor = hasUsername ? "pointer" : "not-allowed";
+};
+document.getElementById("username").addEventListener("input", updateAvatarBtnState);
+
+document.getElementById("avatarUploadBtn").onclick = () => {
+  const avatarUpdateModal = document.getElementById("avatarUpdateModal");
+  if (!avatarUpdateModal) return;
+  // 重置裁剪弹窗状态
+  const profileAvatarUrlInput = document.getElementById("profileAvatarUrlInput");
+  const profileAvatarFileInput = document.getElementById("profileAvatarFileInput");
+  const profileAvatarPreview = document.getElementById("profileAvatarPreview");
+  if (profileAvatarUrlInput) profileAvatarUrlInput.value = "";
+  if (profileAvatarFileInput) profileAvatarFileInput.value = "";
+  if (profileAvatarPreview) profileAvatarPreview.src = "https://ui-avatars.com/api/?name=User&background=random";
+  if (typeof avatarCropState !== "undefined") {
+    avatarCropState.useLocalFile = false;
+    if (typeof resetAvatarCropCanvas === "function") {
+      resetAvatarCropCanvas("https://ui-avatars.com/api/?name=User&background=random");
+    }
+  }
+  // 标记为用户管理模式
+  window._userManagementAvatarMode = true;
+  avatarUpdateModal.style.display = "flex";
+};
+
+document.querySelectorAll("#avatarGroup [data-avatar-preset]").forEach((el) => {
+  el.addEventListener("click", () => {
+    setAvatar(el.src);
+  });
+});
+
+// 取消按钮关闭弹窗时清理标志（不能声明新变量，避免UglifyJS合并let链导致覆盖函数）
+(function() {
+  const btn = document.getElementById("cancelAvatarUpdateBtn");
+  if (btn) {
+    btn.addEventListener("click", () => {
+      window._userManagementAvatarMode = false;
+    });
+  }
+})();
 
 document.getElementById("userForm").onsubmit = async (e) => {
   e.preventDefault();
@@ -560,14 +661,31 @@ if (userGroupAddBtn) {
   };
 }
 
-const usersTabBtn = document.getElementById("usersTabBtn");
-if (usersTabBtn) {
-  usersTabBtn.onclick = () => setUserManageTab("users", "push");
+// 侧边栏菜单点击事件
+const usersAsideList = document.getElementById("usersAsideList");
+if (usersAsideList) {
+  usersAsideList.addEventListener("click", (event) => {
+    const btn = event.target.closest("[data-users-menu]");
+    if (btn) {
+      setUserManageTab(btn.dataset.usersMenu, "push");
+    }
+  });
 }
-const userGroupsTabBtn = document.getElementById("userGroupsTabBtn");
-if (userGroupsTabBtn) {
-  userGroupsTabBtn.onclick = () => setUserManageTab("groups", "push");
+
+// 侧边栏折叠/展开
+const toggleUsersSidebarBtn = document.getElementById("toggleUsersSidebarBtn");
+const usersSidebar = document.getElementById("usersSidebar");
+if (toggleUsersSidebarBtn && usersSidebar) {
+  toggleUsersSidebarBtn.addEventListener("click", () => {
+    usersSidebar.classList.toggle("collapsed");
+    const icon = toggleUsersSidebarBtn.querySelector("i");
+    if (icon) {
+      icon.className = usersSidebar.classList.contains("collapsed") ? "fa-solid fa-angles-right" : "fa-solid fa-angles-left";
+    }
+  });
 }
+
+renderUsersSidebar();
 setUserManageTab("users");
 
 const userGroupForm = document.getElementById("userGroupForm");

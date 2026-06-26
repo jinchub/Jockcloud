@@ -433,7 +433,7 @@ importScripts(${JSON.stringify(workerMainUrl)});
     if (!statusEl) return;
     if (state.textPreview.isSaving) {
       statusEl.textContent = "保存中...";
-      statusEl.style.color = "#165dff";
+      statusEl.style.color = "#00abff";
       return;
     }
     if (state.textPreview.dirty) {

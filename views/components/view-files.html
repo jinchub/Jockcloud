@@ -3,12 +3,13 @@
         <div class="header-left">
           <input type="file" id="fileInput" style="display: none;" multiple />
           <input type="file" id="dirInput" style="display: none;" webkitdirectory directory multiple />
-        </div>
-        <div class="header-right">
           <div class="search-wrapper">
             <input type="text" id="searchInput" placeholder="搜索我的文件" />
             <div class="search-btn-text" id="searchBtn">搜索</div>
           </div>
+          <span id="searchResultSummary" style="display:none;"></span>
+        </div>
+        <div class="header-right">
           <button type="button" class="theme-toggle-btn" id="themeToggleBtn" title="切换主题">
             <i class="fa-solid fa-moon theme-icon-light"></i>
             <i class="fa-solid fa-sun theme-icon-dark"></i>
