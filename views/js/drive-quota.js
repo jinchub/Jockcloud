@@ -2,15 +2,24 @@
 const QUOTA_MENUITEMS = [
   { key: "overview", title: "空间概览", icon: "fa-solid fa-chart-pie", desc: "查看存储空间使用概况" },
   { key: "storage", title: "储存盘", icon: "fa-solid fa-hard-drive", desc: "管理系统磁盘和存储盘配置" },
-  { key: "users", title: "用户空间", icon: "fa-solid fa-users", desc: "查看每个用户的空间使用情况" }
+  { key: "users", title: "用户空间", icon: "fa-solid fa-users", desc: "查看每个用户的空间使用情况" },
+  { key: "analysis", title: "使用分析", icon: "fa-solid fa-bar-chart", desc: "查看文件分类占比统计" }
 ];
 
 let quotaActiveTab = "overview";
 
+const getQuotaMenuItems = () => {
+  const isAdmin = state.currentUser && state.currentUser.role === "admin";
+  if (isAdmin) return QUOTA_MENUITEMS;
+  // 普通用户只能看到"使用分析"
+  return QUOTA_MENUITEMS.filter(item => item.key === "analysis");
+};
+
 const renderQuotaSidebar = () => {
   const asideList = document.getElementById("quotaAsideList");
   if (!asideList) return;
-  asideList.innerHTML = QUOTA_MENUITEMS.map(item => `
+  const items = getQuotaMenuItems();
+  asideList.innerHTML = items.map(item => `
     <button type="button" class="settings-menu-item ${quotaActiveTab === item.key ? "active" : ""}" data-quota-menu="${item.key}">
       <i class="${item.icon}"></i>
       <span>${item.title}</span>
@@ -18,25 +27,34 @@ const renderQuotaSidebar = () => {
   `).join("");
 };
 
-const setQuotaTab = (tab) => {
+const setQuotaTab = (tab, updateUrl = true) => {
   quotaActiveTab = tab;
   const overviewPanel = document.getElementById("quotaOverviewPanel");
   const storagePanel = document.getElementById("quotaStoragePanel");
   const userPanel = document.getElementById("quotaUserPanel");
+  const analysisPanel = document.getElementById("quotaAnalysisPanel");
   const panelTitle = document.getElementById("quotaPanelTitle");
   const panelMeta = document.getElementById("quotaPanelMeta");
-  // 更新侧边栏高亮
   document.querySelectorAll("#quotaAsideList .settings-menu-item").forEach(btn => {
     btn.classList.toggle("active", btn.dataset.quotaMenu === quotaActiveTab);
   });
-  // 更新面板
   if (overviewPanel) overviewPanel.style.display = quotaActiveTab === "overview" ? "" : "none";
   if (storagePanel) storagePanel.style.display = quotaActiveTab === "storage" ? "" : "none";
   if (userPanel) userPanel.style.display = quotaActiveTab === "users" ? "" : "none";
-  // 更新标题和描述
+  if (analysisPanel) analysisPanel.style.display = quotaActiveTab === "analysis" ? "" : "none";
   const activeItem = QUOTA_MENUITEMS.find(m => m.key === quotaActiveTab);
   if (panelTitle) panelTitle.textContent = activeItem ? activeItem.title : "空间管理";
   if (panelMeta) panelMeta.textContent = activeItem ? activeItem.desc : "";
+  // 用户信息未加载时跳过数据请求，由 loadUserInfo 完成后统一触发
+  if (quotaActiveTab === "analysis" && state.currentUser) {
+    loadFileCategoryStatsWithSpin(0); // 侧边栏切换无最小延迟
+  }
+  // 仅在用户主动操作时更新 URL，避免初始化时强行添加参数
+  if (updateUrl) {
+    const url = new URL(window.location.href);
+    url.searchParams.set("quotaTab", tab);
+    window.history.replaceState({}, "", url);
+  }
 };
 
 const renderGroupBadge = (groupName, clickable = false) => {
@@ -591,6 +609,11 @@ const loadQuota = async () => {
     // Also load users for table
     await loadQuotaUsers();
     renderQuotaTable();
+    
+    // 重新渲染侧边栏（此时 currentUser 已加载完毕）
+    renderQuotaSidebar();
+    // 同步当前选中 tab 的高亮（不更新 URL）
+    setQuotaTab(quotaActiveTab, false);
   } catch(e) {}
 };
 
@@ -910,9 +933,9 @@ const renderQuotaTable = () => {
         <td>${formatSize(used)}${percent === "-" ? "" : ` (${percent})`}</td>
         <td>${effectiveQuota === -1 ? "无限制" : formatSize(effectiveQuota)}</td>
         <td>
-          <div style="display:flex; align-items:center; gap:8px;">
-            <div style="width:100px; height:8px; background:#ebedf0; border-radius:4px; overflow:hidden;">
-              <div style="width:${total > 0 ? Math.min(100, percentValue) : 0}%; height:100%; background:${barColor};"></div>
+          <div class="category-table-progress-wrap">
+            <div class="category-table-progress-bg">
+              <div class="category-table-progress-fill" style="width:${total > 0 ? Math.min(100, percentValue) : 0}%; background:${barColor};"></div>
             </div>
             <span>${usageLabel}</span>
           </div>
@@ -1406,6 +1429,17 @@ const loadUserInfo = async () => {
     const res = await request("/api/auth/me");
     const user = await res.json();
     state.currentUser = user;
+    // 用户信息加载后，重新渲染空间侧边栏并修正默认 tab
+    renderQuotaSidebar();
+    if (user && user.role === "admin" && quotaActiveTab === "analysis") {
+      // 管理员首次加载时切换到空间概览（不更新 URL）
+      setQuotaTab("overview", false);
+    } else if ((!user || user.role !== "admin") && quotaActiveTab === "overview") {
+      // 普通用户默认使用分析（不更新 URL）
+      setQuotaTab("analysis", false);
+    } else {
+      setQuotaTab(quotaActiveTab, false);
+    }
     const nextViewMode = normalizeViewModePreference(user && user.viewMode);
     const nextGridSize = normalizeGridSizePreference(user && user.gridSize);
     const nextVisibleCategories = normalizeVisibleCategoriesPreference(user && user.visibleCategories);
@@ -1526,9 +1560,304 @@ if (resetHiddenSpacePwdBtn) {
   };
 }
 
+const FILE_CATEGORY_LABELS = {
+  image: "图片",
+  video: "视频",
+  audio: "音频",
+  doc: "文档",
+  text: "文本",
+  archive: "压缩包",
+  program: "程序包",
+  other: "其他"
+};
+
+const FILE_CATEGORY_COLORS = {
+  image: "#3b82f6",
+  video: "#8b5cf6",
+  audio: "#06b6d4",
+  doc: "#10b981",
+  text: "#f59e0b",
+  archive: "#ef4444",
+  program: "#6366f1",
+  other: "#6b7280"
+};
+
+const FILE_CATEGORY_ORDER = ["image", "video", "audio", "doc", "text", "archive", "program", "other"];
+
+const loadFileCategoryStats = async () => {
+  try {
+    const isAdmin = state.currentUser && state.currentUser.role === "admin";
+    const url = isAdmin ? "/api/admin/file-category-stats" : "/api/file-category-stats";
+    const categoryRes = await request(url);
+    const data = await categoryRes.json();
+    if (!categoryRes.ok) throw new Error(data.message || "加载失败");
+    // 从当前用户信息中获取有效配额（管理员和普通用户均适用）
+    const quotaBytes = state.currentUser ? Number(state.currentUser.effectiveQuota || -1) : -1;
+    renderFileCategoryChart(data.categories || [], data.totalSize || 0, quotaBytes);
+    renderFileCategoryTable(data.categories || [], data.totalSize || 0, quotaBytes);
+  } catch (e) {
+    const container = document.getElementById("fileCategoryChartContainer");
+    if (container) container.innerHTML = '<div class="category-empty-state">加载失败</div>';
+  }
+};
+
+const renderFileCategoryChart = (categories, totalSize, quotaBytes = -1) => {
+  const container = document.getElementById("fileCategoryChartContainer");
+  if (!container) return;
+  
+  if (!categories.length && quotaBytes <= 0) {
+    container.innerHTML = '<div class="category-empty-state">暂无数据</div>';
+    return;
+  }
+  
+  const hasQuota = quotaBytes > 0 && quotaBytes !== -1;
+  const chartTotalSize = hasQuota ? Math.max(totalSize, quotaBytes) : totalSize;
+  
+  const sortedCategories = [...categories].sort((a, b) => {
+    const aIndex = FILE_CATEGORY_ORDER.indexOf(a.category);
+    const bIndex = FILE_CATEGORY_ORDER.indexOf(b.category);
+    return (aIndex >= 0 ? aIndex : 99) - (bIndex >= 0 ? bIndex : 99);
+  });
+  
+  const barHeight = 48;
+  let segmentsHtml = sortedCategories.map(cat => {
+    const color = FILE_CATEGORY_COLORS[cat.category] || FILE_CATEGORY_COLORS.other;
+    const percent = chartTotalSize > 0 ? ((cat.totalSize / chartTotalSize) * 100).toFixed(2) : 0;
+    const label = escapeHtml(FILE_CATEGORY_LABELS[cat.category] || cat.category);
+    const size = escapeHtml(formatSize(cat.totalSize));
+    return `
+      <div class="category-segment" style="width:${percent}%; background:${color};" data-label="${label}" data-size="${size}" data-percent="${percent}%"></div>
+    `;
+  }).join("");
+  
+  // 添加"未使用"分段（有限额时）
+  if (hasQuota && totalSize < quotaBytes) {
+    const unusedBytes = quotaBytes - totalSize;
+    const unusedPercent = ((unusedBytes / chartTotalSize) * 100).toFixed(2);
+    segmentsHtml += `
+      <div class="category-segment category-unused" style="width:${unusedPercent}%; background:#e2e8f0;" data-label="未使用" data-size="${escapeHtml(formatSize(unusedBytes))}" data-percent="${unusedPercent}%"></div>
+    `;
+  }
+  
+  let legendHtml = sortedCategories.map(cat => {
+    const color = FILE_CATEGORY_COLORS[cat.category] || FILE_CATEGORY_COLORS.other;
+    return `
+      <div class="category-legend-item">
+        <span class="category-legend-color" style="background:${color};"></span>
+        <span class="category-legend-label">${escapeHtml(FILE_CATEGORY_LABELS[cat.category] || cat.category)}</span>
+      </div>
+    `;
+  }).join("");
+  
+  // 未使用图例
+  if (hasQuota && totalSize < quotaBytes) {
+    legendHtml += `
+      <div class="category-legend-item">
+        <span class="category-legend-color" style="background:#e2e8f0;"></span>
+        <span class="category-legend-label">未使用</span>
+      </div>
+    `;
+  }
+  
+  container.innerHTML = `
+    <div class="category-bar-chart">
+      <div class="category-tooltip"><span class="category-tooltip-arrow"></span><span class="category-tooltip-text"></span></div>
+      <div class="category-bar-outer">
+        <div class="category-bar-inner">${segmentsHtml}</div>
+      </div>
+      <div class="category-legend">${legendHtml}</div>
+    </div>
+  `;
+  
+  const tooltip = container.querySelector(".category-tooltip");
+  const barChart = container.querySelector(".category-bar-chart");
+  
+  const tooltipText = container.querySelector(".category-tooltip-text");
+  
+  container.querySelectorAll(".category-segment").forEach(segment => {
+    segment.addEventListener("mouseenter", (e) => {
+      const label = segment.dataset.label || "";
+      const size = segment.dataset.size || "";
+      const percent = segment.dataset.percent || "";
+      tooltipText.textContent = `${label}: ${size} (${percent})`;
+      const barRect = barChart.getBoundingClientRect();
+      const segmentRect = segment.getBoundingClientRect();
+      const segCenter = segmentRect.left - barRect.left + segmentRect.width / 2;
+      const tw = tooltip.offsetWidth;
+      const margin = 10;
+      const clampedX = Math.max(tw / 2 + margin, Math.min(barRect.width - tw / 2 - margin, segCenter));
+      tooltip.style.left = `${clampedX}px`;
+      const arrow = container.querySelector(".category-tooltip-arrow");
+      if (arrow) {
+        arrow.style.left = `${segCenter - clampedX + tw / 2}px`;
+        arrow.style.transform = "translateX(-50%)";
+      }
+      tooltip.style.opacity = "1";
+    });
+    
+    segment.addEventListener("mousemove", (e) => {
+      const barRect = barChart.getBoundingClientRect();
+      const segmentRect = segment.getBoundingClientRect();
+      const segCenter = segmentRect.left - barRect.left + segmentRect.width / 2;
+      const tw = tooltip.offsetWidth;
+      const margin = 10;
+      const clampedX = Math.max(tw / 2 + margin, Math.min(barRect.width - tw / 2 - margin, segCenter));
+      tooltip.style.left = `${clampedX}px`;
+      const arrow = container.querySelector(".category-tooltip-arrow");
+      if (arrow) {
+        arrow.style.left = `${segCenter - clampedX + tw / 2}px`;
+        arrow.style.transform = "translateX(-50%)";
+      }
+    });
+    
+    segment.addEventListener("mouseleave", () => {
+      tooltip.style.opacity = "0";
+    });
+  });
+};
+
+const renderFileCategoryTable = (categories, totalSize, quotaBytes = -1) => {
+  const tbody = document.querySelector("#fileCategoryStatsTable tbody");
+  if (!tbody) return;
+  
+  const hasQuota = quotaBytes > 0 && quotaBytes !== -1;
+  const chartTotalSize = hasQuota ? Math.max(totalSize, quotaBytes) : totalSize;
+  
+  if (!categories.length && !hasQuota) {
+    tbody.innerHTML = '<tr class="category-table-empty"><td colspan="4">暂无数据</td></tr>';
+    return;
+  }
+  
+  tbody.innerHTML = categories.map(cat => {
+    const percent = chartTotalSize > 0 ? ((cat.totalSize / chartTotalSize) * 100).toFixed(1) : 0;
+    const color = FILE_CATEGORY_COLORS[cat.category] || FILE_CATEGORY_COLORS.other;
+    return `
+      <tr>
+        <td>
+          <div class="category-table-flex-row">
+            <span class="category-table-color-dot" style="background:${color};"></span>
+            ${escapeHtml(FILE_CATEGORY_LABELS[cat.category] || cat.category)}
+          </div>
+        </td>
+        <td>${cat.fileCount}</td>
+        <td>${escapeHtml(formatSize(cat.totalSize))}</td>
+        <td>
+          <div class="category-table-progress-wrap">
+            <div class="category-table-progress-bg">
+              <div class="category-table-progress-fill" style="width:${Math.min(100, percent)}%; background:${color};"></div>
+            </div>
+            <span>${percent}%</span>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join("");
+  
+  // 未使用空间行
+  if (hasQuota && totalSize < quotaBytes) {
+    const unusedBytes = quotaBytes - totalSize;
+    const unusedPercent = chartTotalSize > 0 ? ((unusedBytes / chartTotalSize) * 100).toFixed(1) : 0;
+    tbody.innerHTML += `
+      <tr class="category-unused-row">
+        <td>
+          <div class="category-table-flex-row">
+            <span class="category-table-color-dot"></span>
+            未使用
+          </div>
+        </td>
+        <td>-</td>
+        <td>${escapeHtml(formatSize(unusedBytes))}</td>
+        <td>
+          <div class="category-table-progress-wrap">
+            <div class="category-table-progress-bg">
+              <div class="category-table-progress-fill" style="width:${Math.min(100, unusedPercent)}%; "></div>
+            </div>
+            <span>${unusedPercent}%</span>
+          </div>
+        </td>
+      </tr>
+    `;
+  }
+};
+
+const bindFileCategoryStatsEvents = () => {
+  const refreshBtn = document.getElementById("refreshFileCategoryStatsBtn");
+  if (refreshBtn) {
+    refreshBtn.onclick = async () => {
+      await loadFileCategoryStatsWithSpin();
+    };
+  }
+};
+
+// 显示图表加载骨架动画
+const showFileCategoryLoading = () => {
+  const container = document.getElementById("fileCategoryChartContainer");
+  if (container) {
+    container.innerHTML = `
+      <div class="category-bar-chart category-bar-chart-loading">
+        <div class="category-bar-skeleton">
+          <div class="skeleton-bar skeleton-bar-anim" style="width:60%;"></div>
+          <div class="skeleton-bar skeleton-bar-anim" style="width:18%;"></div>
+          <div class="skeleton-bar skeleton-bar-anim" style="width:13%;"></div>
+          <div class="skeleton-bar skeleton-bar-anim" style="width:6%;"></div>
+          <div class="skeleton-bar skeleton-bar-anim" style="width:2%;"></div>
+          <div class="skeleton-bar skeleton-bar-anim" style="width:1%;"></div>
+        </div>
+        <div class="category-legend-skeleton">
+          <span class="skeleton-legend-item skeleton-bar-anim"></span>
+          <span class="skeleton-legend-item skeleton-bar-anim"></span>
+          <span class="skeleton-legend-item skeleton-bar-anim"></span>
+          <span class="skeleton-legend-item skeleton-bar-anim"></span>
+        </div>
+      </div>`;
+  }
+  const tbody = document.querySelector("#fileCategoryStatsTable tbody");
+  if (tbody) {
+    tbody.innerHTML = '<tr class="category-table-empty"><td colspan="4" style="padding:30px;">分析中...</td></tr>';
+  }
+};
+
+// 加载分类统计，minDurationMs=0 表示真实速度，>0 则强制最短动画时长
+const loadFileCategoryStatsWithSpin = async (minDurationMs = 1200) => {
+  const refreshBtn = document.getElementById("refreshFileCategoryStatsBtn");
+  const icon = refreshBtn ? refreshBtn.querySelector("i") : null;
+  if (icon) icon.classList.add("fa-spin");
+  if (refreshBtn) refreshBtn.disabled = true;
+  showFileCategoryLoading();
+  const startTime = Date.now();
+  try {
+    const [data] = await Promise.all([
+      (async () => {
+        const isAdmin = state.currentUser && state.currentUser.role === "admin";
+        const url = isAdmin ? "/api/admin/file-category-stats" : "/api/file-category-stats";
+        const categoryRes = await request(url);
+        const d = await categoryRes.json();
+        if (!categoryRes.ok) throw new Error(d.message || "加载失败");
+        const quotaBytes = state.currentUser ? Number(state.currentUser.effectiveQuota || -1) : -1;
+        return { categories: d.categories || [], totalSize: d.totalSize || 0, quotaBytes };
+      })(),
+      minDurationMs > 0 ? new Promise(r => setTimeout(r, minDurationMs)) : Promise.resolve()
+    ]);
+    renderFileCategoryChart(data.categories, data.totalSize, data.quotaBytes);
+    renderFileCategoryTable(data.categories, data.totalSize, data.quotaBytes);
+  } catch (e) {
+    const container = document.getElementById("fileCategoryChartContainer");
+    if (container) container.innerHTML = '<div class="category-empty-state">加载失败</div>';
+  } finally {
+    if (icon) icon.classList.remove("fa-spin");
+    if (refreshBtn) refreshBtn.disabled = false;
+  }
+};
+bindFileCategoryStatsEvents();
+
 // 空间管理侧边栏初始化和事件绑定
 renderQuotaSidebar();
-setQuotaTab("overview");
+const urlParams = new URLSearchParams(window.location.search);
+const isAdmin = state.currentUser && state.currentUser.role === "admin";
+const defaultTab = isAdmin ? "overview" : "analysis";
+const initialTab = urlParams.get("quotaTab") || defaultTab;
+quotaActiveTab = initialTab;
+setQuotaTab(initialTab, false);
 
 const quotaAsideList = document.getElementById("quotaAsideList");
 if (quotaAsideList) {

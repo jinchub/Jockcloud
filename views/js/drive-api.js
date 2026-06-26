@@ -51,7 +51,7 @@ const loadPath = async () => {
   state.path = await res.json();
 };
 
-const loadEntries = async () => {
+const loadEntries = async (appendMode = false) => {
   const nextKey = getFileQueryKey();
   if (state.entriesQueryKey !== nextKey) {
     state.filePage = 1;
@@ -71,7 +71,12 @@ const loadEntries = async () => {
       state.filePage = 1;
       return;
     }
-    state.entries = Array.isArray(payload && payload.items) ? payload.items : [];
+    const newItems = Array.isArray(payload && payload.items) ? payload.items : [];
+    if (appendMode) {
+      state.entries = [...state.entries, ...newItems];
+    } else {
+      state.entries = newItems;
+    }
     state.entriesTotal = Number(payload && payload.total) || 0;
     state.filePage = Number(payload && payload.page) || state.filePage;
     return;
@@ -100,7 +105,12 @@ const loadEntries = async () => {
     state.filePage = 1;
     return;
   }
-  state.entries = Array.isArray(payload && payload.items) ? payload.items : [];
+  const newItems = Array.isArray(payload && payload.items) ? payload.items : [];
+  if (appendMode) {
+    state.entries = [...state.entries, ...newItems];
+  } else {
+    state.entries = newItems;
+  }
   state.entriesTotal = Number(payload && payload.total) || 0;
   state.filePage = Number(payload && payload.page) || state.filePage;
 };

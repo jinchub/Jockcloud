@@ -229,6 +229,10 @@ const bindPrimaryNav = () => {
         enterOptions.sync = { taskId: "" };
       } else if (view === "monitor") {
         monitorState.activeMenu = "system";
+      } else if (view === "quota") {
+        // 进入空间视图时重置为默认子菜单（参考 monitor 模式）
+        const isAdmin = state.currentUser && state.currentUser.role === "admin";
+        quotaActiveTab = isAdmin ? "overview" : "analysis";
       }
       const targetView = await switchMainView(view, enterOptions);
       if (targetView === "files") {
@@ -244,6 +248,9 @@ const bindPrimaryNav = () => {
       } else if (targetView === "sync") {
         const currentSyncTaskId = syncManager && typeof syncManager.getCurrentSyncTaskId === "function" ? syncManager.getCurrentSyncTaskId() : null;
         updateRouteQuery({ main: targetView, side: null, category: null, usersTab: null, mountId: null, syncTaskId: currentSyncTaskId, settingsMenu: null, monitorMenu: null });
+      } else if (targetView === "quota") {
+        // 空间面板已由 switchMainView → loadQuota 渲染，只需更新 URL
+        updateRouteQuery({ main: targetView, side: null, category: null, usersTab: null, mountId: null, syncTaskId: null, settingsMenu: null, monitorMenu: null, quotaTab: quotaActiveTab });
       } else {
         updateRouteQuery({ main: targetView, side: null, category: null, usersTab: null, mountId: null, syncTaskId: null, settingsMenu: null, monitorMenu: null });
       }

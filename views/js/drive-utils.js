@@ -3323,7 +3323,7 @@ const resolveCurrentFilesSide = () => {
 };
 
 const updateRouteQuery = (payload = {}, replace = false) => {
-  const { main, side, category, usersTab, mountId, syncTaskId, settingsMenu, monitorMenu, fileSpace, folderId } = payload;
+  const { main, side, category, usersTab, mountId, syncTaskId, settingsMenu, monitorMenu, quotaTab, fileSpace, folderId } = payload;
   const params = new URLSearchParams(window.location.search);
   if (main) params.set("main", main);
   else params.delete("main");
@@ -3364,6 +3364,13 @@ const updateRouteQuery = (payload = {}, replace = false) => {
     else params.delete("monitorMenu");
   } else if (Object.prototype.hasOwnProperty.call(payload, "main") && main !== "monitor") {
     params.delete("monitorMenu");
+  }
+  const hasQuotaTab = Object.prototype.hasOwnProperty.call(payload, "quotaTab");
+  if (hasQuotaTab) {
+    if (quotaTab) params.set("quotaTab", quotaTab);
+    else params.delete("quotaTab");
+  } else if (Object.prototype.hasOwnProperty.call(payload, "main") && main !== "quota") {
+    params.delete("quotaTab");
   }
   const hasFileSpace = Object.prototype.hasOwnProperty.call(payload, "fileSpace");
   if (hasFileSpace) {
@@ -3431,16 +3438,20 @@ const applyPermissionUI = () => {
 
 const setEntrySelected = (entry, checked) => {
   const key = entryKey(entry);
-  const map = new Map(state.selectedEntries.map((item) => [entryKey(item), item]));
   if (checked) {
-    map.set(key, { id: entry.id, type: entry.type, name: entry.name, isPinned: entry.isPinned, is_favorite: entry.is_favorite, parentId: entry.parentId });
+    // 检查是否已选中，避免重复操作
+    if (!isEntrySelected(entry)) {
+      state.selectedEntries.push({ id: entry.id, type: entry.type, name: entry.name, isPinned: entry.isPinned, is_favorite: entry.is_favorite, parentId: entry.parentId });
+    }
   } else {
-    map.delete(key);
+    state.selectedEntries = state.selectedEntries.filter((item) => entryKey(item) !== key);
   }
-  state.selectedEntries = Array.from(map.values());
 };
 
-const isEntrySelected = (entry) => state.selectedEntries.some((item) => item.id === entry.id && item.type === entry.type);
+const isEntrySelected = (entry) => {
+  const key = entryKey(entry);
+  return state.selectedEntries.some((item) => entryKey(item) === key);
+};
 
 const updateBatchButtonLabel = (btn, icon, text, count) => {
   if (!btn) return;
@@ -3456,7 +3467,22 @@ const updateBatchPasteLabel = (action, count) => {
   batchPasteBtn.innerHTML = `<i class="fa-regular fa-clipboard" ></i> ${text}${suffix}`;
 };
 
-const setCurrentPageSelection = (checked) => {
+const setCurrentPageSelection = async (checked) => {
+  // 手机版懒加载模式下，全选时需要先加载所有数据
+  if (checked && isMobileViewport() && state.view !== 'recycle') {
+    const { totalPages } = getPaginationInfo(state.entriesTotal, state.filePage, state.filePageSize);
+    if (state.filePage < totalPages) {
+      // 保存当前页码，然后加载所有剩余页
+      const startPage = state.filePage + 1;
+      for (let page = startPage; page <= totalPages; page++) {
+        state.filePage = page;
+        await loadEntries(true);
+      }
+      // 重置页码到最后一页，确保分页信息正确
+      state.filePage = totalPages;
+    }
+  }
+
   const currentPageEntries = getCurrentFilePageEntries();
   currentPageEntries.forEach((entry) => setEntrySelected(entry, checked));
   if (!checked) {

@@ -135,6 +135,28 @@
                   </div>
                 </div>
               </div>
+              <div id="quotaAnalysisPanel" style="display:none;">
+                <div class="admin-table-panel" style="margin-bottom: 16px;">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <h3 style="font-size:16px; margin:0;">文件分类占比</h3>
+                    <button type="button" id="refreshFileCategoryStatsBtn" class="btn-sm"><i class="fa-solid fa-rotate"></i> 刷新数据</button>
+                  </div>
+                  <div id="fileCategoryChartContainer" style="height:auto; margin-bottom:20px;"></div>
+                  <div id="fileCategoryTableContainer">
+                    <table class="data-table" id="fileCategoryStatsTable">
+                      <thead>
+                        <tr>
+                          <th>文件类型</th>
+                          <th>文件数量</th>
+                          <th>占用空间</th>
+                          <th>占比</th>
+                        </tr>
+                      </thead>
+                      <tbody></tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

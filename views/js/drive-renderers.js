@@ -463,8 +463,11 @@ const showDetailsSidebar = () => {
   detailsSidebar.classList.remove("hidden");
 };
 
-const renderFileList = () => {
-  fileListEl.innerHTML = "";
+const renderFileList = (appendMode = false) => {
+  if (!appendMode) {
+    fileListEl.innerHTML = "";
+    state._lastRenderedLength = 0;
+  }
   updateViewModeUI();
   const isRecycleListMode = state.view === "recycle" && state.viewMode !== "grid";
   const isCategoryTimelineMode = state.view === "files" && state.viewMode !== "grid" && state.categoryTimelineEnabled;
@@ -503,6 +506,9 @@ const renderFileList = () => {
 
   const currentPageEntries = getCurrentFilePageEntries();
 
+  // 追加模式下，记录已渲染的条目数量，只渲染新增部分
+  const appendStartIndex = appendMode ? (currentPageEntries.length - (state.entries.length - (state._lastRenderedLength || 0))) : 0;
+
   if (state.entries.length === 0) {
     const empty = document.createElement("div");
     empty.className = "empty-tip";
@@ -522,7 +528,7 @@ const renderFileList = () => {
   let lastTimelineDay = "";
   let timelineDayEntriesContainer = null;
   let timelineDayGroupIndex = 0;
-  currentPageEntries.forEach(entry => {
+  currentPageEntries.slice(appendStartIndex).forEach(entry => {
     const isFolder = entry.type === "folder";
     const entryName = String(entry.name || "");
     const displayEntryName = entryName;
@@ -620,29 +626,6 @@ const renderFileList = () => {
         <div class="grid-item-name" title="${escapedEntryName}">${escapedDisplayEntryName}</div>
         <div class="grid-item-time">${escapeHtml(gridTimeLabel)}</div>
       `;
-      const checkWrap = item.querySelector(".grid-check");
-      const checkInput = item.querySelector(".grid-check input");
-      if (checkWrap && checkInput) {
-        checkWrap.onclick = (event) => {
-          event.stopPropagation();
-          if (event.target !== checkInput) {
-            checkInput.click();
-          }
-        };
-        checkInput.onclick = (event) => {
-          event.stopPropagation();
-        };
-        checkInput.onchange = () => {
-          setEntrySelected(entry, checkInput.checked);
-          if (checkInput.checked) {
-            state.selectedEntry = entry;
-          } else if (state.selectedEntry && state.selectedEntry.id === entry.id && state.selectedEntry.type === entry.type) {
-            state.selectedEntry = null;
-          }
-          item.classList.toggle("selected", checkInput.checked);
-          updateBatchActionState();
-        };
-      }
     } else if (isCategoryTimelineMode) {
       item.setAttribute("data-entry-id", String(entry.id));
       item.setAttribute("data-entry-type", entry.type);
@@ -652,29 +635,6 @@ const renderFileList = () => {
         <div class="timeline-card-name" title="${escapedEntryName}">${escapedDisplayEntryName}</div>
         <div class="timeline-card-time">${escapeHtml(timeLabel)}</div>
       `;
-      const checkWrap = item.querySelector(".timeline-check");
-      const checkInput = item.querySelector(".timeline-check input");
-      if (checkWrap && checkInput) {
-        checkWrap.onclick = (event) => {
-          event.stopPropagation();
-          if (event.target !== checkInput) {
-            checkInput.click();
-          }
-        };
-        checkInput.onclick = (event) => {
-          event.stopPropagation();
-        };
-        checkInput.onchange = () => {
-          setEntrySelected(entry, checkInput.checked);
-          if (checkInput.checked) {
-            state.selectedEntry = entry;
-          } else if (state.selectedEntry && state.selectedEntry.id === entry.id && state.selectedEntry.type === entry.type) {
-            state.selectedEntry = null;
-          }
-          item.classList.toggle("selected", checkInput.checked);
-          updateBatchActionState();
-        };
-      }
     } else {
       item.setAttribute("data-entry-id", String(entry.id));
       item.setAttribute("data-entry-type", entry.type);
@@ -706,272 +666,7 @@ const renderFileList = () => {
           ${state.view === "recycle" ? `<div class="cell-expire">${expireLabel}</div>` : ""}
         `;
       }
-      const checkSelector = isMobile ? ".mobile-list-check input" : ".cell-check input";
-      const checkWrap = item.querySelector(isMobile ? ".mobile-list-check" : ".cell-check");
-      const checkInput = item.querySelector(checkSelector);
-      if (checkWrap && checkInput) {
-        checkWrap.onclick = (event) => {
-          event.stopPropagation();
-          if (event.target !== checkInput) {
-            checkInput.click();
-          }
-        };
-        checkInput.onclick = (event) => {
-          event.stopPropagation();
-        };
-        checkInput.onchange = () => {
-          setEntrySelected(entry, checkInput.checked);
-          if (checkInput.checked) {
-            state.selectedEntry = entry;
-          } else if (state.selectedEntry && state.selectedEntry.id === entry.id && state.selectedEntry.type === entry.type) {
-            state.selectedEntry = null;
-          }
-          item.classList.toggle("selected", checkInput.checked);
-          updateBatchActionState();
-        };
-      }
-      const quickAccessBtn = item.querySelector(".quick-access-toggle");
-      if (quickAccessBtn) {
-        quickAccessBtn.onclick = async (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          await toggleQuickAccessEntry(entry);
-        };
-      }
     }
-
-    const toggleMobileEntrySelection = () => {
-      const nextChecked = !isEntrySelected(entry);
-      setEntrySelected(entry, nextChecked);
-      if (nextChecked) {
-        state.selectedEntry = entry;
-      } else if (state.selectedEntry && state.selectedEntry.id === entry.id && state.selectedEntry.type === entry.type) {
-        state.selectedEntry = null;
-      }
-      item.classList.toggle("selected", nextChecked);
-      const checkInput = item.querySelector(".cell-check input, .grid-check input, .timeline-check input, .mobile-list-check input");
-      if (checkInput) checkInput.checked = nextChecked;
-      updateBatchActionState();
-    };
-    let mobileLongPressTimer = null;
-    let mobileLongPressTriggered = false;
-    let mobileTouchStartX = 0;
-    let mobileTouchStartY = 0;
-    const clearMobileLongPressTimer = () => {
-      if (!mobileLongPressTimer) return;
-      clearTimeout(mobileLongPressTimer);
-      mobileLongPressTimer = null;
-    };
-    item.addEventListener("touchstart", (event) => {
-      if (!isMobileViewport() || state.view !== "files") return;
-      if (event.touches.length !== 1) return;
-      const target = event.target instanceof Element ? event.target : null;
-      if (target && target.closest("input, button, .quick-access-toggle, .cell-check, .grid-check, .mobile-list-check")) return;
-      mobileLongPressTriggered = false;
-      const touch = event.touches[0];
-      mobileTouchStartX = touch.clientX;
-      mobileTouchStartY = touch.clientY;
-      clearMobileLongPressTimer();
-      mobileLongPressTimer = setTimeout(() => {
-        mobileLongPressTriggered = true;
-        toggleMobileEntrySelection();
-      }, 380);
-    }, { passive: true });
-    item.addEventListener("touchmove", (event) => {
-      if (!isMobileViewport() || state.view !== "files") return;
-      if (!mobileLongPressTimer || event.touches.length !== 1) return;
-      const touch = event.touches[0];
-      if (Math.abs(touch.clientX - mobileTouchStartX) > 10 || Math.abs(touch.clientY - mobileTouchStartY) > 10) {
-        clearMobileLongPressTimer();
-      }
-    }, { passive: true });
-    item.addEventListener("touchend", (event) => {
-      if (!isMobileViewport() || state.view !== "files") return;
-      clearMobileLongPressTimer();
-      if (mobileLongPressTriggered) {
-        event.preventDefault();
-        event.stopPropagation();
-        mobileLongPressTriggered = false;
-        return;
-      }
-    }, { passive: false });
-    item.addEventListener("touchcancel", () => {
-      clearMobileLongPressTimer();
-      mobileLongPressTriggered = false;
-    }, { passive: true });
-
-    item.onclick = async (e) => {
-      if (e.button !== 0) return;
-      if (state.view !== "recycle" && isFolder) {
-        state.currentFolderId = entry.id;
-        state.selectedEntry = null;
-        state.category = "";
-        state.keyword = "";
-        if (searchInput) {
-          searchInput.value = "";
-        }
-        updateRouteQuery({ main: "files", side: "myFiles", category: null, folderId: entry.id });
-        refreshAll(true);
-        return;
-      }
-      state.selectedEntry = entry;
-      updateBatchActionState();
-      if (state.view === "recycle") return;
-      if (isMobileViewport()) {
-        if (isArchiveFileEntry(entry)) {
-          if (hasUserPermission("viewArchive")) {
-            const confirmed = await showDeleteConfirm({
-              title: "查看压缩包",
-              message: "是否查看该压缩包内容？",
-              desc: "将以文件列表方式展示压缩包内容",
-              okText: "查看",
-              cancelText: "取消"
-            });
-            if (!confirmed) return;
-            await viewZipArchiveEntries(entry);
-          } else {
-            const confirmed = await showDeleteConfirm({
-              title: "查看压缩包",
-              message: "在线查看压缩包功能需要升级为VIP",
-              desc: "升级VIP后可享受在线查看、解压等更多功能",
-              okText: "升级VIP",
-              cancelText: "取消"
-            });
-            if (!confirmed) return;
-            return;
-          }
-        }
-        openFilePreview(entry);
-        return;
-      }
-      // 文件夹先显示"正在统计大小"，然后异步获取最新数据
-      if (isFolder) {
-        renderDetails(entry, true);
-        showDetailsSidebar();
-        try {
-          const res = await request(`/api/entries/${entry.type}/${entry.id}`);
-          if (res.ok) {
-            const data = await res.json().catch(() => ({}));
-            const updatedEntry = { ...entry, ...data };
-            state.selectedEntry = updatedEntry;
-            renderDetails(updatedEntry);
-          }
-        } catch (error) {
-          void error;
-        }
-      } else {
-        renderDetails(entry);
-        showDetailsSidebar();
-        try {
-          const res = await request(`/api/entries/${entry.type}/${entry.id}`);
-          if (res.ok) {
-            const data = await res.json().catch(() => ({}));
-            const updatedEntry = { ...entry, ...data };
-            state.selectedEntry = updatedEntry;
-            renderDetails(updatedEntry);
-          }
-        } catch (error) { void error; }
-      }
-    };
-
-    item.ondblclick = async (e) => {
-      if (state.view !== "recycle" && isFolder) {
-        return;
-      }
-      if (state.view === "recycle") return;
-      if (isArchiveFileEntry(entry)) {
-        if (hasUserPermission("viewArchive")) {
-          const confirmed = await showDeleteConfirm({
-            title: "查看压缩包",
-            message: "是否查看该压缩包内容？",
-            desc: "将以文件列表方式展示压缩包内容",
-            okText: "查看",
-            cancelText: "取消"
-          });
-          if (!confirmed) return;
-          await viewZipArchiveEntries(entry);
-        } else {
-          const confirmed = await showDeleteConfirm({
-            title: "查看压缩包",
-            message: "在线查看压缩包功能需要升级为VIP",
-            desc: "升级VIP后可享受在线查看、解压等更多功能",
-            okText: "升级VIP",
-            cancelText: "取消"
-          });
-          if (!confirmed) return;
-          return;
-        }
-      }
-      openFilePreview(entry);
-    };
-
-    item.oncontextmenu = (e) => {
-      if (window.matchMedia("(max-width: 768px)").matches) return;
-      e.preventDefault();
-      state.selectedEntry = entry;
-      document.querySelectorAll(".table-row, .grid-item").forEach(r => r.classList.remove("selected"));
-      item.classList.add("selected");
-
-      const menu = document.getElementById("contextMenu");
-      const isRecycle = state.view === "recycle";
-      const isArchiveFile = !isRecycle && isArchiveFileEntry(entry);
-      
-      document.getElementById("menuOpen").style.display = isRecycle ? "none" : "";
-      document.getElementById("menuDetail").style.display = "";
-      document.getElementById("menuCopy").style.display = (isRecycle || !hasUserPermission("copy")) ? "none" : "";
-      document.getElementById("menuDownload").style.display = (isRecycle || !hasUserPermission("download")) ? "none" : "";
-      document.getElementById("menuZipView").style.display = (isArchiveFile && hasUserPermission("viewArchive")) ? "" : "none";
-      document.getElementById("menuZipExtractCurrent").style.display = (isArchiveFile && hasUserPermission("extract")) ? "" : "none";
-      document.getElementById("menuZipExtractTarget").style.display = (isArchiveFile && hasUserPermission("extract")) ? "" : "none";
-      document.getElementById("menuLocateFolder").style.display = (!isRecycle && !!state.keyword && entry.type === "file") ? "" : "none";
-      document.getElementById("menuGoToFolder").style.display = (!isRecycle && !!state.category && entry.type === "file") ? "" : "none";
-      document.getElementById("menuShare").style.display = isRecycle ? "none" : "";
-      const pinEl = document.getElementById("menuPin");
-      if (pinEl) {
-        pinEl.style.display = isRecycle ? "none" : "";
-        const isPinned = !!entry.isPinned;
-        pinEl.innerHTML = isPinned
-          ? getContextMenuItemContent("unpin", "取消置顶")
-          : getContextMenuItemContent("pin", "置顶");
-      }
-      document.getElementById("menuRename").style.display = (isRecycle || !hasUserPermission("rename")) ? "none" : "";
-      document.getElementById("menuMove").style.display = (isRecycle || !hasUserPermission("move")) ? "none" : "";
-      document.getElementById("menuDelete").style.display = hasUserPermission("delete") ? "" : "none";
-      document.getElementById("menuDelete").innerHTML = isRecycle
-        ? getContextMenuItemContent("deleteStrong", "彻底删除")
-        : getContextMenuItemContent("delete", "删除");
-      
-      let restoreBtn = document.getElementById("menuRestore");
-      if (isRecycle) {
-        if (!restoreBtn) {
-          restoreBtn = document.createElement("div");
-          restoreBtn.id = "menuRestore";
-          restoreBtn.className = "menu-item";
-          restoreBtn.innerHTML = getContextMenuItemContent("restore", "还原");
-          restoreBtn.onclick = restoreEntry;
-          menu.insertBefore(restoreBtn, menu.firstChild);
-        }
-        restoreBtn.style.display = "";
-      } else if (restoreBtn) {
-        restoreBtn.style.display = "none";
-      }
-
-      menu.style.display = "block";
-      const menuWidth = menu.offsetWidth;
-      const menuHeight = menu.offsetHeight;
-      const viewportWidth = window.innerWidth;
-      const viewportHeight = window.innerHeight;
-      const scrollX = window.scrollX || window.pageXOffset || 0;
-      const scrollY = window.scrollY || window.pageYOffset || 0;
-      let left = e.pageX;
-      let top = e.pageY;
-      const maxLeft = scrollX + viewportWidth - menuWidth - 8;
-      const maxTop = scrollY + viewportHeight - menuHeight - 8;
-      if (left > maxLeft) left = Math.max(scrollX + 8, maxLeft);
-      if (top > maxTop) top = Math.max(scrollY + 8, maxTop);
-      menu.style.left = `${left}px`;
-      menu.style.top = `${top}px`;
-    };
 
     if (isCategoryTimelineMode && timelineDayEntriesContainer) {
       timelineDayEntriesContainer.appendChild(item);
@@ -979,6 +674,8 @@ const renderFileList = () => {
       fileListEl.appendChild(item);
     }
   });
+  // 更新已渲染的条目数量，用于追加模式计算
+  state._lastRenderedLength = state.entries.length;
   renderFilePagination();
   updateBatchActionState();
   updateTimelineLineHeight();

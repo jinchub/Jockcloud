@@ -243,7 +243,6 @@ a {
   height: auto;
   border-right: 0;
   border: 0;
-  border-top: 1px solid var(--border-primary);
   background: var(--bg-primary);
   display: flex;
   flex-direction: row;
@@ -253,6 +252,7 @@ a {
   padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px));
   z-index: 20;
   overflow: visible;
+  box-shadow: none;
 }
 
 .pagination-controls {

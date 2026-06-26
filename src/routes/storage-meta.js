@@ -43,6 +43,24 @@ module.exports = (app, deps) => {
     }
   });
 
+  app.get("/api/file-category-stats", authRequired, async (req, res) => {
+    try {
+      const [rows] = await pool.query(
+        "SELECT file_category AS category, SUM(size) AS totalSize, COUNT(*) AS fileCount FROM files WHERE user_id = ? AND deleted_at IS NULL GROUP BY file_category ORDER BY totalSize DESC",
+        [req.user.userId]
+      );
+      const categories = rows.map(row => ({
+        category: String(row.category || "other"),
+        totalSize: Number(row.totalSize || 0),
+        fileCount: Number(row.fileCount || 0)
+      }));
+      const totalSize = categories.reduce((sum, cat) => sum + cat.totalSize, 0);
+      res.json({ categories, totalSize });
+    } catch (error) {
+      sendDbError(res, error);
+    }
+  });
+
   app.get("/api/folders", authRequired, async (req, res) => {
     const spaceType = resolveStorageSpaceTypeByRequest(req);
     const parentId = normalizeFolderId(req.query.parentId);
