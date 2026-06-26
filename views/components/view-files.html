@@ -23,6 +23,12 @@
 
       <div class="content-container" id="filesContentContainer">
         <div class="list-view">
+          <div class="drag-upload-overlay" id="dragUploadOverlay">
+            <div class="drag-upload-overlay-inner">
+              <i class="fa-solid fa-cloud-arrow-up drag-upload-overlay-icon"></i>
+              <span class="drag-upload-overlay-text">拖拽文件或目录到此处上传</span>
+            </div>
+          </div>
           <div class="list-toolbar">
             <div class="list-toolbar-actions">
               <button class="btn-action" id="newFolderBtn"><i class="fa-regular fa-square-plus"></i> 新建文件夹</button>
@@ -192,7 +198,7 @@
           <h3>我的分享</h3>
           <div class="my-share-header-actions">
             <button class="btn-sm danger" id="myShareBatchCancelBtn" style="display:none;"></button>
-            <button class="btn-sm" id="closeMySharesBtn">返回文件</button>
+
           </div>
         </div>
         <div class="file-table my-share-file-table">

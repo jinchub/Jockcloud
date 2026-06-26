@@ -842,7 +842,7 @@
     const bindEvents = () => {
       const addMountBtn = document.getElementById("addMountBtn");
       const toggleMountSidebarBtn = document.getElementById("toggleMountSidebarBtn");
-      const mountSidebarEl = document.querySelector(".mounts-sidebar");
+      const mountSidebarEl = document.getElementById("mountsSidebar");
       const mountsSidebarOverlayEl = document.getElementById("mountsSidebarOverlay");
       const cancelMountModalBtn = document.getElementById("cancelMountModalBtn");
       const mountForm = document.getElementById("mountForm");
@@ -859,6 +859,48 @@
       const mountSortPath = document.getElementById("mountSortPath");
       const mountSortUpdatedAt = document.getElementById("mountSortUpdatedAt");
       const mountObjectUploadInput = document.getElementById("mountObjectUploadInput");
+      
+      // 侧边栏收起/展开按钮独立绑定事件，不依赖其他元素
+      if (toggleMountSidebarBtn && mountSidebarEl) {
+        const isMobileView = () => window.matchMedia("(max-width: 768px)").matches;
+        const updateMountsSidebarOverlay = () => {
+          if (!mountsSidebarOverlayEl) return;
+          if (isMobileView() && !mountSidebarEl.classList.contains("collapsed")) {
+            mountsSidebarOverlayEl.classList.add("show");
+          } else {
+            mountsSidebarOverlayEl.classList.remove("show");
+          }
+        };
+
+        const updateMountSidebarToggleIcon = () => {
+          const icon = toggleMountSidebarBtn.querySelector("i");
+          if (!icon) return;
+          if (mountSidebarEl.classList.contains("collapsed")) {
+            icon.className = "fa-solid fa-angles-right";
+            toggleMountSidebarBtn.title = "展开侧边栏";
+          } else {
+            icon.className = "fa-solid fa-angles-left";
+            toggleMountSidebarBtn.title = "收起侧边栏";
+          }
+        };
+
+        toggleMountSidebarBtn.onclick = () => {
+          mountSidebarEl.classList.toggle("collapsed");
+          updateMountSidebarToggleIcon();
+          updateMountsSidebarOverlay();
+        };
+        updateMountSidebarToggleIcon();
+        
+        if (mountsSidebarOverlayEl) {
+          mountsSidebarOverlayEl.onclick = () => {
+            mountSidebarEl.classList.add("collapsed");
+            updateMountSidebarToggleIcon();
+            updateMountsSidebarOverlay();
+          };
+        }
+      }
+      
+      // 其他元素的事件绑定需要检查元素是否存在
       if (!addMountBtn || !toggleMountSidebarBtn || !mountSidebarEl || !cancelMountModalBtn || !mountForm || !closeMountConnectionBtn || !createMountFolderBtn || !uploadMountObjectBtn || !refreshMountObjectBtn || !mountPrevPageBtn || !mountNextPageBtn || !mountObjectUploadInput) return;
 
       const isMobileView = () => window.matchMedia("(max-width: 768px)").matches;
@@ -880,32 +922,6 @@
       addMountBtn.onclick = () => {
         openMountModal(null);
       };
-
-      const updateMountSidebarToggleIcon = () => {
-        const icon = toggleMountSidebarBtn.querySelector("i");
-        if (!icon) return;
-        if (mountSidebarEl.classList.contains("collapsed")) {
-          icon.className = "fa-solid fa-angles-right";
-          toggleMountSidebarBtn.title = "展开侧边栏";
-        } else {
-          icon.className = "fa-solid fa-angles-left";
-          toggleMountSidebarBtn.title = "收起侧边栏";
-        }
-      };
-
-      toggleMountSidebarBtn.onclick = () => {
-        mountSidebarEl.classList.toggle("collapsed");
-        updateMountSidebarToggleIcon();
-        updateMountsSidebarOverlay();
-      };
-      updateMountSidebarToggleIcon();
-      if (mountsSidebarOverlayEl) {
-        mountsSidebarOverlayEl.onclick = () => {
-          mountSidebarEl.classList.add("collapsed");
-          updateMountSidebarToggleIcon();
-          updateMountsSidebarOverlay();
-        };
-      }
 
       cancelMountModalBtn.onclick = () => {
         closeMountModal();

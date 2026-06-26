@@ -361,6 +361,10 @@ document.getElementById("avatarUploadBtn").onclick = () => {
       resetAvatarCropCanvas("https://ui-avatars.com/api/?name=User&background=random");
     }
   }
+  // 重置上传区域状态
+  if (typeof updateAvatarUploadPreview === "function") {
+    updateAvatarUploadPreview(null);
+  }
   // 标记为用户管理模式
   window._userManagementAvatarMode = true;
   avatarUpdateModal.style.display = "flex";

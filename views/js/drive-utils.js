@@ -399,8 +399,28 @@ const readLocalAvatarFile = (file) => {
     if (profileAvatarUrlInput) profileAvatarUrlInput.value = "";
     if (profileAvatarPreview) profileAvatarPreview.src = result;
     resetAvatarCropCanvas(result);
+    // 更新上传区域预览
+    updateAvatarUploadPreview(result);
   };
   reader.readAsDataURL(file);
+};
+
+// 更新头像上传区域预览
+const updateAvatarUploadPreview = (src) => {
+  const avatarUploadPreview = document.getElementById("avatarUploadPreview");
+  const avatarUploadPreviewImg = document.getElementById("avatarUploadPreviewImg");
+  const avatarUploadContent = document.querySelector(".avatar-upload-content");
+  if (avatarUploadPreview && avatarUploadPreviewImg) {
+    if (src) {
+      avatarUploadPreviewImg.src = src;
+      avatarUploadPreview.style.display = "flex";
+      if (avatarUploadContent) avatarUploadContent.style.display = "none";
+    } else {
+      avatarUploadPreviewImg.src = "";
+      avatarUploadPreview.style.display = "none";
+      if (avatarUploadContent) avatarUploadContent.style.display = "flex";
+    }
+  }
 };
 
 const getCroppedAvatarBlob = (mime = "image/png") => new Promise((resolve) => {
@@ -3508,6 +3528,18 @@ const updateBatchActionState = () => {
     batchCancelBtn.disabled = !hasClipboard;
     batchCancelBtn.style.display = hasClipboard ? "" : "none";
   }
+  // 标记第一个可见按钮，隐藏其分隔线伪元素
+  const toolbarActions = document.querySelector(".list-toolbar-actions");
+  if (toolbarActions) {
+    const allBtns = toolbarActions.querySelectorAll(".btn-action");
+    allBtns.forEach(btn => btn.classList.remove("is-first-visible"));
+    for (const btn of allBtns) {
+      if (btn.style.display !== "none") {
+        btn.classList.add("is-first-visible");
+        break;
+      }
+    }
+  }
   const fileTable = document.querySelector("#view-files .file-table");
   if (fileTable) {
     fileTable.classList.add("show-check");
@@ -3690,7 +3722,7 @@ const renderQuickAccessList = () => {
     const link = document.createElement("a");
     link.href = "#";
     link.className = "quick-access-item";
-    link.innerHTML = `<i class="fa-solid fa-star quick-access-remove"></i><i class="${entryIconClass}"></i><span title="${escapeHtml(String(item.name || ""))}">${escapeHtml(String(item.name || ""))}</span>`;
+    link.innerHTML = `<i class="fa-solid fa-star quick-access-remove" title="取消收藏"></i><span title="${escapeHtml(String(item.name || ""))}"><i class="${entryIconClass}"></i> ${escapeHtml(String(item.name || ""))}</span>`;
     link.onclick = async (event) => {
       event.preventDefault();
       const target = event.target instanceof Element ? event.target : null;

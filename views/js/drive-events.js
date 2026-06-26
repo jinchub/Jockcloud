@@ -1198,6 +1198,10 @@ const triggerSearch = async () => {
     setUploadTasksViewVisible(false);
     await switchMainView("files");
   }
+  // 如果当前在"我的分享"页面，跳转到文件搜索列表
+  if (mySharesMainContainer && !mySharesMainContainer.classList.contains("hidden")) {
+    setMySharesViewVisible(false);
+  }
   state.searchScope = "all";
   state.keyword = nextKeyword;
   state.view = "files";
@@ -1412,12 +1416,7 @@ if (detailsSidebarOverlay) {
     detailsSidebarOverlay.classList.remove("show");
   };
 }
-if (closeMySharesBtn) {
-  closeMySharesBtn.onclick = () => {
-    setMySharesViewVisible(false);
-    syncRouteByCurrentState();
-  };
-}
+
 
 const performLogout = async () => {
   try {
@@ -2421,10 +2420,12 @@ const collectDroppedFiles = async (dataTransfer) => {
 
 const bindDragUpload = () => {
   if (!listViewEl) return;
+  const dragUploadOverlay = document.getElementById("dragUploadOverlay");
   let dragDepth = 0;
   const clearDragState = () => {
     dragDepth = 0;
     listViewEl.classList.remove("drag-over");
+    if (dragUploadOverlay) dragUploadOverlay.classList.remove("active");
   };
 
   document.addEventListener("dragover", (event) => {
@@ -2439,6 +2440,7 @@ const bindDragUpload = () => {
     event.preventDefault();
     dragDepth += 1;
     listViewEl.classList.add("drag-over");
+    if (dragUploadOverlay) dragUploadOverlay.classList.add("active");
   });
 
   listViewEl.addEventListener("dragleave", (event) => {
@@ -2446,6 +2448,7 @@ const bindDragUpload = () => {
     dragDepth = Math.max(0, dragDepth - 1);
     if (dragDepth === 0) {
       listViewEl.classList.remove("drag-over");
+      if (dragUploadOverlay) dragUploadOverlay.classList.remove("active");
     }
   });
 
@@ -2463,6 +2466,17 @@ const bindDragUpload = () => {
     const items = await collectDroppedFiles(event.dataTransfer);
     uploadBatch(items);
   });
+
+  // 鼠标悬停在上传按钮时也显示拖拽遮罩
+  const headerUploadTrigger = document.getElementById("headerUploadTrigger");
+  if (headerUploadTrigger && dragUploadOverlay) {
+    headerUploadTrigger.addEventListener("mouseenter", () => {
+      dragUploadOverlay.classList.add("active");
+    });
+    headerUploadTrigger.addEventListener("mouseleave", () => {
+      dragUploadOverlay.classList.remove("active");
+    });
+  }
 };
 
 let gridDragSelectState = {

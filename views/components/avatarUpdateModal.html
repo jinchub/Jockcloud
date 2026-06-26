@@ -6,7 +6,22 @@
           <div class="avatar-update-left">
             <div class="form-group">
               <label id="profileAvatarUploadLabel">本地上传 (最大4MB)</label>
-              <input type="file" id="profileAvatarFileInput" accept="image/*" />
+              <div class="avatar-upload-area" id="avatarUploadArea">
+                <input type="file" id="profileAvatarFileInput" accept="image/*" style="display:none;" />
+                <div class="avatar-upload-content">
+                  <svg class="avatar-upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                  </svg>
+                  <span class="avatar-upload-text">点击或拖拽图片到此处</span>
+                  <span class="avatar-upload-hint">支持 JPG、PNG、GIF 格式</span>
+                </div>
+                <div class="avatar-upload-preview" id="avatarUploadPreview" style="display:none;">
+                  <img id="avatarUploadPreviewImg" src="" alt="preview" />
+                  <div class="avatar-upload-change">点击更换</div>
+                </div>
+              </div>
               <div class="profile-avatar-tip" id="profileAvatarUploadTip"></div>
             </div>
             <div class="form-group">

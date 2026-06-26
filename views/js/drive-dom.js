@@ -29,7 +29,7 @@ const uploadTasksNavBtn = document.getElementById("uploadTasksNavBtn");
 const mobileCategoryBar = document.getElementById("mobileCategoryBar");
 const mySharesMainContainer = document.getElementById("mySharesMainContainer");
 const mySharesNavBtn = document.getElementById("mySharesNavBtn");
-const closeMySharesBtn = document.getElementById("closeMySharesBtn");
+
 const myShareList = document.getElementById("myShareList");
 const mySharePaginationSummaryEl = document.getElementById("mySharePaginationSummary");
 const mySharePageInfoEl = document.getElementById("mySharePageInfo");

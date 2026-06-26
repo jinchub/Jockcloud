@@ -1147,6 +1147,8 @@ const bindProfileCenter = () => {
       if (profileAvatarFileInput) profileAvatarFileInput.value = "";
       avatarCropState.useLocalFile = false;
       resetAvatarCropCanvas(avatarUrl);
+      // 重置上传区域状态
+      updateAvatarUploadPreview(null);
       if (avatarUpdateModal) avatarUpdateModal.style.display = "flex";
     };
   }
@@ -1168,6 +1170,36 @@ const bindProfileCenter = () => {
     profileAvatarFileInput.onchange = () => {
       const file = profileAvatarFileInput.files && profileAvatarFileInput.files[0] ? profileAvatarFileInput.files[0] : null;
       readLocalAvatarFile(file);
+    };
+  }
+  // 上传区域点击和拖拽
+  const avatarUploadArea = document.getElementById("avatarUploadArea");
+  const avatarUploadPreview = document.getElementById("avatarUploadPreview");
+  const avatarUploadPreviewImg = document.getElementById("avatarUploadPreviewImg");
+  const avatarUploadContent = avatarUploadArea ? avatarUploadArea.querySelector(".avatar-upload-content") : null;
+  if (avatarUploadArea && profileAvatarFileInput) {
+    avatarUploadArea.onclick = (e) => {
+      if (e.target.closest(".avatar-upload-change")) return;
+      profileAvatarFileInput.click();
+    };
+    avatarUploadArea.ondragover = (e) => {
+      e.preventDefault();
+      avatarUploadArea.classList.add("drag-over");
+    };
+    avatarUploadArea.ondragleave = () => {
+      avatarUploadArea.classList.remove("drag-over");
+    };
+    avatarUploadArea.ondrop = (e) => {
+      e.preventDefault();
+      avatarUploadArea.classList.remove("drag-over");
+      const file = e.dataTransfer.files && e.dataTransfer.files[0] ? e.dataTransfer.files[0] : null;
+      if (file) {
+        // 将拖拽的文件设置到 input
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        profileAvatarFileInput.files = dt.files;
+        readLocalAvatarFile(file);
+      }
     };
   }
   if (profileAvatarZoomRange) {
