@@ -537,7 +537,7 @@ const renderFileList = (appendMode = false) => {
     const timeValue = state.view === "recycle" ? entry.deletedAt : entry.createdAt;
     const timeLabel = formatDate(timeValue);
     const timelineDayLabel = formatDateDay(timeValue);
-    const originalDir = state.view === "recycle" ? String(entry.originalDir || "我的文件") : "";
+    const originalDir = state.view === "recycle" ? String(entry.originalDir || (state.fileSpace === "hidden" ? "私密空间" : "我的文件")) : "";
     const expireLabel = state.view === "recycle" ? formatRecycleAutoDeleteText(entry.deletedAt) : "";
     if (isCategoryTimelineMode && timelineDayLabel !== lastTimelineDay) {
       const dayGroup = document.createElement("div");

@@ -549,11 +549,11 @@
           </div>
         </div>
         <div class="sync-detail-actions">
-          <button type="button" class="btn-upload mounts-upload-btn" data-sync-start="${escapeHtml(task.id)}"><i class="fa-solid ${running ? "fa-pause" : "fa-play"}"></i>${running ? " 暂停" : " 开始"}</button>
-          <button type="button" class="btn-upload mounts-upload-btn" data-sync-once="${escapeHtml(task.id)}"><i class="fa-solid fa-bolt"></i> 单次同步</button>
-          <button type="button" class="btn-sm" data-sync-edit-detail="${escapeHtml(task.id)}">编辑</button>
-          <button type="button" class="btn-sm danger" data-sync-delete-detail="${escapeHtml(task.id)}">删除</button>
-          <button type="button" class="btn-sm" data-sync-clear-log="${escapeHtml(task.id)}"><i class="fa-solid fa-eraser"></i> 清空日志</button>
+          <button type="button" class="btn-upload mounts-upload-btn sync-btn-start" data-sync-start="${escapeHtml(task.id)}"><i class="fa-solid ${running ? "fa-pause" : "fa-play"}"></i>${running ? " 暂停" : " 开始"}</button>
+          <button type="button" class="btn-upload mounts-upload-btn sync-btn-once" data-sync-once="${escapeHtml(task.id)}"><i class="fa-solid fa-bolt"></i> 单次同步</button>
+          <button type="button" class="btn-sm sync-btn-edit" data-sync-edit-detail="${escapeHtml(task.id)}">编辑</button>
+          <button type="button" class="btn-sm danger sync-btn-delete" data-sync-delete-detail="${escapeHtml(task.id)}">删除</button>
+          <button type="button" class="btn-sm sync-btn-clear-log" data-sync-clear-log="${escapeHtml(task.id)}"><i class="fa-solid fa-eraser"></i> 清空日志</button>
         </div>
         <div class="sync-detail-log" id="syncDetailLog">${logHtml}</div>
       `;

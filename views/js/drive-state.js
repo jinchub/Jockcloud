@@ -212,6 +212,7 @@ const switchFileSpace = async (nextSpace, side = "myFiles") => {
     state.keyword = "";
     state.selectedEntry = null;
     clearSelection();
+    clearBatchClipboard();
     if (searchInput) {
       searchInput.value = "";
     }

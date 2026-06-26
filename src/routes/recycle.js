@@ -132,8 +132,9 @@ module.exports = (app, deps) => {
         });
         recycleItems.push(...normalizedFiles);
       }
+      const recycleRootLabel = spaceType === "hidden" ? "私密空间" : "我的文件";
       const withOriginalDir = recycleItems.map((item) => {
-        const originalDir = item.parentId === null ? "我的文件" : resolveLogicalPath(item.parentId);
+        const originalDir = item.parentId === null ? recycleRootLabel : resolveLogicalPath(item.parentId);
         return { ...item, originalDir };
       });
       withOriginalDir.sort((a, b) => {

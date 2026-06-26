@@ -3417,6 +3417,7 @@ const clearSelection = () => {
 const clearBatchClipboard = () => {
   state.clipboardAction = "";
   state.clipboardEntries = [];
+  state.clipboardSpace = "";
   updateBatchActionState();
 };
 
@@ -3496,6 +3497,10 @@ const setCurrentPageSelection = async (checked) => {
 };
 
 const updateBatchActionState = () => {
+  if (state.clipboardSpace && state.clipboardSpace !== state.fileSpace) {
+    clearBatchClipboard();
+    return;
+  }
   const count = state.selectedEntries.length;
   const hasClipboard = state.clipboardEntries.length > 0 && !!state.clipboardAction;
   const disabled = count === 0 || state.view === "recycle";

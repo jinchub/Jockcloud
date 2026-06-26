@@ -937,6 +937,8 @@ html {
   display: flex;
   align-items: center;
   cursor: pointer;
+  padding: 0 18px;
+  justify-content: center;
 }
 
 .secondary-header-toggle:hover {
@@ -1415,9 +1417,6 @@ html {
   gap: 6px;
 }
 
-.btn-upload+.btn-upload {
-  margin-left: -8px;
-}
 
 #uploadDirBtn {
   background-color: rgb(255 255 255 / 100%);
@@ -1440,10 +1439,15 @@ html {
   font-size: 12px;
 }
 
-.btn-upload:hover {
-  background-color: var(--primary-color-hover);
-}
+.fa-angles-right{
+    width: 40px !important;
+    height: 60px;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
 
+}
 .header-upload-wrapper {
   position: relative;
   display: inline-flex;
@@ -1509,6 +1513,27 @@ html {
 .header-upload-wrapper:hover .header-upload-popover,
 .header-upload-popover.show {
   display: flex;
+}
+
+.btn-sm {
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: #00abff;
+  color: white;
+  cursor: pointer;
+  font-size: 12px;
+  height: 26px;
+  line-height: 20px;
+  display: flex;
+  align-items: center;
+  font-weight: 500;
+  gap: 4px;
+}
+
+.btn-sm:hover {
+  color: #ffffff;
+  background: var(--primary-color);
 }
 
 .btn-action {
@@ -2997,6 +3022,7 @@ html {
 
 .table-sort-label {
   line-height: 1;
+  padding-left: 2px;
 }
 
 .table-sort-arrows {
@@ -4687,8 +4713,7 @@ video.file-thumb-list {
 .sync-task-detail {
   flex: 1;
   min-height: 0;
-  border-radius: 10px;
-  padding: 0;
+  padding: 0 12px;
   overflow: auto;
   margin-top: 14px;
   border-left: 1px solid var(--border-tertiary);
@@ -4697,9 +4722,8 @@ video.file-thumb-list {
 .settings-panel {
   flex: 1;
   min-height: 0;
-  border-radius: 10px;
   background: transparent;
-  padding: 0dvb;
+  padding: 0;
   overflow: auto;
   margin-top: 14px;
   border-left: 1px solid var(--border-tertiary);
@@ -5306,7 +5330,7 @@ video.file-thumb-list {
 }
 
 .sync-log-line {
-  padding: 4px 0;
+  padding:0;
   border-bottom: 1px dashed var(--border-tertiary);
 }
 
@@ -5402,6 +5426,33 @@ video.file-thumb-list {
   margin-top: 6px;
 }
 
+.sync-btn-start,.sync-btn-once{
+  opacity: 0.8;
+}
+.sync-btn-start:hover,.sync-btn-once:hover{
+  opacity: 1;
+}
+
+.sync-btn-edit{
+  background: #30cb54 !important;
+  opacity: 0.8;
+}
+
+.sync-btn-delete{
+  background: #ff5454 !important;
+  opacity: 0.8;
+}
+
+.sync-btn-clear-log{
+  background: #ff8f00 !important;
+  opacity: 0.8;
+}
+
+.sync-btn-edit:hover,.sync-btn-delete:hover,.sync-btn-clear-log:hover{
+  opacity: 1;
+}
+
+
 @media (max-width: 900px) {
   #syncTaskForm .sync-task-form-grid {
     grid-template-columns: 1fr;
@@ -5490,7 +5541,6 @@ video.file-thumb-list {
 #quotaPanel {
   flex: 1;
   min-height: 0;
-  border-radius: 10px;
   background: transparent;
   overflow: hidden;
   margin-top: 14px;
@@ -5552,27 +5602,6 @@ video.file-thumb-list {
   background: var(--bg-tertiary);
 }
 
-.btn-sm {
-  padding: 6px 10px;
-  border: 0;
-  border-radius: 8px;
-  background: #00abff;
-  color: white;
-  cursor: pointer;
-  font-size: 12px;
-  height: 26px;
-  line-height: 20px;
-  display: flex;
-  align-items: center;
-  font-weight: 500;
-  gap: 4px;
-}
-
-.btn-sm:hover {
-  color: #ffffff;
-  background: var(--primary-color);
-}
-
 #openAvatarUpdateBtn,
 #openProfileEditBtn {
   background: #ffffff;
@@ -5586,22 +5615,65 @@ video.file-thumb-list {
   background: inherit !important;
 }
 
+.btn-download-mount-object,
+.btn-rename-mount-object,
+.btn-delete-mount-object{
+  float: left;
+  margin-right: 4px;
+}
+
+.btn-download-mount-object{
+  background: #daeeff;
+    color: #2f9ddf;
+    height: 22px;
+    line-height: 22px;
+}
+.btn-download-mount-object:hover{
+  background: #0d8eff;
+  color: #ffffff;
+}
 
 .btn-edit-user,
 .btn-edit-user-group,
 .btn-adjust-quota,
 .btn-rename-mount-folder,
 .btn-rename-mount-object {
-  background: #00b42a;
+  background: #e5f7ea;
+  color: #4ebd61;
   height: 22px;
   line-height: 22px;
+}
+
+
+[data-theme="dark"] .btn-download-mount-object {
+    background: rgb(35 154 255 / 11%);
+}
+
+[data-theme="dark"] .btn-edit-user,
+[data-theme="dark"] .btn-edit-user-group,
+[data-theme="dark"] .btn-adjust-quota,
+[data-theme="dark"] .btn-rename-mount-folder,
+[data-theme="dark"] .btn-rename-mount-object {
+    background: rgb(229 247 234 / 10%);
+}
+
+
+[data-theme="dark"] .btn-delete-user,
+[data-theme="dark"] .btn-delete-user-group,
+[data-theme="dark"] .btn-delete-mount-folder,
+[data-theme="dark"] .btn-delete-mount-object {
+    background: rgb(255 84 84 / 14%);
+}
+.btn-rename-mount-folder:hover{
+  background: #3fbb31;
 }
 
 .btn-delete-user,
 .btn-delete-user-group,
 .btn-delete-mount-folder,
 .btn-delete-mount-object {
-  background: #f53f3f;
+  background: #ffd5d5;
+  color: #ed5959;
   height: 22px;
   line-height: 22px;
 }

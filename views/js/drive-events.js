@@ -758,6 +758,7 @@ if (mobileBatchDownloadBtn) {
 
 if (mobileBatchShareBtn) {
   mobileBatchShareBtn.onclick = () => {
+    if (state.fileSpace === 'hidden') return;
     const selected = getSelectedEntries();
     if (selected.length === 0) return;
     state.selectedEntry = selected[0];
@@ -1089,7 +1090,7 @@ if (fileListEl) {
     document.getElementById('menuZipExtractTarget').style.display = (isArchiveFile && hasUserPermission('extract')) ? '' : 'none';
     document.getElementById('menuLocateFolder').style.display = (!isRecycle && !!state.keyword && entry.type === 'file') ? '' : 'none';
     document.getElementById('menuGoToFolder').style.display = (!isRecycle && !!state.category && entry.type === 'file') ? '' : 'none';
-    document.getElementById('menuShare').style.display = isRecycle ? 'none' : '';
+    document.getElementById('menuShare').style.display = (isRecycle || state.fileSpace === 'hidden') ? 'none' : '';
     const pinEl = document.getElementById('menuPin');
     if (pinEl) {
       pinEl.style.display = isRecycle ? 'none' : '';
@@ -1252,6 +1253,7 @@ if (batchCopyBtn) {
     }
     state.clipboardAction = "copy";
     state.clipboardEntries = selected;
+    state.clipboardSpace = state.fileSpace;
     updateBatchActionState();
   };
 }
@@ -1266,6 +1268,7 @@ if (batchMoveBtn) {
     }
     state.clipboardAction = "move";
     state.clipboardEntries = selected;
+    state.clipboardSpace = state.fileSpace;
     updateBatchActionState();
   };
 }
@@ -1353,6 +1356,10 @@ if (batchPasteBtn) {
     }
     if (!state.clipboardAction || state.clipboardEntries.length === 0) {
       alert("没有可粘贴的内容");
+      return;
+    }
+    if (state.clipboardSpace && state.clipboardSpace !== state.fileSpace) {
+      alert("无法在不同空间之间粘贴");
       return;
     }
     if (state.clipboardAction === "copy" && !ensurePermission("copy")) return;
@@ -1947,6 +1954,7 @@ document.getElementById("menuCopy").onclick = () => {
   setEntrySelected(state.selectedEntry, true);
   state.clipboardAction = "copy";
   state.clipboardEntries = getSelectedEntries();
+  state.clipboardSpace = state.fileSpace;
   updateBatchActionState();
 };
 
@@ -2007,6 +2015,7 @@ document.getElementById("menuMove").onclick = async () => {
   setEntrySelected(state.selectedEntry, true);
   state.clipboardAction = "move";
   state.clipboardEntries = getSelectedEntries();
+  state.clipboardSpace = state.fileSpace;
   updateBatchActionState();
 };
 
