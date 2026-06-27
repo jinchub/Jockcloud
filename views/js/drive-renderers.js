@@ -643,12 +643,16 @@ const renderFileList = (appendMode = false) => {
       const isMobile = isMobileViewport();
       if (isMobile) {
         item.classList.add("mobile-list-item");
+        const childCountBadge = isFolder && typeof entry.childCount === "number"
+          ? `<div class="mobile-list-count" title="包含 ${entry.childCount} 项">${entry.childCount}项</div>`
+          : "";
         item.innerHTML = `
           <div class="mobile-list-icon">${getEntryVisualHtml(entry, "list")}</div>
           <div class="mobile-list-info">
             <div class="mobile-list-name" title="${escapedEntryName}">${escapedDisplayEntryName}</div>
             <div class="mobile-list-time">${timeLabel}</div>
           </div>
+          ${childCountBadge}
           <div class="mobile-list-check"><input type="checkbox" ${isEntrySelected(entry) ? "checked" : ""}></div>
         `;
       } else {

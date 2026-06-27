@@ -418,6 +418,10 @@ a {
   backdrop-filter: blur(10px);
 }
 
+[data-theme="dark"] .mobile-bottom-actions {
+  background: rgb(28 28 28 / 50%);
+}
+
 .mobile-bottom-actions.show {
   display: block;
 }
@@ -1823,6 +1827,29 @@ body.has-mobile-selection .mobile-bottom-actions {
   max-height: 48px;
 }
 
+/* 手机版文件夹子项数量徽章 */
+#view-files .file-table .table-row.mobile-list-item .mobile-list-count {
+  flex-shrink: 0;
+  min-width: 20px;
+  height: 45px;
+  padding: 0px 2px;
+  color: #d7d7d7;
+  font-size: 0.68rem;
+  line-height: 45px;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+[data-theme="dark"] #view-files .file-table .table-row.mobile-list-item .mobile-list-count {
+  color: #4d4d4d;
+}
+
+#view-files .file-table .table-row.mobile-list-item.selected .mobile-list-count {
+  color: #9f9f9f;
+}
+
 #view-files .file-table .table-row.mobile-list-item .mobile-list-check input[type="checkbox"] {
   width: 13px;
   height: 13px;
@@ -1830,8 +1857,8 @@ body.has-mobile-selection .mobile-bottom-actions {
   cursor: pointer;
 }
 
-#view-files .file-table .table-row.mobile-list-item.selected {
-  background: var(--bg-secondary) !important;
+[data-theme="dark"] #view-files .file-table .table-row.mobile-list-item.selected {
+  background: #2d2d2d;
 }
 
 #view-files .file-table .table-row.mobile-list-item.selected:first-child {

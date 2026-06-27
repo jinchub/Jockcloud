@@ -113,8 +113,28 @@ module.exports = (app, deps) => {
       const entries = [];
       if (type === "all" || type === "folder") {
         const [folderRows] = await pool.query(folderSql, folderParams);
+        // 批量查询每个文件夹的子项数量（子文件夹数 + 子文件数）
+        const folderChildCountMap = new Map();
+        if (folderRows.length > 0) {
+          const folderIds = folderRows.map((r) => Number(r.id));
+          const inClause = toInClause(folderIds);
+          const [subFolderCounts] = await pool.query(
+            `SELECT parent_id AS folderId, COUNT(*) AS cnt FROM folders WHERE user_id = ? AND space_type = ? AND deleted_at IS NULL AND parent_id IN (${inClause}) GROUP BY parent_id`,
+            [req.user.userId, spaceType, ...folderIds]
+          );
+          for (const row of subFolderCounts) {
+            folderChildCountMap.set(Number(row.folderId), (folderChildCountMap.get(Number(row.folderId)) || 0) + Number(row.cnt));
+          }
+          const [subFileCounts] = await pool.query(
+            `SELECT folder_id AS folderId, COUNT(*) AS cnt FROM files WHERE user_id = ? AND space_type = ? AND deleted_at IS NULL AND folder_id IN (${inClause}) GROUP BY folder_id`,
+            [req.user.userId, spaceType, ...folderIds]
+          );
+          for (const row of subFileCounts) {
+            folderChildCountMap.set(Number(row.folderId), (folderChildCountMap.get(Number(row.folderId)) || 0) + Number(row.cnt));
+          }
+        }
         for (const row of folderRows) {
-          entries.push({ ...row, isPinned: pinnedKeySet.has(`folder-${Number(row.id)}`) });
+          entries.push({ ...row, isPinned: pinnedKeySet.has(`folder-${Number(row.id)}`), childCount: folderChildCountMap.get(Number(row.id)) || 0 });
         }
       }
       if (type === "all" || type === "file") {
