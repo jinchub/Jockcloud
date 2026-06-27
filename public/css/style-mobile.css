@@ -912,7 +912,7 @@ body.has-mobile-selection .mobile-bottom-actions {
 }
 
 .modal .form-group input {
-  height: 40px;
+  height: 32px;
   font-size: 14px;
 }
 
@@ -1074,6 +1074,20 @@ body.has-mobile-selection .mobile-bottom-actions {
   padding-left: 0;
 }
 
+.profile-avatar-preview {
+  width: 40px;
+  height: 40px;
+}
+
+.profile-avatar-crop-wrap {
+  width: 110px;
+  height: 110px;
+}
+
+.profile-avatar-crop-canvas {
+  width: 100%;
+  height: 100%;  
+}
 .logo-box .user-avatar-img,
 .logo-box .user-avatar-default {
   width: 44px;

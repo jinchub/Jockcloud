@@ -5844,25 +5844,31 @@ video.file-thumb-list {
 #profileAvatarFileInput {
   display: none;
 }
+.avatar-title {
+  font-size: 12px;
+  margin-bottom: 10px;
+}
 
+.avatar-title-preset {
+  font-size: 12px;
+  margin-bottom: 10px;
+  margin-top: 10px;
+}
 .avatar-upload-area {
   border: 2px dashed var(--border-tertiary);
   border-radius: 10px;
-  background: var(--bg-secondary);
   cursor: pointer;
   transition: all 0.25s ease;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 140px;
+  min-height: 110px;
   position: relative;
   overflow: hidden;
-}
-
-.avatar-upload-area:hover {
-  border-color: #00abff;
+  border-color: #60cbff;
   background: rgba(0, 171, 255, 0.04);
 }
+
 
 .avatar-upload-area.drag-over {
   border-color: #00abff;
@@ -5875,7 +5881,7 @@ video.file-thumb-list {
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  padding: 20px;
+  padding: 0px;
 }
 
 .avatar-upload-icon {
@@ -6703,7 +6709,7 @@ video.file-thumb-list {
 
 [data-theme="dark"] .profile-modal .profile-action-row .btn-sm,
 [data-theme="dark"] .profile-modal .modal-actions .btn-sm:not(.danger) {
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(0, 0, 0, 0.2) !important;
   color: var(--text-primary);
 }
 
