@@ -6554,6 +6554,7 @@ video.file-thumb-list {
   border-radius: 24px;
   overflow: hidden;
   color: #fff;
+  background:black;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -6572,6 +6573,14 @@ video.file-thumb-list {
 .profile-info-main {
   flex: 1;
   min-width: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    flex-direction: column;
+    align-content: flex-start;
+    height: 72px;
+    line-height: 72px;
+    justify-content: center;
 }
 
 .profile-info-name {

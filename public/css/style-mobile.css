@@ -851,8 +851,15 @@ body.has-mobile-selection .mobile-bottom-actions {
 
 .collapsed #toggleSecondaryBtn {
   margin-left: 5px;
+  box-shadow: unset;
+  background: unset;
+  color: black;
+  top: 14px;
 }
 
+[data-theme="dark"] .collapsed #toggleSecondaryBtn{
+  color:#d8d8d8;
+}
 #searchBtn {
   padding: 6px 10px;
 }
@@ -949,7 +956,7 @@ body.has-mobile-selection .mobile-bottom-actions {
   border-radius: 0;
   border: 0;
   box-shadow: none;
-  background: linear-gradient(180deg, #edf5ff 0, #ffffff 100%);
+  background: #ffffff;
   overflow-y: auto;
 }
 
@@ -961,6 +968,7 @@ body.has-mobile-selection .mobile-bottom-actions {
   min-height: 100dvh;
   padding: calc(18px + env(safe-area-inset-top, 0px)) 0 calc(24px + var(--mobile-tabbar-offset));
   gap: 16px;
+  background: unset;
 }
 
 #profileCenterModal .profile-modal-hero,
@@ -1023,7 +1031,7 @@ body.has-mobile-selection .mobile-bottom-actions {
 }
 
 #profileCenterModal .profile-info-groups {
-  margin-top: 6px;
+
 }
 
 #profileCenterModal .profile-info-groups .profile-group-badge {
@@ -1045,10 +1053,12 @@ body.has-mobile-selection .mobile-bottom-actions {
 
 #profileCenterModal .profile-info-card {
   padding: 14px 16px;
+      background: radial-gradient(circle at top right, rgb(164 209 255 / 20%), #f1e8ff40 32%), radial-gradient(circle at left center, rgb(255 173 173 / 14%), transparent 28%);
 }
 
 #profileCenterModal .profile-action-row {
   gap: 10px;
+  margin-top: 1em;
 }
 
 #profileCenterModal .modal-actions {
@@ -1060,10 +1070,13 @@ body.has-mobile-selection .mobile-bottom-actions {
   width: 100%;
   min-height: 44px;
   border-radius: 14px;
+  background: #f7fbff;
 }
 
 #profileCenterModal #profileLogoutBtn {
   display: block;
+  background: #212121;
+        color: wheat;
 }
 
 #avatarUpdateModal .avatar-update-modal {
@@ -2368,6 +2381,12 @@ body.has-mobile-selection .mobile-bottom-actions {
 .fa-angles-right{
   height: auto;
   width: 100% !important;
+}
+.fa-angles-right::before {
+  content: "\f0c9" !important;
+}
+.fa-angles-left::before {
+  content: "\f00d" !important;
 }
 
 
