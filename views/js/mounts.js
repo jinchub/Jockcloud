@@ -494,7 +494,7 @@
       }
       if (mountMetaActions) mountMetaActions.style.display = "";
       const config = mount.config || {};
-      titleEl.textContent = `${mount.name} 文件存储列表`;
+      titleEl.textContent = `${mount.name}`;
       const baseMeta = `${getMountTypeLabel(mount.type)} · ${config.bucket || "-"} @ ${config.endpoint || "-"}`;
       metaEl.textContent = mountSearchKeyword ? `${baseMeta} · 全局搜索: ${mountSearchKeyword}` : baseMeta;
       if (searchBtn) {
@@ -1375,6 +1375,22 @@
     };
 
     bindEvents();
+
+    // 手机版初始化时默认收起侧边栏（参考同步页面实现）
+    {
+      const mountSidebarInitEl = document.getElementById("mountsSidebar");
+      const mountsSidebarOverlayInitEl = document.getElementById("mountsSidebarOverlay");
+      const toggleMountSidebarInitBtn = document.getElementById("toggleMountSidebarBtn");
+      if (mountSidebarInitEl && window.matchMedia("(max-width: 768px)").matches) {
+        mountSidebarInitEl.classList.add("collapsed");
+        if (mountsSidebarOverlayInitEl) mountsSidebarOverlayInitEl.classList.remove("show");
+        if (toggleMountSidebarInitBtn) {
+          const icon = toggleMountSidebarInitBtn.querySelector("i");
+          if (icon) icon.className = "fa-solid fa-angles-right";
+          toggleMountSidebarInitBtn.title = "展开侧边栏";
+        }
+      }
+    }
 
     return {
       onEnterView: async (options = {}) => {

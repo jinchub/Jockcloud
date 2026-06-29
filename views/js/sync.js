@@ -132,7 +132,9 @@
       hasLoadedOnce: false,
       liveLogSource: null,
       liveLogTaskId: "",
-      liveLogLineCount: 0
+      liveLogLineCount: 0,
+      badgeTimer: 0,
+      completedUnseenTasks: new Set()
     };
 
     const syncTaskRoute = (replace = false) => {
@@ -247,6 +249,49 @@
       }, 300);
     };
 
+    const updateSyncNavBadge = () => {
+      const syncNavBtn = document.getElementById("syncNavBtn");
+      if (!syncNavBtn) return;
+      const runningCount = runtime.tasks.filter((task) => task.status === "running").length;
+      let badge = syncNavBtn.querySelector(".sync-nav-badge");
+      if (runningCount > 0) {
+        if (!badge) {
+          badge = document.createElement("span");
+          badge.className = "sync-nav-badge";
+          syncNavBtn.appendChild(badge);
+        }
+        badge.textContent = runningCount > 99 ? "99+" : runningCount;
+      } else if (badge) {
+        badge.remove();
+      }
+    };
+
+    const pollSyncBadge = async () => {
+      try {
+        const res = await request("/api/sync-tasks");
+        if (!res.ok) return;
+        const parsed = await res.json();
+        if (!Array.isArray(parsed)) return;
+        runtime.tasks = parsed.map((item) => normalizeTask(item));
+        updateSyncNavBadge();
+      } catch (e) {}
+    };
+
+    const startBadgePolling = () => {
+      if (runtime.badgeTimer) return;
+      pollSyncBadge();
+      runtime.badgeTimer = setInterval(() => {
+        pollSyncBadge();
+      }, 5000);
+    };
+
+    const stopBadgePolling = () => {
+      if (runtime.badgeTimer) {
+        clearInterval(runtime.badgeTimer);
+        runtime.badgeTimer = 0;
+      }
+    };
+
     const loadTasks = async () => {
       try {
         const res = await request("/api/sync-tasks");
@@ -259,9 +304,24 @@
           runtime.tasks = [];
           return;
         }
-        runtime.tasks = parsed.map((item) => normalizeTask(item));
+        
+        // 检测任务状态变化，标记刚完成的任务
+        const oldTasks = runtime.tasks;
+        const newTasks = parsed.map((item) => normalizeTask(item));
+        
+        newTasks.forEach((newTask) => {
+          const oldTask = oldTasks.find((t) => t.id === newTask.id);
+          // 如果任务从 running 变成 success，标记为已完成未查看
+          if (oldTask && oldTask.status === "running" && newTask.status === "success") {
+            runtime.completedUnseenTasks.add(newTask.id);
+          }
+        });
+        
+        runtime.tasks = newTasks;
+        updateSyncNavBadge();
       } catch (e) {
         runtime.tasks = [];
+        updateSyncNavBadge();
       }
     };
 
@@ -431,8 +491,18 @@
         return;
       }
       const sorted = runtime.tasks.slice().sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      syncTaskAsideList.innerHTML = sorted.map((task) => `
+      syncTaskAsideList.innerHTML = sorted.map((task) => {
+        let badgeHtml = "";
+        if (task.status === "running") {
+          badgeHtml = '<div class="mount-side-syncing-badge" title="同步中"><i class="fa-solid fa-arrows-rotate"></i></div>';
+        } else if (task.status === "success" && runtime.completedUnseenTasks.has(task.id)) {
+          badgeHtml = '<div class="mount-side-syncing-badge mount-side-syncing-badge-success" title="同步完成"><i class="fa-solid fa-check"></i></div>';
+        } else if (task.status === "error") {
+          badgeHtml = '<div class="mount-side-syncing-badge mount-side-syncing-badge-error" title="同步失败"><i class="fa-solid fa-exclamation"></i></div>';
+        }
+        return `
         <div class="mount-side-item ${task.id === runtime.selectedTaskId ? "active" : ""}" data-sync-item="${escapeHtml(task.id)}">
+          ${badgeHtml}
           <div class="mount-side-main">
             <div class="mount-side-name">${escapeHtml(task.name || "未命名任务")}</div>
             <div class="mount-side-type ${getStatusClassName(task.status)}">${getStatusText(task.status)} · ${escapeHtml(getTaskTypeText(task.type))}</div>
@@ -442,7 +512,8 @@
             <button type="button" class="mount-side-action-btn danger" data-sync-delete="${escapeHtml(task.id)}" title="删除"><i class="fa-regular fa-trash-can"></i></button>
           </div>
         </div>
-      `).join("");
+      `;
+      }).join("");
     };
 
     const renderTaskLog = (detailText) => {
@@ -577,6 +648,8 @@
       } else {
         runtime.selectedTaskId = taskId;
       }
+      // 点击任务时清除"已完成未查看"标记
+      runtime.completedUnseenTasks.delete(taskId);
       render();
       updateAutoRefreshTimer();
       const selectedTask = getSelectedTask();
@@ -1049,6 +1122,7 @@
     updateSidebarToggleIcon();
     render();
     startAutoRefresh();
+    startBadgePolling();
 
     return {
       onEnterView: async (options = {}) => {

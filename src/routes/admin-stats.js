@@ -394,7 +394,10 @@ module.exports = (app, deps) => {
 
   app.get("/api/admin/stats", authRequired, adminRequired, async (req, res) => {
     try {
-      const [totalUsed] = await pool.query("SELECT SUM(size) AS total FROM files WHERE deleted_at IS NULL");
+      const [totalUsed] = await pool.query(
+        "SELECT SUM(size) AS total FROM files WHERE user_id = ? AND deleted_at IS NULL",
+        [req.user.userId]
+      );
       const [userCount] = await pool.query("SELECT COUNT(*) AS total FROM users");
       const currentStorageConfig = getStorageDiskConfig();
       const currentStorageRoot = resolveStorageRootDir("normal");
@@ -415,7 +418,8 @@ module.exports = (app, deps) => {
   app.get("/api/admin/file-category-stats", authRequired, adminRequired, async (req, res) => {
     try {
       const [rows] = await pool.query(
-        "SELECT file_category AS category, SUM(size) AS totalSize, COUNT(*) AS fileCount FROM files WHERE deleted_at IS NULL GROUP BY file_category ORDER BY totalSize DESC"
+        "SELECT file_category AS category, SUM(size) AS totalSize, COUNT(*) AS fileCount FROM files WHERE user_id = ? AND deleted_at IS NULL GROUP BY file_category ORDER BY totalSize DESC",
+        [req.user.userId]
       );
       const categories = rows.map(row => ({
         category: String(row.category || "other"),

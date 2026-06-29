@@ -12,8 +12,7 @@
 }
 
 /* 手机版隐藏自动退出提示 */
-#hiddenSpaceAutoExitTip,
-#themeToggleBtn {
+#hiddenSpaceAutoExitTip{
   display: none !important;
 }
 
@@ -124,6 +123,12 @@ a {
   display: block;
   margin-bottom: 8px;
   font-size: 14px;
+}
+#uploadDirBtn{
+  display: none;
+}
+.drag-upload-overlay.active{
+  display: none;
 }
 
 #uploadFileBtn,
@@ -294,7 +299,7 @@ a {
 }
 
 .logo-box.active {
-  background: var(--primary-color-lighter);
+  background: unset;
 }
 
 .logo-box.active .user-avatar-img,
@@ -305,9 +310,6 @@ a {
 }
 
 .secondary-menu {
-  border-top: 1px solid var(--border-tertiary);
-  padding-top: 10px;
-  margin-top: 10px;
 }
 
 .timeline-day-entries {
@@ -825,6 +827,7 @@ body.has-mobile-selection .mobile-bottom-actions {
   right: 10px;
   overflow: hidden;
   margin-top: -2px;
+  gap: 8px;
 }
 
 .main-header .header-left {
@@ -842,7 +845,7 @@ body.has-mobile-selection .mobile-bottom-actions {
 
 .search-wrapper,
 .search-wrapper {
-  max-width: 80%;
+  max-width: 70%;
   height: 33px;
 }
 
@@ -951,7 +954,7 @@ body.has-mobile-selection .mobile-bottom-actions {
 }
 
 [data-theme="dark"] #profileCenterModal .profile-modal {
-  background: linear-gradient(180deg, #1f2937 0, #111827 100%);
+  background: linear-gradient(180deg, #1f2937 0, #2b2b2b 90%);
 }
 
 #profileCenterModal .profile-modal-panel {
@@ -1116,17 +1119,22 @@ body.has-mobile-selection .mobile-bottom-actions {
   font-weight: 700;
   color: var(--text-muted);
   line-height: 1;
+  margin-top: 6px;
 }
 
 .logo-box.active .logo-box-label {
-  color: var(--primary-color);
+  color: black;
+}
+
+[data-theme="dark"] .logo-box.active .logo-box-label {
+  color: rgb(255, 255, 255);
 }
 
 .logo-box .user-avatar-nav-icon {
   display: inline-flex !important;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
+  font-size: 18px;
   width: auto;
   height: auto;
   line-height: 1;
@@ -1139,7 +1147,11 @@ body.has-mobile-selection .mobile-bottom-actions {
 }
 
 .logo-box.active .user-avatar-nav-icon {
-  color: var(--primary-color);
+  color: black;
+}
+
+[data-theme="dark"] .logo-box.active .user-avatar-nav-icon {
+  color: rgb(255, 255, 255);
 }
 
 .logo-box .user-avatar-default {
@@ -1244,7 +1256,7 @@ body.has-mobile-selection .mobile-bottom-actions {
 .mobile-upload-trigger {
   border: 0;
   color: #fff;
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-color-hover) 100%);
+  background: linear-gradient(135deg, #9ae3ff 0%, #7bb0ff 100%);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1254,6 +1266,11 @@ body.has-mobile-selection .mobile-bottom-actions {
   box-shadow: 0 0px 20px rgba(22, 93, 255, 0.28);
   margin-top: 0;
   padding: 0;
+}
+
+[data-theme="dark"]  .mobile-upload-trigger {
+  background: linear-gradient(135deg, #2b2b2c 0%, #616161 100%);
+  box-shadow: 0 0px 20px rgb(51 51 51 / 28%);
 }
 
 .mobile-upload-trigger i {
@@ -1329,7 +1346,7 @@ body.has-mobile-selection .mobile-bottom-actions {
 .primary-nav-item i {
   font-size: 20px;
   height: auto;
-  color: var(--text-muted);
+  color: rgb(143 149 158);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1345,25 +1362,35 @@ body.has-mobile-selection .mobile-bottom-actions {
   display: block;
   font-size: 10px;
   font-weight: 700;
-  color: var(--text-muted);
+  color: rgb(143 149 158);
   line-height: 1;
 }
 
 .primary-nav-item.active {
-  background: var(--primary-color-lighter);
+  background: unset;
 }
 
 .primary-nav-item.active i {
-  color: var(--primary-color);
+  color: black;
+}
+
+[data-theme="dark"] .primary-nav-item.active i {
+  color: rgb(255, 255, 255);
 }
 
 .primary-nav-item.active span:not(.task-count-badge) {
-  color: var(--primary-color);
+  color: black;
+}
+
+[data-theme="dark"] .primary-nav-item.active span:not(.task-count-badge) {
+  color: rgb(255, 255, 255);
 }
 
 .mobile-upload-trigger.active {
   color: #fff;
-  transform: translateY(-1px) scale(1.02);
+  transform: scale(1.02);
+  background: linear-gradient(135deg, #08cdc4 0%, #3c78ff 100%);
+  box-shadow: 0 0px 20px rgb(106 186 255);
 }
 
 .mobile-upload-trigger.active+.mobile-upload-label {
@@ -1411,7 +1438,6 @@ body.has-mobile-selection .mobile-bottom-actions {
 .secondary-header-toggle {
   min-height: 20px;
   align-items: center;
-  top: 6px;
 }
 
 #view-files .file-table .cell-size,
@@ -2282,4 +2308,33 @@ body.has-mobile-selection .mobile-bottom-actions {
 
 .download-empty p {
   font-size: 14px;
+}
+
+
+
+.mounts-toggle-btn{
+  background: var(--bg-card);
+  width: 32px;
+  height: 32px;
+}
+.fa-angles-right{
+  height: auto;
+  width: 100% !important;
+}
+
+/* 手机版挂载对象列表：隐藏存储路径、存储桶、接入点、更新时间列，仅保留文件名和操作 */
+#mountStorageTable thead th:nth-child(2),
+#mountStorageTable thead th:nth-child(3),
+#mountStorageTable thead th:nth-child(4),
+#mountStorageTable thead th:nth-child(5),
+#mountStorageTable tbody td:nth-child(2),
+#mountStorageTable tbody td:nth-child(3),
+#mountStorageTable tbody td:nth-child(4),
+#mountStorageTable tbody td:nth-child(5) {
+  display: none !important;
+}
+
+/* 手机版挂载页面：隐藏顶部存储类型/桶名/接入点元信息 */
+#mountStorageMeta {
+  display: none !important;
 }

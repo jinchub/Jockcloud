@@ -146,12 +146,6 @@ module.exports = (app, deps) => {
   };
   const getStorageDiskDisplayMountPath = (disk, fallbackMount = "") => {
     if (!disk || typeof disk !== "object") return String(fallbackMount || "");
-    const diskPath = String(disk.path || "").trim();
-    const diskSource = String(disk.source || "").trim().toLowerCase();
-    if (diskSource === "system" && diskPath) {
-      const parsedRoot = path.parse(path.resolve(diskPath)).root;
-      if (parsedRoot) return parsedRoot;
-    }
     return getStorageDiskMountPath(disk, fallbackMount);
   };
   const getStorageDiskMountKeys = (disk, fallbackMount = "") => {

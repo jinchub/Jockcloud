@@ -1440,8 +1440,6 @@ html {
 }
 
 .fa-angles-right{
-    width: 40px !important;
-    height: 60px;
     display: flex !important;
     align-items: center;
     justify-content: center;
@@ -2582,6 +2580,22 @@ html {
 .primary-nav-item .task-count-badge {
   margin-left: 0;
   margin-top: 2px;
+}
+
+.sync-nav-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 12px;
+  height: 12px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: #ff730c;
+  color: #fff;
+  font-size: 0.5rem;
+  line-height: 12px;
+  text-align: center;
+  pointer-events: none;
 }
 
 .upload-tasks-main {
@@ -4352,7 +4366,7 @@ video.file-thumb-list {
   width: 24px;
   height: 24px;
   border: 0;
-  border-radius: 6px;
+  border-radius: 50%;
   background: var(--bg-card);
   color: var(--text-secondary);
   cursor: pointer;
@@ -4387,7 +4401,6 @@ video.file-thumb-list {
   height: 32px;
   padding: 0;
   border-radius: 999px;
-  background: #fff;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
   justify-content: center;
   z-index: 3;
@@ -4402,6 +4415,9 @@ video.file-thumb-list {
   width: 32px;
   height: 32px;
   border-radius: 999px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .mounts-sidebar.collapsed~.mounts-main .mounts-main-header h2 {
@@ -4591,6 +4607,7 @@ video.file-thumb-list {
 }
 
 .mount-side-item {
+  position: relative;
   width: 100%;
   border: none;
   background: var(--bg-tertiary);
@@ -4602,6 +4619,52 @@ video.file-thumb-list {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.mount-side-syncing-badge {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 12px;
+  height: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #00abff;
+  font-size: 0.55rem;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.mount-side-syncing-badge i {
+  animation: sync-spin 1s linear infinite;
+}
+
+.mount-side-syncing-badge-success,
+.mount-side-syncing-badge-error {
+  color: #fff;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  font-size: 0.6rem;
+}
+
+.mount-side-syncing-badge-success {
+  background: #52c41a;
+}
+
+.mount-side-syncing-badge-error {
+  background: #f5222d;
+}
+
+.mount-side-syncing-badge-success i,
+.mount-side-syncing-badge-error i {
+  animation: none;
+}
+
+@keyframes sync-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .mount-side-item:hover {
@@ -5591,6 +5654,9 @@ video.file-thumb-list {
   font-weight: 600;
 }
 
+#fileCategoryStatsTable th{
+  background:unset;
+}
 .data-table td {
   padding: 8px 14px;
   border-bottom: 1px solid var(--border-tertiary);

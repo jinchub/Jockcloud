@@ -398,24 +398,49 @@ const inferMimeTypeByFileName = (fileName, fallback = "application/octet-stream"
   return fallback;
 };
 
-const writeExtractedThumbnailFromSource = (sourcePath, baseStorageName, mimeType, spaceType = "normal") => {
+const writeExtractedThumbnailFromSource = async (sourcePath, baseStorageName, mimeType, spaceType = "normal") => {
   const normalizedMime = String(mimeType || "").toLowerCase();
   if (!normalizedMime.startsWith("image/")) return "";
   if (!sourcePath || !fs.existsSync(sourcePath)) return "";
-  let thumbExt = THUMBNAIL_MIME_TO_EXT_MAP[normalizedMime] || "";
-  if (!thumbExt && normalizedMime === "image/svg+xml") {
-    thumbExt = "svg";
+  
+  // SVG 直接复制，不处理
+  if (normalizedMime === "image/svg+xml") {
+    const thumbnailStorageName = makeThumbnailStorageName(baseStorageName, "svg");
+    const thumbnailPath = resolveAbsoluteStoragePath(thumbnailStorageName, spaceType);
+    if (!thumbnailPath) return "";
+    fs.mkdirSync(path.dirname(thumbnailPath), { recursive: true });
+    fs.copyFileSync(sourcePath, thumbnailPath);
+    return thumbnailStorageName;
   }
-  if (!thumbExt) {
-    const sourceExt = path.extname(String(sourcePath || "").toLowerCase()).replace(/^\./, "");
-    thumbExt = safeFileName(sourceExt || "webp");
+  
+  // 使用 sharp 生成缩略图
+  try {
+    const sharp = require("sharp");
+    const thumbnailStorageName = makeThumbnailStorageName(baseStorageName, "webp");
+    const thumbnailPath = resolveAbsoluteStoragePath(thumbnailStorageName, spaceType);
+    if (!thumbnailPath) return "";
+    fs.mkdirSync(path.dirname(thumbnailPath), { recursive: true });
+    
+    await sharp(sourcePath)
+      .resize(256, 256, { fit: "inside", withoutEnlargement: true })
+      .webp({ quality: 80 })
+      .toFile(thumbnailPath);
+    
+    return thumbnailStorageName;
+  } catch (error) {
+    // sharp 处理失败时回退到复制原图
+    let thumbExt = THUMBNAIL_MIME_TO_EXT_MAP[normalizedMime] || "";
+    if (!thumbExt) {
+      const sourceExt = path.extname(String(sourcePath || "").toLowerCase()).replace(/^\./, "");
+      thumbExt = safeFileName(sourceExt || "webp");
+    }
+    const thumbnailStorageName = makeThumbnailStorageName(baseStorageName, thumbExt);
+    const thumbnailPath = resolveAbsoluteStoragePath(thumbnailStorageName, spaceType);
+    if (!thumbnailPath) return "";
+    fs.mkdirSync(path.dirname(thumbnailPath), { recursive: true });
+    fs.copyFileSync(sourcePath, thumbnailPath);
+    return thumbnailStorageName;
   }
-  const thumbnailStorageName = makeThumbnailStorageName(baseStorageName, thumbExt);
-  const thumbnailPath = resolveAbsoluteStoragePath(thumbnailStorageName, spaceType);
-  if (!thumbnailPath) return "";
-  fs.mkdirSync(path.dirname(thumbnailPath), { recursive: true });
-  fs.copyFileSync(sourcePath, thumbnailPath);
-  return thumbnailStorageName;
 };
 
 const generateVideoThumbnail = async (videoPath, baseStorageName, spaceType = "normal") => {

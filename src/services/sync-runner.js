@@ -49,7 +49,9 @@ const createSyncRunner = ({
       resolveFolderByRelativeDir,
       inferMimeTypeByFileName,
       normalizeFileCategoryKey,
-      resolveStoredFileCategory
+      resolveStoredFileCategory,
+      generateVideoThumbnail,
+      writeExtractedThumbnailFromSource
     } = getRuntimeDeps();
 
     const normalizedUserId = Number(userId);
@@ -393,11 +395,19 @@ const createSyncRunner = ({
             const fileSize = stat.size;
             const mimeType = inferMimeTypeByFileName(fileName, "application/octet-stream");
             const fileCategory = normalizeFileCategoryKey(resolveStoredFileCategory(fileName, mimeType, null));
-            const thumbnailStorageName = "";
+            
+            // 生成缩略图
+            let thumbnailStorageName = "";
+            if (fileCategory === "image") {
+              thumbnailStorageName = await writeExtractedThumbnailFromSource(targetPathOnDisk, storageName, mimeType, spaceType);
+            } else if (fileCategory === "video") {
+              thumbnailStorageName = await generateVideoThumbnail(targetPathOnDisk, storageName, spaceType);
+            }
+            
             if (localFile) {
               await pool.query(
-                "UPDATE files SET storage_name = ?, size = ?, updated_at = NOW() WHERE id = ?",
-                [storageName, fileSize, localFile.id]
+                "UPDATE files SET storage_name = ?, size = ?, thumbnail_storage_name = ?, updated_at = NOW() WHERE id = ?",
+                [storageName, fileSize, thumbnailStorageName || null, localFile.id]
               );
             } else {
               await pool.query(

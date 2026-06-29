@@ -1871,12 +1871,27 @@ if (quotaAsideList) {
 
 const toggleQuotaSidebarBtn = document.getElementById("toggleQuotaSidebarBtn");
 const quotaSidebar = document.getElementById("quotaSidebar");
+const quotaIsMobileView = () => window.matchMedia("(max-width: 768px)").matches;
+const updateQuotaSidebarToggleIcon = () => {
+  if (!toggleQuotaSidebarBtn || !quotaSidebar) return;
+  const icon = toggleQuotaSidebarBtn.querySelector("i");
+  if (!icon) return;
+  if (quotaSidebar.classList.contains("collapsed")) {
+    icon.className = "fa-solid fa-angles-right";
+    toggleQuotaSidebarBtn.title = "展开侧边栏";
+  } else {
+    icon.className = "fa-solid fa-angles-left";
+    toggleQuotaSidebarBtn.title = "收起侧边栏";
+  }
+};
 if (toggleQuotaSidebarBtn && quotaSidebar) {
   toggleQuotaSidebarBtn.addEventListener("click", () => {
     quotaSidebar.classList.toggle("collapsed");
-    const icon = toggleQuotaSidebarBtn.querySelector("i");
-    if (icon) {
-      icon.className = quotaSidebar.classList.contains("collapsed") ? "fa-solid fa-angles-right" : "fa-solid fa-angles-left";
-    }
+    updateQuotaSidebarToggleIcon();
   });
+}
+// 手机版初始化时默认收起侧边栏（参考同步页面实现）
+if (quotaSidebar && quotaIsMobileView()) {
+  quotaSidebar.classList.add("collapsed");
+  updateQuotaSidebarToggleIcon();
 }

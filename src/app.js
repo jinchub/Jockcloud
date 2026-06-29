@@ -649,7 +649,9 @@ const { runSyncTaskNow } = createSyncRunner({
     resolveFolderByRelativeDir,
     inferMimeTypeByFileName,
     normalizeFileCategoryKey,
-    resolveStoredFileCategory
+    resolveStoredFileCategory,
+    generateVideoThumbnail,
+    writeExtractedThumbnailFromSource
   })
 });
 
