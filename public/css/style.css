@@ -2566,15 +2566,18 @@ html {
 
 .task-count-badge {
   margin-left: auto;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 6px;
+  min-width: 13px;
+  height: 13px;
+  padding: 0px;
   border-radius: 9px;
   background: #ff730c;
   color: #fff;
-  font-size: 11px;
-  line-height: 18px;
+  font-size: 0.55rem;
+  line-height: 13px;
   text-align: center;
+  position:absolute;
+  right: 3px;
+  top:3px;
 }
 
 .primary-nav-item .task-count-badge {

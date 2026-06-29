@@ -1995,6 +1995,54 @@ body.has-mobile-selection .mobile-bottom-actions {
   animation: slideUp 0.25s ease;
 }
 
+
+/* 手机端空间页面：隐藏占比列 */
+#fileCategoryStatsTable th:nth-child(4),
+#fileCategoryStatsTable td:nth-child(4) {
+  display: none;
+}
+
+#fileCategoryStatsTable th:nth-child(1),
+#fileCategoryStatsTable td:nth-child(1) {
+  width: 50%;
+}
+
+#fileCategoryStatsTable th:nth-child(2),
+#fileCategoryStatsTable td:nth-child(2) {
+  text-align: right;
+  padding-right: 4px;
+}
+
+#fileCategoryStatsTable th:nth-child(3),
+#fileCategoryStatsTable td:nth-child(3) {
+  white-space: nowrap;
+  text-align: right;
+}
+
+/* 手机端：文件分类占比标题不显示 */
+#quotaAnalysisPanel .admin-table-panel > div:first-child h3 {
+  display: none;
+}
+
+/* 手机端：空间页面标题改为"空间使用详情" */
+#quotaPanelTitle {
+  font-size: 0;
+}
+#quotaPanelTitle::before {
+  content: "空间使用详情";
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.category-legend-color {
+    width: 6px;
+    height: 6px;
+}
+.category-legend{
+  gap:0;
+  justify-content: space-evenly;
+}
+
 @keyframes slideUp {
   from {
     transform: translateY(100%);
@@ -2322,6 +2370,15 @@ body.has-mobile-selection .mobile-bottom-actions {
   width: 100% !important;
 }
 
+
+.mounts-sidebar.collapsed .mounts-sidebar-header{
+  display: none;
+}
+.mounts-sidebar.collapsed~.mounts-main .mounts-main-header h2{
+  margin-left:0;
+}
+
+
 /* 手机版挂载对象列表：隐藏存储路径、存储桶、接入点、更新时间列，仅保留文件名和操作 */
 #mountStorageTable thead th:nth-child(2),
 #mountStorageTable thead th:nth-child(3),
@@ -2337,4 +2394,28 @@ body.has-mobile-selection .mobile-bottom-actions {
 /* 手机版挂载页面：隐藏顶部存储类型/桶名/接入点元信息 */
 #mountStorageMeta {
   display: none !important;
+}
+
+.data-table{
+  background: #f8fafc;
+   border-radius: 10px;
+}
+.data-table td {
+   padding: 10px 14px;
+   border-bottom: 1px solid #f3f3f3;
+}
+
+[data-theme="dark"] .data-table{
+  background: #303030;
+}
+[data-theme="dark"] .data-table td{
+     border-bottom: 1px solid #222222;
+}
+#refreshFileCategoryStatsBtn{
+  position: absolute;
+    top: 18px;
+    right: 12px;
+}
+#quotaPanelMeta{
+  display: none;
 }

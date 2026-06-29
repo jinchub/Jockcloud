@@ -1724,7 +1724,8 @@ const renderFileCategoryTable = (categories, totalSize, quotaBytes = -1) => {
   const chartTotalSize = hasQuota ? Math.max(totalSize, quotaBytes) : totalSize;
   
   if (!categories.length && !hasQuota) {
-    tbody.innerHTML = '<tr class="category-table-empty"><td colspan="4">暂无数据</td></tr>';
+    const colCount = window.innerWidth <= 768 ? 2 : 4;
+    tbody.innerHTML = `<tr class="category-table-empty"><td colspan="${colCount}">暂无数据</td></tr>`;
     return;
   }
   
@@ -1813,7 +1814,8 @@ const showFileCategoryLoading = () => {
   }
   const tbody = document.querySelector("#fileCategoryStatsTable tbody");
   if (tbody) {
-    tbody.innerHTML = '<tr class="category-table-empty"><td colspan="4" style="padding:30px;">分析中...</td></tr>';
+    const colCount = window.innerWidth <= 768 ? 2 : 4;
+    tbody.innerHTML = `<tr class="category-table-empty"><td colspan="${colCount}" style="padding:30px;">分析中...</td></tr>`;
   }
 };
 
