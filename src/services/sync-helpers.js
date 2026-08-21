@@ -114,30 +114,44 @@ const createSyncHelpers = ({
     return date.getTime();
   };
 
-  const uploadObjectByMount = async (mount, key, fileBuffer) => {
+  const uploadObjectByMount = async (mount, key, body, contentLength) => {
     const normalizedKey = normalizeObjectKey(key || "");
     if (!normalizedKey) throw new Error("无效的对象键");
+    const hasLength = Number.isFinite(Number(contentLength)) && Number(contentLength) > 0;
     if (String(mount.type || "") === "tencent") {
       const cosInfo = createCosClientByMount(mount);
       if (cosInfo.error) throw new Error(cosInfo.error);
-      await cosRequest(cosInfo.client, "putObject", {
+      const params = {
         Bucket: cosInfo.bucket,
         Region: cosInfo.region,
         Key: normalizedKey,
-        Body: fileBuffer
-      });
+        Body: body
+      };
+      if (hasLength) {
+        params.ContentLength = Number(contentLength);
+      }
+      await cosRequest(cosInfo.client, "putObject", params);
       return;
     }
     if (String(mount.type || "") === "qiniu") {
       const qiniuInfo = createQiniuClientByMount(mount);
       if (qiniuInfo.error) throw new Error(qiniuInfo.error);
       const uploadToken = qiniuInfo.mac.signToken(qiniuInfo.uploadToken);
-      await qiniuUploadRequest(qiniuInfo.client, uploadToken, normalizedKey, fileBuffer);
+      const putExtraParams = {};
+      if (hasLength) {
+        putExtraParams["x-qiniu-file-size"] = String(contentLength);
+      }
+      const putExtra = { ...qiniuInfo.putExtra, params: { ...(qiniuInfo.putExtra && qiniuInfo.putExtra.params ? qiniuInfo.putExtra.params : {}), ...putExtraParams } };
+      await qiniuUploadRequest(qiniuInfo.client, uploadToken, normalizedKey, body, putExtra);
       return;
     }
     const ossInfo = createOssClientByMount(mount);
     if (ossInfo.error) throw new Error(ossInfo.error);
-    await ossInfo.client.put(normalizedKey, fileBuffer);
+    const ossParams = {};
+    if (hasLength) {
+      ossParams.contentLength = Number(contentLength);
+    }
+    await ossInfo.client.put(normalizedKey, body, ossParams);
   };
 
   const createRemoteFolderMarkerByMount = async (mount, key) => {

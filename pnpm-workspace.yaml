@@ -1,0 +1,5 @@
+allowBuilds:
+  '@alicloud/openapi-core': true
+  bcrypt: true
+  ffmpeg-static: true
+  tesseract.js: true

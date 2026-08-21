@@ -54,6 +54,34 @@ const createSyncRunner = ({
       writeExtractedThumbnailFromSource
     } = getRuntimeDeps();
 
+    const formatSyncFileSize = (size) => {
+      const bytes = Number(size) || 0;
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+      return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+    };
+
+    // 统一写日志：手动/单次触发通过 onLog 写库并 SSE 实时推送；
+    // 定时调度未传 onLog 时，直接写库，前端通过轮询同样能看到实时进度。
+    const pushLog = async (message, status = "running") => {
+      const logNow = new Date();
+      const detailMessage = `[${formatSyncDetailTime(logNow)}] ${message}`;
+      if (typeof onLog === "function") {
+        try {
+          await onLog(taskId, detailMessage);
+          return;
+        } catch (e) {
+          // 推送失败时降级为直接写库
+        }
+      }
+      try {
+        await appendSyncTaskHistoryLog(pool, normalizedUserId, normalizedTaskId, detailMessage, status, logNow);
+      } catch (e) {
+        console.log(`[sync log 写入失败] taskId=${normalizedTaskId}, error=${e && e.message ? e.message : "unknown"}`);
+      }
+    };
+
     const normalizedUserId = Number(userId);
     const normalizedTaskId = String(taskId || "").trim();
     if (!normalizedUserId || !normalizedTaskId) {
@@ -235,18 +263,15 @@ const createSyncRunner = ({
             continue;
           }
           try {
-            const fileBuffer = fs.readFileSync(localFilePath);
-            await uploadObjectByMount(mount, targetKey, fileBuffer, file.size);
+            await pushLog(`开始上传：${normalizedRelativePath}（${formatSyncFileSize(file.size)}）`);
+            const fileStream = fs.createReadStream(localFilePath);
+            await uploadObjectByMount(mount, targetKey, fileStream, file.size);
             successCount += 1;
             syncedItemPaths.push(`/${normalizedRelativePath}`);
-            if (onLog) {
-              onLog(taskId, `[${formatSyncDetailTime(new Date())}] 上传成功：${normalizedRelativePath}`);
-            }
+            await pushLog(`上传成功：${normalizedRelativePath}`);
           } catch (error) {
             failedItems.push(`${file.originalName}: ${error && error.message ? error.message : "上传失败"}`);
-            if (onLog) {
-              onLog(taskId, `[${formatSyncDetailTime(new Date())}] 上传失败：${normalizedRelativePath} - ${error.message}`);
-            }
+            await pushLog(`上传失败：${normalizedRelativePath} - ${error.message}`);
           }
         }
         if (task.syncEmptyDir === 1) {
@@ -381,6 +406,7 @@ const createSyncRunner = ({
             // 生成唯一的文件名，避免冲突
             const uniqueFileName = `${Date.now()}-${crypto.randomBytes(8).toString("hex")}-${fileName}`;
             const targetPathOnDisk = path.join(storageDir, uniqueFileName);
+            await pushLog(`开始下载：${normalizedRelativePath}（${formatSyncFileSize(remoteItem.size)}）`);
             await downloadObjectByMount(mount, remoteKey, targetPathOnDisk);
             console.log(`[runRemoteToLocal下载成功] userId=${normalizedUserId}, taskId=${normalizedTaskId}, file=${normalizedRelativePath}`);
             const storageName = resolveStorageNameFromPath(targetPathOnDisk, uniqueFileName, storageRootDir, selectedStorage.diskId);
@@ -417,14 +443,10 @@ const createSyncRunner = ({
             }
             successCount += 1;
             syncedItemPaths.push(`/${normalizedRelativePath}`);
-            if (onLog) {
-              onLog(taskId, `[${formatSyncDetailTime(new Date())}] 下载成功：${normalizedRelativePath}`);
-            }
+            await pushLog(`下载成功：${normalizedRelativePath}`);
           } catch (error) {
             failedItems.push(`${normalizedRelativePath}: ${error && error.message ? error.message : "下载失败"}`);
-            if (onLog) {
-              onLog(taskId, `[${formatSyncDetailTime(new Date())}] 下载失败：${normalizedRelativePath} - ${error.message}`);
-            }
+            await pushLog(`下载失败：${normalizedRelativePath} - ${error.message}`);
           }
         }
         if (deleteRule === "sync_delete" || deleteRule === "mirror") {
@@ -436,14 +458,10 @@ const createSyncRunner = ({
                 [localFile.id]
               );
               deletedCount += 1;
-              if (onLog) {
-                onLog(taskId, `[${formatSyncDetailTime(new Date())}] 删除：${relativePath}`);
-              }
+              await pushLog(`删除：${relativePath}`);
             } catch (error) {
               failedItems.push(`删除 ${relativePath}: ${error && error.message ? error.message : "删除失败"}`);
-              if (onLog) {
-                onLog(taskId, `[${formatSyncDetailTime(new Date())}] 删除失败：${relativePath} - ${error.message}`);
-              }
+              await pushLog(`删除失败：${relativePath} - ${error.message}`);
             }
           }
         }

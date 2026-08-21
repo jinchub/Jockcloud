@@ -1145,6 +1145,7 @@ const renderUploadTasks = () => {
       const statusLabel = getUploadStatusLabel(task);
       const hasProgress = (task.status === "uploading" || task.status === "paused") && task.size > 0;
       const progressPercent = task.progress || 0;
+      const speedText = task.status === "uploading" && task.speed > 0 ? ` | ${formatSize(task.speed)}/s` : "";
       
       html += `
       <div class="upload-task-item" data-upload-task-id="${escapeHtml(task.id)}">
@@ -1159,7 +1160,7 @@ const renderUploadTasks = () => {
               ${task.instant ? '<span class="upload-task-instant">秒传</span>' : ''}
               <span class="upload-task-status ${statusClass}">${statusLabel}</span>
             </div>
-            ${hasProgress ? `<div class="upload-task-progress"><div class="upload-progress-bar"><div class="upload-progress-inner" style="width:${progressPercent}%"></div></div><span class="upload-progress-text">${progressPercent}%</span></div>` : ''}
+            ${hasProgress ? `<div class="upload-task-progress"><div class="upload-progress-bar"><div class="upload-progress-inner" style="width:${progressPercent}%"></div></div><span class="upload-progress-text">${progressPercent}%${speedText}</span></div>` : ''}
           </div>
         </div>
         <div class="upload-task-actions">
@@ -1199,19 +1200,20 @@ const patchUploadTaskRow = (taskId) => {
   const progressContainer = item.querySelector(".upload-task-progress");
   const hasProgress = (task.status === "uploading" || task.status === "paused") && task.size > 0;
   const progressPercent = task.progress || 0;
+  const speedText = task.status === "uploading" && task.speed > 0 ? ` | ${formatSize(task.speed)}/s` : "";
   
   if (hasProgress) {
     if (!progressContainer) {
       const infoEl = item.querySelector(".upload-task-info");
       if (infoEl) {
-        const progressHtml = `<div class="upload-task-progress"><div class="upload-progress-bar"><div class="upload-progress-inner" style="width:${progressPercent}%"></div></div><span class="upload-progress-text">${progressPercent}%</span></div>`;
+        const progressHtml = `<div class="upload-task-progress"><div class="upload-progress-bar"><div class="upload-progress-inner" style="width:${progressPercent}%"></div></div><span class="upload-progress-text">${progressPercent}%${speedText}</span></div>`;
         infoEl.insertAdjacentHTML("beforeend", progressHtml);
       }
     } else {
       const progressInner = progressContainer.querySelector(".upload-progress-inner");
       const progressText = progressContainer.querySelector(".upload-progress-text");
       if (progressInner) progressInner.style.width = `${progressPercent}%`;
-      if (progressText) progressText.textContent = `${progressPercent}%`;
+      if (progressText) progressText.textContent = `${progressPercent}%${speedText}`;
     }
   } else if (progressContainer) {
     progressContainer.remove();
@@ -1585,9 +1587,9 @@ const renderMyShares = () => {
         <div class="cell-share-downloads">${Number(item.downloadCount || 0)}</div>
         <div class="cell-share-expire" title="${escapeHtml(statusText)}">${escapeHtml(statusText)}</div>
         <div class="cell-share-ops">
-          <button class="btn-sm" data-share-copy-link="${escapeHtml(shareCode)}">复制链接</button>
-          ${item.hasAccessCode ? `<button class="btn-sm viewcode" data-share-view-code="${escapeHtml(item.shareCode || "")}">查看提取码</button>` : ""}
-          <button class="btn-sm danger" data-share-cancel="${escapeHtml(item.shareCode || "")}">取消分享</button>
+          <button class="btn-sm my-share-copy-btn" data-share-copy-link="${escapeHtml(shareCode)}">复制链接</button>
+          ${item.hasAccessCode ? `<button class="btn-sm viewcode my-share-viewcode-btn" data-share-view-code="${escapeHtml(item.shareCode || "")}">查看提取码</button>` : ""}
+          <button class="btn-sm danger my-share-cancel-btn" data-share-cancel="${escapeHtml(item.shareCode || "")}">取消分享</button>
         </div>
       </div>
     `;
@@ -3622,41 +3624,46 @@ const updateBatchActionState = () => {
     }
     if (mobileBatchOpenBtn) {
       mobileBatchOpenBtn.style.display = "";
-      mobileBatchOpenBtn.disabled = isMultiSelect;
+      mobileBatchOpenBtn.disabled = isMultiSelect || hasClipboard;
     }
     if (mobileBatchDetailBtn) {
       mobileBatchDetailBtn.style.display = "";
-      mobileBatchDetailBtn.disabled = isMultiSelect;
+      mobileBatchDetailBtn.disabled = isMultiSelect || hasClipboard;
     }
     if (mobileBatchRenameBtn) {
       mobileBatchRenameBtn.style.display = "";
-      mobileBatchRenameBtn.disabled = isMultiSelect;
+      mobileBatchRenameBtn.disabled = isMultiSelect || hasClipboard;
     }
     if (mobileBatchPinBtn) {
       mobileBatchPinBtn.style.display = "";
     }
     if (mobileBatchDownloadBtn) {
       mobileBatchDownloadBtn.style.display = "";
+      mobileBatchDownloadBtn.disabled = hasClipboard;
     }
     if (mobileBatchShareBtn) {
       mobileBatchShareBtn.style.display = "";
-      mobileBatchShareBtn.disabled = isMultiSelect;
+      mobileBatchShareBtn.disabled = isMultiSelect || hasClipboard;
     }
     if (mobileBatchCopyBtn) {
       mobileBatchCopyBtn.style.display = "";
+      mobileBatchCopyBtn.disabled = hasClipboard;
     }
     if (mobileBatchMoveBtn) {
       mobileBatchMoveBtn.style.display = "";
+      mobileBatchMoveBtn.disabled = hasClipboard;
     }
     if (mobileBatchDeleteBtn) {
       mobileBatchDeleteBtn.style.display = "";
+      mobileBatchDeleteBtn.disabled = hasClipboard;
     }
     if (mobileBatchFavoriteBtn) {
       mobileBatchFavoriteBtn.style.display = "";
-      mobileBatchFavoriteBtn.disabled = isMultiSelect;
+      mobileBatchFavoriteBtn.disabled = isMultiSelect || hasClipboard;
     }
     if (mobileBatchArchiveBtn) {
       mobileBatchArchiveBtn.style.display = "";
+      mobileBatchArchiveBtn.disabled = hasClipboard;
     }
     if (mobileClearSelectionBtn) {
       mobileClearSelectionBtn.style.display = "";
@@ -3676,7 +3683,7 @@ const updateBatchActionState = () => {
       const selected = getSelectedEntries();
       const isMultiSelect = selected.length > 1;
       // 多选时禁用置顶按钮
-      mobileBatchPinBtn.disabled = isMultiSelect;
+      mobileBatchPinBtn.disabled = isMultiSelect || hasClipboard;
       if (selected.length === 1) {
         const entry = selected[0];
         const isPinned = !!entry.isPinned;

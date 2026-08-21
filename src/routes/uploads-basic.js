@@ -65,6 +65,22 @@ module.exports = (app, deps) => {
     return normalizedName.slice(dotIndex + 1).toLowerCase();
   };
 
+  // 上传冲突会话存储（用于409后重试，避免重新上传文件）
+  const uploadConflictSessions = new Map();
+  const CONFLICT_SESSION_TTL = 10 * 60 * 1000; // 10分钟
+  const cleanupConflictSessions = () => {
+    const now = Date.now();
+    for (const [token, session] of uploadConflictSessions.entries()) {
+      if (now - session.createdAt > CONFLICT_SESSION_TTL) {
+        for (const file of session.files) {
+          try { if (file.path && fs.existsSync(file.path)) fs.unlinkSync(file.path); } catch (e) {}
+        }
+        uploadConflictSessions.delete(token);
+      }
+    }
+  };
+  setInterval(cleanupConflictSessions, 60 * 1000);
+
   app.post("/api/upload/chunk/init", authRequired, requireFilePermission("upload"), async (req, res) => {
     const spaceType = resolveStorageSpaceTypeByRequest(req);
     const clientTaskId = normalizeChunkClientTaskId(req.body && req.body.clientTaskId);
@@ -811,7 +827,30 @@ module.exports = (app, deps) => {
         const duplicated = await hasEntryNameConflict(req.user.userId, targetFolderId, originalName, undefined, spaceType);
         
         if (duplicated) {
-          // 有冲突时，自动重命名并上传成功，返回冲突标记让前端弹出选择
+          if (uploadStrategy === "cancel") {
+            // 第一次上传没有策略，返回409让前端弹窗让用户选择，保留临时文件
+            const conflictToken = crypto.randomBytes(16).toString("hex");
+            uploadConflictSessions.set(conflictToken, {
+              userId: req.user.userId,
+              spaceType,
+              folderId,
+              files: files.map(f => ({ path: f.path, originalname: f.originalname, size: f.size, mimetype: f.mimetype, filename: f.filename })),
+              relativePaths,
+              thumbnailDataUrls,
+              conflictFileName: originalName,
+              storageRootDir: req.uploadStorageRootDir || resolveStorageRootDir(spaceType),
+              diskId: req.uploadDiskId || "",
+              createdAt: Date.now()
+            });
+            res.status(409).json({
+              message: "当前目录已经存在同名的文件或目录",
+              conflict: true,
+              fileName: originalName,
+              conflictToken
+            });
+            return;
+          }
+          // 有明确策略（auto_rename/overwrite）时，标记冲突让后续按策略处理
           conflictFiles.push({ index, originalName, targetFolderId });
         }
         preparedUploads.push({ currentFile, originalName, targetFolderId, thumbnailDataUrl: thumbnailDataUrls[index] || "" });
@@ -824,19 +863,21 @@ module.exports = (app, deps) => {
         const conflictItem = conflictFiles.find(cf => cf.index === preparedUploads.indexOf(item));
         
         if (conflictItem) {
-          // 获取当前目录中已有的文件名
-          const [nameRows] = await pool.query(
-            "SELECT original_name AS originalName FROM files WHERE user_id = ? AND space_type = ? AND folder_id <=> ? AND deleted_at IS NULL",
-            [req.user.userId, normalizedSpaceType, item.targetFolderId]
-          );
-          const usedNameSet = new Set(nameRows.map((row) => safeFileName(row.originalName || "")).filter(Boolean));
-          // 添加已准备上传的文件名到集合中，避免重命名冲突
-          preparedUploads.forEach((pi, idx) => {
-            if (idx < preparedUploads.indexOf(item)) {
-              usedNameSet.add(pi.originalName);
-            }
-          });
-          actualOriginalName = resolveUniqueName(item.originalName, usedNameSet);
+          if (uploadStrategy === "auto_rename") {
+            // 获取当前目录中已有的文件名
+            const [nameRows] = await pool.query(
+              "SELECT original_name AS originalName FROM files WHERE user_id = ? AND space_type = ? AND folder_id <=> ? AND deleted_at IS NULL",
+              [req.user.userId, normalizedSpaceType, item.targetFolderId]
+            );
+            const usedNameSet = new Set(nameRows.map((row) => safeFileName(row.originalName || "")).filter(Boolean));
+            // 添加已准备上传的文件名到集合中，避免重命名冲突
+            preparedUploads.forEach((pi, idx) => {
+              if (idx < preparedUploads.indexOf(item)) {
+                usedNameSet.add(pi.originalName);
+              }
+            });
+            actualOriginalName = resolveUniqueName(item.originalName, usedNameSet);
+          }
           
           // 如果是覆盖策略，先删除同名文件
           if (uploadStrategy === "overwrite") {
@@ -988,6 +1029,144 @@ module.exports = (app, deps) => {
           fs.unlinkSync(file.path);
         } catch (e) {}
       });
+      sendDbError(res, error);
+    }
+  });
+
+  // 冲突重试接口：使用已上传的临时文件完成上传，无需重新传输
+  app.post("/api/upload/conflict-resolve", authRequired, requireFilePermission("upload"), async (req, res) => {
+    const conflictToken = String(req.body && req.body.conflictToken ? req.body.conflictToken : "").trim();
+    const uploadStrategy = String(req.body && req.body.uploadStrategy ? req.body.uploadStrategy : "cancel").trim().toLowerCase();
+    if (!conflictToken || !uploadConflictSessions.has(conflictToken)) {
+      res.status(400).json({ message: "冲突令牌无效或已过期" });
+      return;
+    }
+    if (uploadStrategy === "cancel") {
+      // 取消：清理临时文件和会话
+      const session = uploadConflictSessions.get(conflictToken);
+      if (session) {
+        for (const file of session.files) {
+          try { if (file.path && fs.existsSync(file.path)) fs.unlinkSync(file.path); } catch (e) {}
+        }
+        uploadConflictSessions.delete(conflictToken);
+      }
+      res.json({ message: "已取消" });
+      return;
+    }
+    const session = uploadConflictSessions.get(conflictToken);
+    if (!session || Number(session.userId) !== Number(req.user.userId)) {
+      res.status(403).json({ message: "无权操作该上传会话" });
+      return;
+    }
+    uploadConflictSessions.delete(conflictToken);
+    const spaceType = session.spaceType;
+    const folderId = session.folderId;
+    const normalizedSpaceType = normalizeStorageSpaceType(spaceType);
+    try {
+      const owned = await checkFolderOwnership(req.user.userId, folderId, spaceType);
+      if (!owned) {
+        for (const file of session.files) {
+          try { if (file.path && fs.existsSync(file.path)) fs.unlinkSync(file.path); } catch (e) {}
+        }
+        res.status(404).json({ message: "目录不存在" });
+        return;
+      }
+      const uploadRuntimeOptions = getUploadRuntimeOptions(DEFAULT_SETTINGS);
+      const uploadCategoryRuntimeOptions = getUploadCategoryRuntimeOptions(DEFAULT_SETTINGS);
+      const folderCache = new Map();
+      const uploadResults = [];
+      const relativePaths = session.relativePaths || [];
+      for (let index = 0; index < session.files.length; index += 1) {
+        const fileInfo = session.files[index];
+        if (!fileInfo.path || !fs.existsSync(fileInfo.path)) continue;
+        const relativePath = normalizeRelativePath(relativePaths[index] || "");
+        const fileNameFromPath = relativePath ? relativePath.split("/").pop() : "";
+        const originalName = fileNameFromPath ? safeFileName(fileNameFromPath) : safeFileName(normalizeUploadName(fileInfo.originalname));
+        const targetFolderId = await resolveFolderByRelativePath(req.user.userId, folderId, relativePath, folderCache, spaceType);
+        let actualOriginalName = originalName;
+        const duplicated = await hasEntryNameConflict(req.user.userId, targetFolderId, originalName, undefined, spaceType);
+        if (duplicated) {
+          if (uploadStrategy === "auto_rename") {
+            const [nameRows] = await pool.query(
+              "SELECT original_name AS originalName FROM files WHERE user_id = ? AND space_type = ? AND folder_id <=> ? AND deleted_at IS NULL",
+              [req.user.userId, normalizedSpaceType, targetFolderId]
+            );
+            const usedNameSet = new Set(nameRows.map((row) => safeFileName(row.originalName || "")).filter(Boolean));
+            actualOriginalName = resolveUniqueName(originalName, usedNameSet);
+          } else if (uploadStrategy === "overwrite") {
+            await pool.query(
+              "UPDATE files SET deleted_at = NOW() WHERE user_id = ? AND space_type = ? AND folder_id <=> ? AND original_name = ? AND deleted_at IS NULL",
+              [req.user.userId, normalizedSpaceType, targetFolderId, originalName]
+            );
+          }
+        }
+        const currentRootDir = session.storageRootDir || resolveStorageRootDir(spaceType);
+        const currentDiskId = session.diskId || "";
+        const storageName = resolveStorageNameFromPath(fileInfo.path, fileInfo.filename, currentRootDir, currentDiskId);
+        const fileObj = { originalname: fileInfo.originalname, mimetype: fileInfo.mimetype, size: fileInfo.size };
+        const resolvedFileCategory = resolveUploadCategory(fileObj, uploadCategoryRuntimeOptions);
+        const thumbnailDataUrl = (session.thumbnailDataUrls && session.thumbnailDataUrls[index]) || "";
+        const thumbnailStorageName = resolvedFileCategory === "image" ? writeThumbnailFromDataUrl(thumbnailDataUrl, storageName, spaceType) : "";
+        const fileCategory = normalizeFileCategoryKey(resolveStoredFileCategory(actualOriginalName, fileInfo.mimetype, uploadCategoryRuntimeOptions));
+        const fileMd5 = await new Promise((resolve, reject) => {
+          const hash = crypto.createHash("md5");
+          const stream = fs.createReadStream(fileInfo.path);
+          stream.on("data", (chunk) => hash.update(chunk));
+          stream.on("end", () => resolve(hash.digest("hex")));
+          stream.on("error", reject);
+        });
+        const [existingMd5Files] = await pool.query(
+          "SELECT id, original_name AS originalName, storage_name AS storageName FROM files WHERE md5 = ? AND space_type = ? AND deleted_at IS NULL LIMIT 1",
+          [fileMd5, normalizedSpaceType]
+        );
+        const hasExistingFile = existingMd5Files.length > 0;
+        const existingMd5File = hasExistingFile ? existingMd5Files[0] : null;
+        if (hasExistingFile) {
+          try { fs.unlinkSync(fileInfo.path); } catch (e) {}
+          // 覆盖模式下二次清理：删除当前目录内可能残余的同活动名文件，但保留与同 MD5 秒传源一致的记录，避免复用的物理文件被判关联删除
+          if (duplicated && uploadStrategy === "overwrite") {
+            const [nameRows] = await pool.query(
+              "SELECT id FROM files WHERE user_id = ? AND space_type = ? AND folder_id <=> ? AND original_name = ? AND deleted_at IS NULL",
+              [req.user.userId, normalizedSpaceType, targetFolderId, actualOriginalName]
+            );
+            for (const row of nameRows) {
+              if (row.id !== existingMd5File.id) {
+                await pool.query("UPDATE files SET deleted_at = NOW() WHERE id = ?", [row.id]);
+              }
+            }
+          }
+          const [existingFileRows] = await pool.query("SELECT storage_name FROM files WHERE id = ?", [existingMd5File.id]);
+          const existingStorageName = existingFileRows.length > 0 ? existingFileRows[0].storage_name : storageName;
+          const [newInsertResult] = await pool.query(
+            "INSERT INTO files (user_id, space_type, folder_id, original_name, storage_name, thumbnail_storage_name, file_category, size, mime_type, md5) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [req.user.userId, normalizedSpaceType, targetFolderId, actualOriginalName, existingStorageName, thumbnailStorageName || null, fileCategory, fileInfo.size, fileInfo.mimetype, fileMd5]
+          );
+          await logFileOperation(pool, { operationType: 'upload', fileId: newInsertResult.insertId, folderId: targetFolderId, fileName: actualOriginalName, fileSize: fileInfo.size, fileCategory, userId: req.user.userId, ip: req.ip });
+          uploadResults.push({ originalName, actualName: actualOriginalName, fileId: newInsertResult.insertId, fileCategory, renamed: false, instant: true });
+        } else {
+          const [insertResult] = await pool.query(
+            "INSERT INTO files (user_id, space_type, folder_id, original_name, storage_name, thumbnail_storage_name, file_category, size, mime_type, md5) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [req.user.userId, normalizedSpaceType, targetFolderId, actualOriginalName, storageName, thumbnailStorageName || null, fileCategory, fileInfo.size, fileInfo.mimetype, fileMd5]
+          );
+          await logFileOperation(pool, { operationType: 'upload', fileId: insertResult.insertId, folderId: targetFolderId, fileName: actualOriginalName, fileSize: fileInfo.size, fileCategory, userId: req.user.userId, ip: req.ip });
+          if (fileCategory === "video" && !thumbnailStorageName) {
+            const fileId = insertResult.insertId;
+            const videoFilePath = fileInfo.path;
+            setImmediate(async () => {
+              try {
+                const videoThumbName = await generateVideoThumbnail(videoFilePath, storageName, spaceType);
+                if (videoThumbName) await pool.query("UPDATE files SET thumbnail_storage_name = ? WHERE id = ?", [videoThumbName, fileId]);
+              } catch (e) {}
+            });
+          }
+          uploadResults.push({ originalName, actualName: actualOriginalName, fileId: insertResult.insertId, fileCategory, renamed: Boolean(duplicated), conflict: Boolean(duplicated) });
+        }
+      }
+      res.json({ message: "上传成功", total: uploadResults.length, results: uploadResults });
+    } catch (error) {
+      for (const file of session.files) {
+        try { if (file.path && fs.existsSync(file.path)) fs.unlinkSync(file.path); } catch (e) {}
+      }
       sendDbError(res, error);
     }
   });

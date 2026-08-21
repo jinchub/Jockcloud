@@ -291,6 +291,7 @@ const runUploadTask = (taskId, uploadItem, batchMeta = null) => new Promise((res
           
           if (xhr.status === 409 && responseData.conflict) {
             const fileName = responseData.fileName || (uploadItem && uploadItem.file ? uploadItem.file.name : "");
+            const conflictToken = responseData.conflictToken || "";
             
             // 显示选择对话框
             const selectedStrategy = await showAppSelect({
@@ -305,11 +306,42 @@ const runUploadTask = (taskId, uploadItem, batchMeta = null) => new Promise((res
             });
             
             if (selectedStrategy === null || selectedStrategy === "cancel") {
+              // 通知后端清理临时文件
+              if (conflictToken) {
+                try { await request("/api/upload/conflict-resolve", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ conflictToken, uploadStrategy: "cancel" }) }); } catch (e) {}
+              }
               uploadReject(new Error("上传已取消"));
               return;
             }
             
-            // 重新尝试上传，使用选择的策略
+            // 使用已上传的临时文件完成上传，无需重新传输
+            if (conflictToken) {
+              try {
+                const resolveRes = await request("/api/upload/conflict-resolve", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ conflictToken, uploadStrategy: selectedStrategy })
+                });
+                const resolveData = await resolveRes.json().catch(() => ({}));
+                if (resolveRes.ok) {
+                  updateUploadTask(taskId, { status: "completed", progress: 100 });
+                  refreshAll();
+                  uploadResolve(resolveData);
+                  return;
+                } else {
+                  const errMsg = resolveData.message || "处理冲突失败";
+                  updateUploadTask(taskId, { status: "canceled" });
+                  uploadReject(new Error(errMsg));
+                  return;
+                }
+              } catch (retryError) {
+                updateUploadTask(taskId, { status: "canceled" });
+                uploadReject(retryError);
+                return;
+              }
+            }
+            
+            // 兜底：如果没有conflictToken，则重新上传
             try {
               const finalResult = await performUpload(selectedStrategy);
               uploadResolve(finalResult);
@@ -493,6 +525,19 @@ const refreshUploadLimitsFromServer = async () => {
   } catch (e) {}
 };
 
+// 上传开始后跳转到上传任务界面
+const openUploadTasksView = async () => {
+  state.view = "files";
+  state.category = "";
+  state.keyword = "";
+  await switchMainView("files");
+  setUploadTasksViewVisible(true);
+  // 默认展示上传列表，避免停留在上次的下载标签页
+  switchTransferTaskTab("upload");
+  updateTransferTabIndicator();
+  updateRouteQuery({ main: "files", side: "uploadTasks", category: null, usersTab: null, mountId: null, syncTaskId: null, settingsMenu: null });
+};
+
 const uploadBatch = async (items) => {
   if (!ensurePermission("upload")) return;
   if (isRecycleUploadRestricted()) {
@@ -513,6 +558,9 @@ const uploadBatch = async (items) => {
   }
   const quotaAllowed = await checkUploadQuota(items);
   if (!quotaAllowed) return;
+
+  // 跳转到上传任务界面，便于查看上传进度
+  await openUploadTasksView();
   
   // 先检查哪些文件可以秒传
   const instantUploadItems = [];
@@ -673,7 +721,7 @@ if (mobileNewFolderPopoverBtn && mobileUploadPopover) {
     }
     mobileUploadPopover.classList.remove("show");
     mobileUploadMenuBtn.classList.remove("active");
-    if (newFolderModal) newFolderModal.style.display = "block";
+    if (newFolderModal) newFolderModal.style.display = "flex";
     if (newFolderNameInput) newFolderNameInput.focus();
   };
 }

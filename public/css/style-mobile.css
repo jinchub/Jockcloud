@@ -1542,7 +1542,7 @@ body.has-mobile-selection .mobile-bottom-actions {
 
 #mySharesMainContainer .my-share-file-table .cell-check,
 #mySharesMainContainer .my-share-file-table .cell-share-visits,
-#mySharesMainContainer .my-share-file-table .cell-share-ops {
+#mySharesMainContainer .my-share-file-table .cell-share-downloads {
   display: none !important;
 }
 
@@ -1552,8 +1552,18 @@ body.has-mobile-selection .mobile-bottom-actions {
 }
 
 #mySharesMainContainer .my-share-file-table .cell-share-expire {
-  width: 92px;
-  min-width: 92px;
+  width: 80px;
+  min-width: 80px;
+}
+
+#mySharesMainContainer .my-share-file-table .cell-share-ops {
+  width: auto;
+  min-width: 70px;
+}
+
+#mySharesMainContainer .my-share-file-table .cell-share-ops .my-share-viewcode-btn,
+#mySharesMainContainer .my-share-file-table .cell-share-ops .my-share-cancel-btn {
+  display: none !important;
 }
 
 #uploadTasksMainContainer .upload-task-row {
