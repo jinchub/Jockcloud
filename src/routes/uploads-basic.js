@@ -1418,15 +1418,35 @@ module.exports = (app, deps) => {
         [req.user.userId, normalizedSpaceType, folderId, fileName]
       );
       
+      // 读取系统的同名文件处理策略，与普通上传保持一致
+      const instantSettings = await readSettings();
+      const sameNameStrategy = String(instantSettings.system.uploadSameNameStrategy || "ask").trim().toLowerCase();
+      
       let actualFileName = fileName;
       if (nameRows.length > 0) {
-        // 有文件名冲突，自动重命名
-        const [allNameRows] = await pool.query(
-          "SELECT original_name AS originalName FROM files WHERE user_id = ? AND space_type = ? AND folder_id <=> ? AND deleted_at IS NULL",
-          [req.user.userId, normalizedSpaceType, folderId]
-        );
-        const usedNameSet = new Set(allNameRows.map((item) => safeFileName(item.originalName || "")).filter(Boolean));
-        actualFileName = resolveUniqueName(fileName, usedNameSet);
+        if (sameNameStrategy === "overwrite") {
+          // 覆盖原文件：软删除目标目录中的同名文件，沿用原文件名
+          await pool.query(
+            "UPDATE files SET deleted_at = NOW() WHERE user_id = ? AND space_type = ? AND folder_id <=> ? AND original_name = ? AND deleted_at IS NULL",
+            [req.user.userId, normalizedSpaceType, folderId, fileName]
+          );
+        } else if (sameNameStrategy === "auto_rename") {
+          // 自动重命名
+          const [allNameRows] = await pool.query(
+            "SELECT original_name AS originalName FROM files WHERE user_id = ? AND space_type = ? AND folder_id <=> ? AND deleted_at IS NULL",
+            [req.user.userId, normalizedSpaceType, folderId]
+          );
+          const usedNameSet = new Set(allNameRows.map((item) => safeFileName(item.originalName || "")).filter(Boolean));
+          actualFileName = resolveUniqueName(fileName, usedNameSet);
+        } else {
+          // 由用户选择或取消上传：交由前端正常上传流程处理（弹窗选择或直接取消）
+          res.status(409).json({
+            message: "当前目录已经存在同名的文件或目录",
+            conflict: true,
+            fileName
+          });
+          return;
+        }
       }
       
       // 创建新的文件记录，复用已有物理文件
@@ -1450,7 +1470,7 @@ module.exports = (app, deps) => {
       res.json({ 
         message: "秒传成功", 
         fileId: insertResult.insertId,
-        fileName: fileName,
+        fileName: actualFileName,
         fileCategory: fileCategory,
         instant: true
       });
