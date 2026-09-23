@@ -114,6 +114,30 @@
                   <label for="settingsChunkUploadThresholdMb">切片上传阈值(MB)</label>
                   <input type="number" id="settingsChunkUploadThresholdMb" min="1" max="102400" required />
                 </div>
+                <div class="settings-form-row settings-same-name-row">
+                  <label>同名文件处理方式</label>
+                  <div class="settings-radio-group" id="settingsUploadSameNameStrategyGroup">
+                    <label class="settings-radio-item">
+                      <input type="radio" name="settingsUploadSameNameStrategy" value="ask" />
+                      <span>由用户选择</span>
+                    </label>
+                    <label class="settings-radio-item">
+                      <input type="radio" name="settingsUploadSameNameStrategy" value="auto_rename" />
+                      <span>自动重命名</span>
+                    </label>
+                    <label class="settings-radio-item">
+                      <input type="radio" name="settingsUploadSameNameStrategy" value="overwrite" />
+                      <span>覆盖原文件</span>
+                    </label>
+                    <label class="settings-radio-item">
+                      <input type="radio" name="settingsUploadSameNameStrategy" value="cancel" />
+                      <span>取消上传</span>
+                    </label>
+                  </div>
+                </div>
+                <div class="settings-form-tip">
+                  上传时遇到同名文件的处理方式：选择"由用户选择"时会弹窗让用户选择，其他选项按配置自动执行
+                </div>
                 <div class="settings-form-row checkbox">
                   <label for="settingsMaxUploadUnlimited">默认上传大小</label>
                   <label class="permission-checkbox" style="display:flex;align-items:center;gap:6px;">

@@ -106,17 +106,21 @@ const uploadLargeFileByChunks = async ({ taskId, uploadItem, thumbnailDataUrl, a
     if (completeData && completeData.conflict) {
       const fileName = completeData.fileName || file.name;
       
-      // 显示选择对话框
-      const selectedStrategy = await showAppSelect({
-        title: "文件已存在",
-        message: `文件 "${fileName}" 已存在，请选择处理方式：`,
-        options: [
-          { value: "auto_rename", label: "自动重命名" },
-          { value: "overwrite", label: "覆盖原文件" },
-          { value: "cancel", label: "取消上传" }
-        ],
-        defaultValue: "auto_rename"
-      });
+      // 根据系统配置决定是直接应用策略还是弹窗让用户选择
+      const configuredStrategy = String(state.uploadSameNameStrategy || "ask").trim().toLowerCase();
+      let selectedStrategy = configuredStrategy;
+      if (selectedStrategy !== "auto_rename" && selectedStrategy !== "overwrite" && selectedStrategy !== "cancel") {
+        selectedStrategy = await showAppSelect({
+          title: "文件已存在",
+          message: `文件 "${fileName}" 已存在，请选择处理方式：`,
+          options: [
+            { value: "auto_rename", label: "自动重命名" },
+            { value: "overwrite", label: "覆盖原文件" },
+            { value: "cancel", label: "取消上传" }
+          ],
+          defaultValue: "auto_rename"
+        });
+      }
       
       if (selectedStrategy === null || selectedStrategy === "cancel") {
         throw new Error("上传已取消");
@@ -293,17 +297,21 @@ const runUploadTask = (taskId, uploadItem, batchMeta = null) => new Promise((res
             const fileName = responseData.fileName || (uploadItem && uploadItem.file ? uploadItem.file.name : "");
             const conflictToken = responseData.conflictToken || "";
             
-            // 显示选择对话框
-            const selectedStrategy = await showAppSelect({
-              title: "文件已存在",
-              message: `文件 "${fileName}" 已存在，请选择处理方式：`,
-              options: [
-                { value: "auto_rename", label: "自动重命名" },
-                { value: "overwrite", label: "覆盖原文件" },
-                { value: "cancel", label: "取消上传" }
-              ],
-              defaultValue: "auto_rename"
-            });
+            // 根据系统配置决定是直接应用策略还是弹窗让用户选择
+            const configuredStrategy = String(state.uploadSameNameStrategy || "ask").trim().toLowerCase();
+            let selectedStrategy = configuredStrategy;
+            if (selectedStrategy !== "auto_rename" && selectedStrategy !== "overwrite" && selectedStrategy !== "cancel") {
+              selectedStrategy = await showAppSelect({
+                title: "文件已存在",
+                message: `文件 "${fileName}" 已存在，请选择处理方式：`,
+                options: [
+                  { value: "auto_rename", label: "自动重命名" },
+                  { value: "overwrite", label: "覆盖原文件" },
+                  { value: "cancel", label: "取消上传" }
+                ],
+                defaultValue: "auto_rename"
+              });
+            }
             
             if (selectedStrategy === null || selectedStrategy === "cancel") {
               // 通知后端清理临时文件
@@ -434,7 +442,10 @@ const runUploadTask = (taskId, uploadItem, batchMeta = null) => new Promise((res
     };
     
     try {
-      await performUpload("cancel");
+      // 根据系统配置决定首次上传策略：auto_rename/overwrite 直接执行，ask/cancel 先传 cancel 触发冲突处理
+      const configuredStrategy = String(state.uploadSameNameStrategy || "ask").trim().toLowerCase();
+      const initialStrategy = (configuredStrategy === "auto_rename" || configuredStrategy === "overwrite") ? configuredStrategy : "cancel";
+      await performUpload(initialStrategy);
       resolve();
     } catch (error) {
       if (task.cancelRequested || abortController.signal.aborted || (error && error.name === "AbortError")) {

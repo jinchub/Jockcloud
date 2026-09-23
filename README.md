@@ -652,6 +652,122 @@ MIT License
 
 ---
 
+### 上传目录权限故障排查 (Windows)
+
+如果在上传文件时出现 `EPERM: operation not permitted, mkdir` 错误，说明 Node.js 进程没有权限在目标路径创建目录。
+
+#### 症状
+- 上传文件失败
+- 终端日志显示：`Error: EPERM: operation not permitted, mkdir '...\uploads\admin-1\20260821'`
+- **程序直接退出**（未捕获异常导致）
+
+#### 已修复
+代码已添加完整的异常处理机制，即使遇到权限错误也不会导致进程崩溃，而是返回友好的错误提示。
+
+#### 解决方案
+
+**方案一：使用一键修复脚本（推荐）**
+
+在项目根目录双击运行 [fix-upload-permission.bat](file:///e:/Project/web/jockcloud/fix-upload-permission.bat)，或在 PowerShell 中执行：
+
+```powershell
+cd "C:\Users\你的用户名\Desktop\jockcloud"
+.\fix-upload-permission.bat
+```
+
+该脚本会自动：
+1. 创建必要的上传目录
+2. 为当前用户、SYSTEM、Administrators 设置完整权限
+3. 验证写入权限是否正常
+
+**方案二：手动创建目录并设置权限**
+
+以**管理员身份**打开 PowerShell，执行：
+
+```powershell
+# 进入项目目录
+cd "C:\Users\你的用户名\Desktop\jockcloud"
+
+# 创建上传目录
+New-Item -ItemType Directory -Force -Path ".\uploads\avatar"
+New-Item -ItemType Directory -Force -Path ".\hidden-uploads"
+
+# 设置完整权限
+$acl = Get-Acl ".\uploads"
+$currentUserIdentity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+$acl.AddAccessRule(New-Object System.Security.AccessControl.FileSystemAccessRule("Administrators", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow"))
+$acl.AddAccessRule(New-Object System.Security.AccessControl.FileSystemAccessRule("SYSTEM", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow"))
+$acl.AddAccessRule(New-Object System.Security.AccessControl.FileSystemAccessRule($currentUserIdentity.Name, "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow"))
+Set-Acl -Path ".\uploads" -AclObject $acl
+
+# 对 hidden-uploads 也执行同样操作
+$acl2 = Get-Acl ".\hidden-uploads"
+$acl2.AddAccessRule($acl.AccessRules[0])
+$acl2.AddAccessRule($acl.AccessRules[1])
+$acl2.AddAccessRule($acl.AccessRules[2])
+Set-Acl -Path ".\hidden-uploads" -AclObject $acl2
+```
+
+**方案三：修改上传目录到有权访问的位置**
+
+在 `.env` 文件中指定你有完全权限的路径：
+
+```env
+# 自定义上传目录（确保有写入权限）
+UPLOAD_DIR=C:\temp\jockcloud-uploads
+HIDDEN_UPLOAD_DIR=C:\temp\jockcloud-hidden
+```
+
+然后创建这些目录：
+```powershell
+mkdir C:\temp\jockcloud-uploads -Force
+mkdir C:\temp\jockcloud-hidden -Force
+```
+
+#### 验证是否成功
+
+```powershell
+# 测试目录是否存在
+Test-Path ".\uploads"
+# 应该返回 True
+
+# 测试写入权限
+Set-Content -Path ".\uploads\.test" -Value "test" -Force
+Get-Content ".\uploads\.test"
+Remove-Item ".\uploads\.test" -Force
+Write-Host "✅ 写入权限正常" -ForegroundColor Green
+```
+
+#### 预防措施
+1. **避免将项目放在 OneDrive/Dropbox 等同步文件夹内** - 这些服务可能导致权限冲突
+2. **始终以管理员身份首次运行** - 第一次启动时使用管理员权限创建目录
+3. **定期检查目录权限** - 确保 Node.js 进程有持续写入权限
+
+#### 已添加的全局异常保护 🔒
+
+为了防止类似的未捕获异常导致程序崩溃,系统已在 [app.js](file:///e:/Project/web/jockcloud/src/app.js) 中添加了全局异常处理器:
+
+```javascript
+// 捕获未处理的异常
+process.on('uncaughtException', (error) => {
+  logError('未捕获异常（已恢复）', { ... });
+  // 不退出进程，继续运行
+});
+
+// 捕获未处理的 Promise 拒绝
+process.on('unhandledRejection', (reason, promise) => {
+  logError('未处理的 Promise 拒绝（已忽略）', { ... });
+  // 不退出进程，继续运行
+});
+```
+
+**这意味着**:
+- ✅ 即使发生文件操作错误、数据库连接失败等异常,**程序也不会崩溃**
+- ✅ 所有异常都会被记录到日志,方便排查问题
+- ✅ 服务可以持续运行,不影响其他用户的使用
+
+---
+
 **注意**：
 - 生产环境部署时，请务必修改默认密码和密钥
 - 定期更新依赖包以修复安全漏洞

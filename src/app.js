@@ -10,6 +10,31 @@ const archiver = require("archiver");
 const multer = require("multer");
 const sharp = require("sharp");
 
+// ==================== 全局异常保护（防止程序崩溃）====================
+// 捕获未处理的异常（例如：文件操作、数据库连接等同步错误）
+process.on('uncaughtException', (error) => {
+  const { logError } = require('./utils/logger');
+  logError('未捕获异常（已恢复）', {
+    errorMessage: error.message,
+    stack: error.stack,
+    timestamp: new Date().toISOString()
+  });
+  // 不退出进程，继续运行
+});
+
+// 捕获未处理的 Promise 拒绝
+process.on('unhandledRejection', (reason, promise) => {
+  const { logError } = require('./utils/logger');
+  logError('未处理的 Promise 拒绝（已忽略）', {
+    reason: reason instanceof Error ? reason.message : String(reason),
+    stack: reason instanceof Error ? reason.stack : '',
+    timestamp: new Date().toISOString()
+  });
+  // 不退出进程，继续运行
+});
+
+console.log('✅ 全局异常保护已启用');
+
 const COS = require("cos-nodejs-sdk-v5");
 const qiniu = require("qiniu");
 const OSS = require("ali-oss");
@@ -441,6 +466,7 @@ const normalizeSettings = (payload = {}) => {
       maxUploadFileCount,
       maxConcurrentUploadCount,
       chunkUploadThresholdMb,
+      uploadSameNameStrategy: ["ask", "auto_rename", "overwrite", "cancel"].includes(String(system.uploadSameNameStrategy || "").trim().toLowerCase()) ? String(system.uploadSameNameStrategy).trim().toLowerCase() : DEFAULT_SETTINGS.system.uploadSameNameStrategy,
       uploadFormatUnlimited: normalizeBooleanFlag(system.uploadFormatUnlimited, DEFAULT_SETTINGS.system.uploadFormatUnlimited),
       uploadCategoryRules: normalizeUploadCategoryRules(system.uploadCategoryRules, maxUploadSizeMb || DEFAULT_SETTINGS.system.maxUploadSizeMb),
       avatarUploadSizeMb: Math.max(1, Math.min(100, Math.floor(toNumber(system.avatarUploadSizeMb, DEFAULT_SETTINGS.system.avatarUploadSizeMb)))),

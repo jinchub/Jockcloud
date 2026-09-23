@@ -59,7 +59,8 @@
       truncated: false,
       canEdit: false,
       isSaving: false,
-      dirty: false
+      dirty: false,
+      encoding: "auto" // 自动检测编码
     }
   };
   let previewModal = null;
@@ -400,10 +401,12 @@ importScripts(${JSON.stringify(workerMainUrl)});
     setStatusText();
     if (saveBtn) saveBtn.disabled = true;
     try {
+      // 传递所选编码
+      const encoding = state.textPreview.encoding === "auto" ? "utf8" : state.textPreview.encoding;
       const res = await state.request(`/api/preview/${state.activeEntry.id}?mode=text`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content })
+        body: JSON.stringify({ content, encoding })
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -482,6 +485,16 @@ importScripts(${JSON.stringify(workerMainUrl)});
     const isArchiveEntry = state.activeEntry && state.activeEntry.isArchiveEntry;
     const saveBtnHtml = isArchiveEntry ? "" : `<button type="button" class="preview-tool-btn" id="previewSaveBtn" ${readonlyFlag}>保存</button>`;
 
+    // 编码选项
+    const encOptions = [
+      { value: "auto", label: "自动检测" },
+      { value: "utf8", label: "UTF-8" },
+      { value: "gbk", label: "GBK" },
+      { value: "gb2312", label: "GB2312" },
+      { value: "big5", label: "BIG5" }
+    ];
+    const encSelectHtml = `<select class="preview-encoding-select" id="previewEncodingSelect">${encOptions.map(o => `<option value="${o.value}" ${state.textPreview.encoding === o.value ? "selected" : ""}>>${o.label}</option>`).join("")}</select>`;
+
     previewBody.innerHTML = `
       <div class="preview-code-wrap">
         <div class="preview-code-toolbar">
@@ -494,6 +507,7 @@ importScripts(${JSON.stringify(workerMainUrl)});
           </div>
           <div class="preview-code-toolbar-right">
             <span class="preview-search-summary" id="previewEditorStatus">已保存</span>
+            <label class="preview-encoding-label">编码：${encSelectHtml}</label>
             ${saveBtnHtml}
           </div>
         </div>
@@ -555,6 +569,7 @@ importScripts(${JSON.stringify(workerMainUrl)});
     const fontUpBtn = previewBody.querySelector("#previewFontUpBtn");
     const wrapToggle = previewBody.querySelector("#previewWrapToggle");
     const saveBtn = previewBody.querySelector("#previewSaveBtn");
+    const encodingSelect = previewBody.querySelector("#previewEncodingSelect");
     if (findBtn) {
       findBtn.onclick = () => {
         void openNativeFindWidget();
@@ -580,6 +595,14 @@ importScripts(${JSON.stringify(workerMainUrl)});
       wrapToggle.onchange = () => {
         state.textPreview.wrap = Boolean(wrapToggle.checked);
         updateEditorVisuals();
+      };
+    }
+    // 编码切换
+    if (encodingSelect) {
+      encodingSelect.onchange = async () => {
+        const newEncoding = encodingSelect.value;
+        state.textPreview.encoding = newEncoding;
+        await refreshTextContent();
       };
     }
     if (saveBtn) {
@@ -2407,6 +2430,57 @@ importScripts(${JSON.stringify(workerMainUrl)});
     bindImagePreviewEvents();
   };
 
+  // 刷新文本预览内容（编码切换时复用）
+  const refreshTextContent = async () => {
+    if (!state.activeEntry) return;
+    // 如果是压缩包中的文件，直接使用 archiveContent
+    if (state.activeEntry.isArchiveEntry && state.activeEntry.archiveContent) {
+      try {
+        const text = await state.activeEntry.archiveContent.text();
+        state.textPreview.text = text;
+        state.textPreview.truncated = false;
+        state.textPreview.canEdit = false; // 压缩包中的文件不可编辑
+        state.textPreview.dirty = false;
+        state.textPreview.isSaving = false;
+        lastSavedText = state.textPreview.text;
+        renderTextPreview();
+        return;
+      } catch {
+        showUnsupported();
+        return;
+      }
+    }
+
+    if (typeof state.request !== "function") {
+      showUnsupported();
+      return;
+    }
+    try {
+      const res = await state.request(`/api/preview/${state.activeEntry.id}?mode=text&limit=400000&encoding=${state.textPreview.encoding}`);
+      if (!res.ok) {
+        showUnsupported();
+        return;
+      }
+      const data = await res.json();
+      state.textPreview.text = typeof data.content === "string" ? data.content : "";
+      state.textPreview.truncated = Boolean(data && data.truncated);
+      state.textPreview.canEdit = Boolean(data && data.editable);
+      state.textPreview.dirty = false;
+      state.textPreview.isSaving = false;
+      // 如果后端返回了编码信息，同步到前端状态
+      if (data.encoding) {
+        state.textPreview.encoding = data.encoding;
+        // 更新工具栏的编码选择器显示
+        const encSelect = previewBody ? previewBody.querySelector("#previewEncodingSelect") : null;
+        if (encSelect) encSelect.value = data.encoding;
+      }
+      lastSavedText = state.textPreview.text;
+      renderTextPreview();
+    } catch {
+      showUnsupported();
+    }
+  };
+
   const open = async (entry) => {
     ensureDom();
     if (!entry || entry.type !== "file" || !previewModal || !previewBody || !previewTitle) return;
@@ -2478,46 +2552,7 @@ importScripts(${JSON.stringify(workerMainUrl)});
     state.textPreview.dirty = false;
     state.textPreview.isSaving = false;
     renderTextPreview();
-
-    // 如果是压缩包中的文件，直接使用 archiveContent
-    if (entry.isArchiveEntry && entry.archiveContent) {
-      try {
-        const text = await entry.archiveContent.text();
-        state.textPreview.text = text;
-        state.textPreview.truncated = false;
-        state.textPreview.canEdit = false; // 压缩包中的文件不可编辑
-        state.textPreview.dirty = false;
-        state.textPreview.isSaving = false;
-        lastSavedText = state.textPreview.text;
-        renderTextPreview();
-        return;
-      } catch {
-        showUnsupported();
-        return;
-      }
-    }
-
-    if (typeof state.request !== "function") {
-      showUnsupported();
-      return;
-    }
-    try {
-      const res = await state.request(`/api/preview/${entry.id}?mode=text&limit=400000`);
-      if (!res.ok) {
-        showUnsupported();
-        return;
-      }
-      const data = await res.json();
-      state.textPreview.text = typeof data.content === "string" ? data.content : "";
-      state.textPreview.truncated = Boolean(data && data.truncated);
-      state.textPreview.canEdit = Boolean(data && data.editable);
-      state.textPreview.dirty = false;
-      state.textPreview.isSaving = false;
-      lastSavedText = state.textPreview.text;
-      renderTextPreview();
-    } catch {
-      showUnsupported();
-    }
+    void refreshTextContent();
   };
 
   const bindEvents = () => {

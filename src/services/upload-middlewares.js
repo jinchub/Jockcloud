@@ -22,23 +22,33 @@ const createUploadMiddlewares = ({
   removeChunkSessionIfOwnedByCurrentUser
 }) => {
   const userUploadConcurrencyCounter = new Map();
+  const { logError: loggerError } = require("../utils/logger");
 
   const storage = multer.diskStorage({
     destination: (req, _file, cb) => {
-      const spaceType = resolveStorageSpaceTypeByRequest(req);
-      req.uploadSpaceType = spaceType;
-      const targetRelativeDir = getUploadStorageDir(req.user);
-      const requiredBytes = Math.max(0, Math.floor(Number(req.headers && req.headers["content-length"]) || 0));
-      const selectedStorage = pickWritableStorageRoot(spaceType, requiredBytes);
-      if (!selectedStorage) {
-        cb(new Error(getStorageReserveErrorMessage()));
-        return;
+      try {
+        const spaceType = resolveStorageSpaceTypeByRequest(req);
+        req.uploadSpaceType = spaceType;
+        const targetRelativeDir = getUploadStorageDir(req.user);
+        const requiredBytes = Math.max(0, Math.floor(Number(req.headers && req.headers["content-length"]) || 0));
+        const selectedStorage = pickWritableStorageRoot(spaceType, requiredBytes);
+        if (!selectedStorage) {
+          cb(new Error(getStorageReserveErrorMessage()));
+          return;
+        }
+        req.uploadDiskId = selectedStorage.diskId || "";
+        req.uploadStorageRootDir = selectedStorage.rootDir || resolveStorageRootDir(spaceType);
+        const targetDir = path.join(req.uploadStorageRootDir, targetRelativeDir);
+        fs.mkdirSync(targetDir, { recursive: true });
+        cb(null, targetDir);
+      } catch (err) {
+        loggerError("上传目录创建失败", {
+          error: err.message,
+          code: err.code,
+          userId: req.user?.userId
+        });
+        cb(new Error(`无法创建上传目录：${err.message}`));
       }
-      req.uploadDiskId = selectedStorage.diskId || "";
-      req.uploadStorageRootDir = selectedStorage.rootDir || resolveStorageRootDir(spaceType);
-      const targetDir = path.join(req.uploadStorageRootDir, targetRelativeDir);
-      fs.mkdirSync(targetDir, { recursive: true });
-      cb(null, targetDir);
     },
     filename: (_req, file, cb) => {
       const normalized = normalizeUploadName(file.originalname);

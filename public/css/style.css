@@ -4910,6 +4910,78 @@ video.file-thumb-list {
   background: var(--bg-primary);
 }
 
+.settings-radio-group {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+#uploadSettingsForm .settings-same-name-row {
+  grid-column: 1 / -1;
+}
+
+.settings-radio-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 0;
+  min-width: 0;
+  box-sizing: border-box;
+  border: 1px solid var(--border-secondary);
+  border-radius: 8px;
+  min-height: 38px;
+  padding: 0 12px;
+  line-height: 20px;
+  font-size: 14px;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.settings-radio-item input[type="radio"] {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border: 2px solid #e5e5e5;
+  border-radius: 50%;
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  vertical-align: middle;
+  margin: 0;
+}
+
+.settings-radio-item input[type="radio"]:hover {}
+
+.settings-radio-item input[type="radio"]:checked {
+  border-color: rgb(0 171 255 / 50%);
+}
+
+.settings-radio-item input[type="radio"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 1px;
+  top: 1px;
+  width: calc(100% - 2px);
+  height: calc(100% - 2px);
+  border-radius: 50%;
+  background: #00abff;
+}
+
+[data-theme="dark"] .settings-radio-item input[type="radio"] {
+  border: 2px solid #595959;
+}
+
+[data-theme="dark"] .settings-radio-item input[type="radio"]:checked {
+  border: 2px solid rgb(43 147 255 / 50%);
+}
+
 .settings-form-row.theme-mode-row {
   border: 1px solid var(--border-tertiary);
   border-radius: 8px;
@@ -8639,6 +8711,40 @@ video.file-thumb-list {
   font-size: 12px;
   min-width: 36px;
   text-align: center;
+}
+
+.preview-encoding-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #cbd5e1;
+}
+
+.preview-encoding-select {
+  border: 1px solid #404040;
+  background: #2d2d2d;
+  color: #e5e7eb;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.preview-encoding-select:hover {
+  border-color: #006bf5;
+}
+
+.preview-encoding-select:focus {
+  border-color: #006bf5;
+  box-shadow: 0 0 0 2px rgba(0, 107, 245, 0.2);
+}
+
+[data-theme="dark"] .preview-encoding-select {
+  background: #2d2d2d;
+  border-color: #404040;
 }
 
 .preview-wrap-toggle {

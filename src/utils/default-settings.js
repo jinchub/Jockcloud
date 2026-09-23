@@ -6,6 +6,7 @@ const DEFAULT_SETTINGS = {
     maxUploadFileCount: 100,
     maxConcurrentUploadCount: 3,
     chunkUploadThresholdMb: DEFAULT_CHUNK_UPLOAD_THRESHOLD_MB,
+    uploadSameNameStrategy: "ask",
     uploadFormatUnlimited: false,
     uploadCategoryRules: JSON.parse(JSON.stringify(DEFAULT_UPLOAD_CATEGORY_RULES)),
     avatarUploadSizeMb: DEFAULT_AVATAR_UPLOAD_SIZE_MB,

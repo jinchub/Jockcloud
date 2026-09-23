@@ -47,6 +47,7 @@
       maxUploadFileCount: 100,
       maxConcurrentUploadCount: 3,
       chunkUploadThresholdMb: 200,
+      uploadSameNameStrategy: "ask",
       uploadCategoryRules: JSON.parse(JSON.stringify(DEFAULT_UPLOAD_CATEGORY_RULES)),
       avatarUploadSizeMb: 4,
       avatarUploadFormats: ["jpg", "png", "webp", "bmp"],
@@ -353,6 +354,7 @@
         maxUploadFileCount,
         maxConcurrentUploadCount,
         chunkUploadThresholdMb,
+        uploadSameNameStrategy: ["ask", "auto_rename", "overwrite", "cancel"].includes(String(system.uploadSameNameStrategy || "").trim().toLowerCase()) ? String(system.uploadSameNameStrategy).trim().toLowerCase() : DEFAULT_SETTINGS.system.uploadSameNameStrategy,
         uploadFormatUnlimited: Boolean(system.uploadFormatUnlimited),
         uploadCategoryRules: normalizeUploadCategoryRules(system.uploadCategoryRules, maxUploadSizeMb || DEFAULT_SETTINGS.system.maxUploadSizeMb),
         avatarUploadSizeMb: Math.max(1, Math.min(100, Math.floor(toNumber(system.avatarUploadSizeMb, DEFAULT_SETTINGS.system.avatarUploadSizeMb)))),
@@ -413,6 +415,7 @@
     const settingsMaxUploadFileCount = document.getElementById("settingsMaxUploadFileCount");
     const settingsMaxConcurrentUploadCount = document.getElementById("settingsMaxConcurrentUploadCount");
     const settingsChunkUploadThresholdMb = document.getElementById("settingsChunkUploadThresholdMb");
+    const settingsUploadSameNameStrategyGroup = document.getElementById("settingsUploadSameNameStrategyGroup");
     const settingsMaxUploadUnlimited = document.getElementById("settingsMaxUploadUnlimited");
     const settingsUploadFormatsUnlimited = document.getElementById("settingsUploadFormatsUnlimited");
     const settingsUploadFormatsImage = document.getElementById("settingsUploadFormatsImage");
@@ -465,6 +468,7 @@
       maxUploadFileCount: settingsMaxUploadFileCount,
       maxConcurrentUploadCount: settingsMaxConcurrentUploadCount,
       chunkUploadThresholdMb: settingsChunkUploadThresholdMb,
+      uploadSameNameStrategyGroup: settingsUploadSameNameStrategyGroup,
       maxUploadUnlimited: settingsMaxUploadUnlimited,
       uploadFormatsUnlimited: settingsUploadFormatsUnlimited,
       avatarUploadFormats: settingsAvatarUploadFormats,
@@ -934,6 +938,9 @@
       uploadSettingsInputs.maxUploadFileCount.value = String(systemSettings.maxUploadFileCount);
       uploadSettingsInputs.maxConcurrentUploadCount.value = String(systemSettings.maxConcurrentUploadCount);
       uploadSettingsInputs.chunkUploadThresholdMb.value = String(systemSettings.chunkUploadThresholdMb);
+      const sameNameStrategy = ["ask", "auto_rename", "overwrite", "cancel"].includes(String(systemSettings.uploadSameNameStrategy || "").trim().toLowerCase()) ? String(systemSettings.uploadSameNameStrategy).trim().toLowerCase() : "ask";
+      const sameNameRadios = uploadSettingsInputs.uploadSameNameStrategyGroup ? uploadSettingsInputs.uploadSameNameStrategyGroup.querySelectorAll('input[type="radio"]') : [];
+      sameNameRadios.forEach((radio) => { radio.checked = radio.value === sameNameStrategy; });
       UPLOAD_CATEGORY_ITEMS.forEach((item) => {
         const current = uploadRuleInputs[item.key];
         const rule = systemSettings.uploadCategoryRules[item.key];
@@ -949,6 +956,10 @@
       maxUploadFileCount: uploadSettingsInputs.maxUploadFileCount.value,
       maxConcurrentUploadCount: uploadSettingsInputs.maxConcurrentUploadCount.value,
       chunkUploadThresholdMb: uploadSettingsInputs.chunkUploadThresholdMb.value,
+      uploadSameNameStrategy: (() => {
+        const checked = uploadSettingsInputs.uploadSameNameStrategyGroup ? uploadSettingsInputs.uploadSameNameStrategyGroup.querySelector('input[type="radio"]:checked') : null;
+        return checked ? checked.value : "ask";
+      })(),
       uploadFormatUnlimited: uploadSettingsInputs.uploadFormatsUnlimited.checked,
       uploadCategoryRules: UPLOAD_CATEGORY_ITEMS.reduce((acc, item) => {
         const current = uploadRuleInputs[item.key];

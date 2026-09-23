@@ -204,12 +204,15 @@ const getPublicUploadRuntimeConfig = (settings) => {
   const maxUploadFileCount = Math.max(1, Math.min(1000, Math.floor(Number(system.maxUploadFileCount) || state.maxUploadFileCount || 100)));
   const maxConcurrentUploadCount = Math.max(1, Math.min(20, Math.floor(Number(system.maxConcurrentUploadCount) || state.maxConcurrentUploadCount || 3)));
   const chunkUploadThresholdMb = Math.max(1, Math.min(102400, Math.floor(Number(system.chunkUploadThresholdMb) || state.chunkUploadThresholdMb || DEFAULT_CHUNK_UPLOAD_THRESHOLD_MB)));
+  const rawSameNameStrategy = String(system.uploadSameNameStrategy || state.uploadSameNameStrategy || "ask").trim().toLowerCase();
+  const uploadSameNameStrategy = ["ask", "auto_rename", "overwrite", "cancel"].includes(rawSameNameStrategy) ? rawSameNameStrategy : "ask";
   const uploadFormatUnlimited = normalizeUploadFormatUnlimited(system.uploadFormatUnlimited);
   return {
     maxUploadFileCount,
     maxConcurrentUploadCount,
     chunkUploadThresholdMb,
     chunkUploadThresholdBytes: chunkUploadThresholdMb * 1024 * 1024,
+    uploadSameNameStrategy,
     uploadFormatUnlimited,
     uploadAllowedExtSet: uploadFormatUnlimited ? null : normalizeUploadAllowedExtSet(system.uploadCategoryRules),
     renameCanModifyExt: file.renameCanModifyExt !== undefined ? Boolean(file.renameCanModifyExt) : state.renameCanModifyExt !== false
@@ -222,6 +225,7 @@ const applyPublicUploadRuntimeConfig = (settings) => {
   state.maxConcurrentUploadCount = config.maxConcurrentUploadCount;
   state.chunkUploadThresholdMb = config.chunkUploadThresholdMb;
   state.chunkUploadThresholdBytes = config.chunkUploadThresholdBytes;
+  state.uploadSameNameStrategy = config.uploadSameNameStrategy;
   state.uploadFormatUnlimited = config.uploadFormatUnlimited;
   state.uploadAllowedExtSet = config.uploadAllowedExtSet;
   state.renameCanModifyExt = config.renameCanModifyExt;

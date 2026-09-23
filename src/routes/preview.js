@@ -6,6 +6,7 @@ module.exports = (app, deps) => {
   const { execFile } = require("child_process");
   const logger = require("../utils/logger");
   const { logError: loggerError } = logger;
+  const iconv = require("iconv-lite");
 
   let cachedLibreOfficePath = null;
   let libreOfficePathChecked = false;
@@ -567,8 +568,29 @@ module.exports = (app, deps) => {
         try {
           const buffer = Buffer.alloc(bytesToRead);
           const bytesRead = fs.readSync(fd, buffer, 0, bytesToRead, 0);
-          const content = buffer.toString("utf8", 0, bytesRead);
-          res.json({ content, truncated: Number(stats.size || 0) > bytesRead, editable: hasFilePermission(req, "rename") });
+          // 编码解析：支持 utf8 / gbk / gb2312 / big5 / auto
+          let encoding = String(req.query.encoding || "utf8").toLowerCase().trim();
+          const validEncodings = ["utf8", "gbk", "gb2312", "big5"];
+          const isAuto = encoding === "auto";
+          if (isAuto) encoding = "utf8"; // 先按 UTF-8 解码用于自动检测
+          let content;
+          if (!validEncodings.includes(encoding)) encoding = "utf8";
+          try {
+            content = iconv.decode(buffer.slice(0, bytesRead), encoding);
+          } catch (decodeErr) {
+            // iconv decode 失败时 fallback 到 utf8
+            loggerError("文本预览 iconv 解码失败，回退到 utf8", { encoding, error: decodeErr.message });
+            content = buffer.toString("utf8", 0, bytesRead);
+          }
+          // 如果请求了 auto 编码，返回编码信息供前端显示
+          const detectedEncoding = isAuto ? encoding : encoding;
+          res.json({
+            content,
+            truncated: Number(stats.size || 0) > bytesRead,
+            editable: hasFilePermission(req, "rename"),
+            encoding: detectedEncoding,
+            bufferSize: bytesRead
+          });
         } finally {
           fs.closeSync(fd);
         }
@@ -640,6 +662,8 @@ module.exports = (app, deps) => {
     const fileId = normalizeFolderId(req.params.id);
     const mode = String(req.query.mode || "").trim().toLowerCase();
     const content = typeof req.body.content === "string" ? req.body.content : null;
+    // 接收前端传来的编码信息
+    const encoding = String(req.body.encoding || "utf8").toLowerCase().trim();
     if (!fileId) {
       res.status(400).json({ message: "文件ID不合法" });
       return;
@@ -671,7 +695,10 @@ module.exports = (app, deps) => {
         res.status(404).json({ message: "文件已丢失" });
         return;
       }
-      const contentBuffer = Buffer.from(content, "utf8");
+      // 根据选择编码将内容转码后写入
+      let validEncodings = ["utf8", "gbk", "gb2312", "big5"];
+      if (!validEncodings.includes(encoding)) encoding = "utf8";
+      const contentBuffer = iconv.encode(content, encoding);
       fs.writeFileSync(filePath, contentBuffer);
       await pool.query("UPDATE files SET size = ?, updated_at = NOW() WHERE id = ? AND user_id = ? AND space_type = ?", [
         contentBuffer.length,

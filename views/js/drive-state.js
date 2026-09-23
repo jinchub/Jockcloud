@@ -52,6 +52,7 @@ const state = {
   maxConcurrentUploadCount: 3,
   chunkUploadThresholdMb: DEFAULT_CHUNK_UPLOAD_THRESHOLD_MB,
   chunkUploadThresholdBytes: DEFAULT_CHUNK_UPLOAD_THRESHOLD_MB * 1024 * 1024,
+  uploadSameNameStrategy: "ask",
   uploadFormatUnlimited: false,
   uploadAllowedExtSet: null,
   renameCanModifyExt: true,
