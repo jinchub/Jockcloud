@@ -43,12 +43,20 @@ let bindNav = () => {
           }
         }
 
+        // 若当前处于上传任务界面（上传文件后自动跳转），点击"我的文件"时返回上传前所在目录，而不是根目录
+        const returningFromUploadTasks = !!(
+          uploadTasksMainContainer &&
+          !uploadTasksMainContainer.classList.contains("hidden")
+        );
+
         await switchMainView("files");
         await switchFileSpace("normal", "myFiles");
         state.view = "files";
         state.category = "";
         state.keyword = "";
-        state.currentFolderId = null;
+        if (!returningFromUploadTasks) {
+          state.currentFolderId = null;
+        }
         state.selectedEntry = null;
         clearSelection();
         if (searchInput) {
@@ -56,7 +64,7 @@ let bindNav = () => {
         }
         setUploadTasksViewVisible(!1);
         setMySharesViewVisible(!1);
-        updateRouteQuery({ main: "files", side: "myFiles", category: null });
+        updateRouteQuery({ main: "files", side: "myFiles", category: null, folderId: state.currentFolderId });
         await refreshAll();
         mainNavItems.forEach((item) => {
           item.classList.toggle("active", item.dataset.view === "files");
